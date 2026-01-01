@@ -1,0 +1,72 @@
+{
+  "name": "backend-users",
+  "version": "1.0.0",
+  "description": "Scalable user management backend - Clerk + Convex, handles millions of users with pagination, role management, webhooks, rate limiting",
+  "type": "backend",
+  "provides": [
+    "user-management",
+    "authentication-backend",
+    "clerk-webhooks",
+    "role-management",
+    "user-crud",
+    "pagination",
+    "rate-limiting",
+    "audit-log"
+  ],
+  "stack": {
+    "database": "convex",
+    "auth": "clerk",
+    "language": "typescript"
+  },
+  "scalability": {
+    "users": "unlimited (Convex auto-scales)",
+    "requests": "serverless (auto-scales)",
+    "pagination": "cursor-based for millions of records"
+  },
+  "dependencies": {
+    "runtime": [
+      "convex@^1.29.0",
+      "@clerk/nextjs@^5.0.0",
+      "svix@^1.15.0"
+    ]
+  },
+  "envVars": [
+    "NEXT_PUBLIC_CONVEX_URL",
+    "CONVEX_DEPLOYMENT",
+    "CLERK_SECRET_KEY",
+    "CLERK_WEBHOOK_SECRET",
+    "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"
+  ],
+  "convexFunctions": {
+    "queries": [
+      "users.getCurrentUser",
+      "users.getUser",
+      "users.getUserByClerkId",
+      "users.listUsers",
+      "users.countUsers",
+      "users.isAdmin",
+      "users.getUserAuditLog",
+      "rateLimit.getRateLimitStatus"
+    ],
+    "mutations": [
+      "users.upsertUser",
+      "users.updateUserRole",
+      "users.updateUserStatus",
+      "users.deleteUser",
+      "rateLimit.checkRateLimit"
+    ],
+    "httpEndpoints": [
+      "/clerk-webhook"
+    ]
+  },
+  "indexes": [
+    "by_clerk_id - fast user lookup",
+    "by_email - email search",
+    "by_role - filter by role",
+    "by_status - filter by status",
+    "by_created - sort by date",
+    "by_role_status - combined filter"
+  ],
+  "author": "tomasbusse",
+  "updated": "2024-12-09"
+}
