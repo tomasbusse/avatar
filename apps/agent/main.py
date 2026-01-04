@@ -1,10 +1,9 @@
 """
-Beethoven Agent - With Dual-LLM Vision Support
-- Voice LLM: Fast conversation (Haiku)
-- Vision LLM: Image analysis (Gemini) - called on demand
-- LiveKit connection with prewarming
+Beethoven Agent - Ultra Low Latency Voice + Vision
+- Fast LLM for conversation
+- Vision LLM: Gemini for image analysis
 - Deepgram STT (streaming)
-- Cartesia/Deepgram TTS (low-latency)
+- Cartesia TTS (low-latency)
 - Beyond Presence Avatar
 """
 
@@ -12,13 +11,31 @@ import logging
 import io
 import base64
 import json
+import os
 import random
+import re
 import httpx
+import time
 from datetime import datetime
-from typing import Dict, Any, Optional, Annotated
+from typing import Dict, Any, Optional
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# =============================================================================
+# SENTRY INITIALIZATION - Initialize early for maximum error coverage
+# =============================================================================
+from src.monitoring import get_sentry, BreadcrumbLogger
+
+sentry = get_sentry()
+sentry.initialize(
+    dsn=os.environ.get("SENTRY_DSN"),
+    environment=os.environ.get("SENTRY_ENVIRONMENT", "development"),
+    release=os.environ.get("SENTRY_RELEASE", "beethoven-agent@1.0.0"),
+    traces_sample_rate=1.0,  # 100% in dev, reduce to 0.1-0.2 in prod
+    profiles_sample_rate=0.5,
+    integrations=["httpx", "asyncio", "logging"],
+)
 
 from livekit import rtc
 from livekit.agents import AutoSubscribe, JobContext, JobProcess, WorkerOptions, cli, llm
@@ -37,6 +54,92 @@ logger = logging.getLogger("beethoven-agent")
 
 # Global config loaded once at startup
 _config = None
+
+
+# =============================================================================
+# LATENCY TRACKING - Diagnose pipeline bottlenecks
+# =============================================================================
+class LatencyTracker:
+    """
+    Tracks timing across the speech pipeline to identify bottlenecks.
+
+    Pipeline stages:
+    1. User speaks → STT processes (stt_start → stt_end)
+    2. STT transcript → LLM processes (llm_start → llm_first_token → llm_end)
+    3. LLM response → TTS synthesizes (tts_start → tts_first_audio → tts_end)
+    4. Total: user_speech_end → first_audio_played
+    """
+
+    def __init__(self):
+        self.reset()
+        self._turn_count = 0
+
+    def reset(self):
+        """Reset all timers for a new turn."""
+        self._timings = {}
+        self._turn_start = None
+
+    def mark(self, event: str):
+        """Mark a timing event."""
+        now = time.time()
+        self._timings[event] = now
+
+        if event == "user_speech_start":
+            self._turn_start = now
+            self._turn_count += 1
+            logger.info(f"⏱️ [LATENCY] Turn {self._turn_count} started")
+
+    def get_elapsed(self, from_event: str, to_event: str) -> Optional[float]:
+        """Get elapsed time between two events in ms."""
+        if from_event in self._timings and to_event in self._timings:
+            return (self._timings[to_event] - self._timings[from_event]) * 1000
+        return None
+
+    def get_total_latency(self) -> Optional[float]:
+        """Get total latency from user speech end to first audio played."""
+        return self.get_elapsed("user_speech_end", "tts_first_audio")
+
+    def log_summary(self):
+        """Log a summary of all timing measurements."""
+        if not self._timings:
+            return
+
+        summary_parts = [f"⏱️ [LATENCY] Turn {self._turn_count} Summary:"]
+
+        # STT timing
+        stt_time = self.get_elapsed("user_speech_end", "stt_transcript_final")
+        if stt_time:
+            summary_parts.append(f"  STT: {stt_time:.0f}ms")
+
+        # LLM timing
+        llm_start = self.get_elapsed("stt_transcript_final", "llm_start")
+        llm_first = self.get_elapsed("llm_start", "llm_first_token")
+        llm_total = self.get_elapsed("llm_start", "llm_end")
+        if llm_first:
+            summary_parts.append(f"  LLM first token: {llm_first:.0f}ms")
+        if llm_total:
+            summary_parts.append(f"  LLM total: {llm_total:.0f}ms")
+
+        # TTS timing
+        tts_first = self.get_elapsed("llm_first_token", "tts_first_audio")
+        tts_total = self.get_elapsed("tts_start", "tts_end")
+        if tts_first:
+            summary_parts.append(f"  TTS first audio: {tts_first:.0f}ms")
+        if tts_total:
+            summary_parts.append(f"  TTS total: {tts_total:.0f}ms")
+
+        # Total response latency (most important metric)
+        total = self.get_elapsed("user_speech_end", "tts_first_audio")
+        if total:
+            status = "✅" if total < 1000 else "⚠️" if total < 2000 else "❌"
+            summary_parts.append(f"  {status} TOTAL LATENCY: {total:.0f}ms")
+
+        # Log all at once
+        logger.info("\n".join(summary_parts))
+
+
+# Global latency tracker instance
+_latency_tracker = LatencyTracker()
 
 
 # =============================================================================
@@ -80,6 +183,12 @@ class BeethovenTeacher(Agent):
         self._latest_frames = {} # track_sid -> rtc.VideoFrame
         self._track_info = {}    # track_sid -> {"source": str, "identity": str}
         self._current_doc_image = None # For high-quality document images from data packets
+
+        # Game state tracking
+        self._game_active = False
+        self._game_info = None  # Current game config (type, title, etc.)
+        self._game_state = None  # Progress (currentItem, correctAnswers, etc.)
+        self._game_screenshot = None  # Latest game screenshot for vision
 
         logger.info(f"[BEETHOVENTEACHER] Initialized with model={llm_model}, vision={self._is_vision_model}")
         logger.info(f"[BEETHOVENTEACHER] RAG enabled: {bool(rag_retriever)}, KBs: {len(self._knowledge_base_ids)}")
@@ -142,9 +251,119 @@ class BeethovenTeacher(Agent):
                 self._current_doc_image = payload.get("imageBase64")
                 slide_index = payload.get("slideIndex", 0)
                 logger.info(f"[VISION] Received slide screenshot for slide {slide_index}")
-        except:
-            pass
-    
+
+            # Game-related messages
+            elif msg_type == "game_loaded":
+                self._game_active = True
+                self._game_info = payload.get("game", {})
+                self._game_state = {
+                    "currentItemIndex": 0,
+                    "totalItems": payload.get("totalItems", 1),
+                    "correctAnswers": 0,
+                    "incorrectAnswers": 0,
+                }
+                game_title = self._game_info.get("title", "Unknown")
+                game_type = self._game_info.get("type", "unknown")
+                logger.info(f"🎮 [GAME] Game loaded: '{game_title}' (type: {game_type}, items: {self._game_state['totalItems']})")
+
+            elif msg_type == "game_state":
+                if self._game_active:
+                    self._game_state = {
+                        "currentItemIndex": payload.get("currentItemIndex", 0),
+                        "totalItems": payload.get("totalItems", 1),
+                        "correctAnswers": payload.get("correctAnswers", 0),
+                        "incorrectAnswers": payload.get("incorrectAnswers", 0),
+                    }
+                    logger.info(f"🎮 [GAME] State update: item {self._game_state['currentItemIndex']+1}/{self._game_state['totalItems']}, correct: {self._game_state['correctAnswers']}")
+
+            elif msg_type == "game_screenshot":
+                # High-quality screenshot of current game state for vision
+                self._game_screenshot = payload.get("imageBase64")
+                logger.info(f"🎮 [VISION] Received game screenshot")
+
+            elif msg_type == "game_complete":
+                final_score = payload.get("correctAnswers", 0)
+                total = payload.get("totalItems", 1)
+                stars = payload.get("stars", 0)
+                logger.info(f"🎮 [GAME] Complete! Score: {final_score}/{total}, Stars: {stars}")
+                # Keep game info for completion feedback, but mark as no longer active
+                self._game_active = False
+                self._game_state = {
+                    "completed": True,
+                    "finalScore": final_score,
+                    "totalItems": total,
+                    "stars": stars,
+                }
+
+            elif msg_type == "game_ended":
+                logger.info(f"🎮 [GAME] Game ended/closed")
+                self._game_active = False
+                self._game_info = None
+                self._game_state = None
+                self._game_screenshot = None
+
+        except Exception as e:
+            logger.error(f"[DATA] Error processing data packet: {e}")
+
+    async def send_game_command(self, command: str, **kwargs):
+        """
+        Send a game command to the frontend.
+        Commands: hint, next, prev, goto, highlight
+        """
+        try:
+            msg = {"type": "game_command", "command": command, **kwargs}
+            data = json.dumps(msg).encode('utf-8')
+            await self._room.local_participant.publish_data(data, reliable=True)
+            logger.info(f"🎮 [GAME] Sent command: {command} {kwargs}")
+        except Exception as e:
+            logger.error(f"🎮 [GAME] Failed to send command: {e}")
+
+    def _get_game_context(self) -> Optional[str]:
+        """
+        Build context string about the current game state for LLM injection.
+        """
+        if not self._game_active or not self._game_info:
+            return None
+
+        game_type = self._game_info.get("type", "unknown")
+        game_title = self._game_info.get("title", "")
+        instructions = self._game_info.get("instructions", "")
+
+        # Build game type description
+        game_type_desc = {
+            "sentence_builder": "Sentence Builder - drag and drop words to build correct sentences",
+            "word_scramble": "Word Scramble - unscramble letters to form the correct word",
+            "hangman": "Hangman - guess letters to reveal the hidden word",
+        }.get(game_type, game_type)
+
+        context_parts = [
+            f"[ACTIVE GAME: {game_type_desc}]",
+            f"Title: {game_title}" if game_title else "",
+            f"Instructions: {instructions}" if instructions else "",
+        ]
+
+        if self._game_state:
+            current = self._game_state.get("currentItemIndex", 0) + 1
+            total = self._game_state.get("totalItems", 1)
+            correct = self._game_state.get("correctAnswers", 0)
+            incorrect = self._game_state.get("incorrectAnswers", 0)
+            context_parts.extend([
+                f"Progress: Question {current} of {total}",
+                f"Score: {correct} correct, {incorrect} incorrect",
+            ])
+
+            # Check for completion
+            if self._game_state.get("completed"):
+                stars = self._game_state.get("stars", 0)
+                context_parts.append(f"🎉 GAME COMPLETED! Final score: {correct}/{total}, Stars: {'⭐' * stars}")
+
+        context_parts.append(
+            "\nYour role: Watch the student play, encourage them, provide hints if they struggle (3+ wrong attempts), "
+            "and celebrate their successes. You can see the game via screenshot. Be supportive and positive!"
+        )
+
+        return "\n".join(filter(None, context_parts))
+
     async def on_user_turn_completed(
         self,
         turn_ctx: llm.ChatContext,
@@ -265,12 +484,22 @@ class BeethovenTeacher(Agent):
             except Exception as e:
                 logger.error(f"📖 [LESSON] Error: {e}")
 
+        # === GAME CONTEXT INJECTION ===
+        game_context = self._get_game_context()
+        if game_context:
+            game_msg = ChatMessage(
+                role=ChatRole.SYSTEM,
+                content=game_context
+            )
+            turn_ctx.messages.insert(-1, game_msg)
+            logger.info(f"🎮 [GAME] Injected game context into conversation")
+
         # === VISION PROCESSING ===
         if not self._is_vision_model:
             return
 
         captured_images = []
-        
+
         # 1. Add tracked video frames (webcam/screen)
         # We use a copy of the dict to avoid modification during iteration
         for track_sid, frame in list(self._latest_frames.items()):
@@ -280,13 +509,15 @@ class BeethovenTeacher(Agent):
                 "source": info["source"],
                 "identity": info["identity"]
             })
-        
-        # 2. Add high-quality document image if available
-        # Note: In james_agent, doc_image is often a base64 string
+
+        # 2. Add high-quality document/game image if available
         doc_image_content = None
-        if self._current_doc_image:
-             doc_image_content = self._current_doc_image
-             # Note: We keep it for the current turn, but it can be updated via data packets
+        # Prefer game screenshot when game is active, otherwise use document image
+        if self._game_screenshot:
+            doc_image_content = self._game_screenshot
+            logger.debug(f"[VISION] Using game screenshot for vision")
+        elif self._current_doc_image:
+            doc_image_content = self._current_doc_image
         
         # Inject images into the message if we have any
         if captured_images or doc_image_content:
@@ -339,239 +570,48 @@ class BeethovenTeacher(Agent):
 
 def build_system_prompt(avatar_config: Dict[str, Any]) -> str:
     """
-    Build a rich system prompt from avatar configuration including
-    personality, identity, system prompts, and behavior rules.
+    Build a SIMPLE, focused system prompt.
 
-    Priority order:
-    1. Life Story Summary (most human-like identity)
-    2. Structured Identity (credentials, career, philosophy)
-    3. Personality traits and style
-    4. System prompts and behavior rules
-    5. Bilingual config
-    6. Session start behavior
+    Key insight: Simpler prompts = better, more natural responses.
+    Complex rule sets overwhelm the LLM and create robotic behavior.
     """
-    sections = []
-    avatar_name = avatar_config.get("name", "Teacher")
-    logger.info(f"🔨 Building system prompt for: {avatar_name}")
+    avatar_name = avatar_config.get("name", "Emma")
+    logger.info(f"🔨 Building simplified system prompt for: {avatar_name}")
 
-    # 1. LIFE STORY SUMMARY (highest priority for human-like identity)
-    life_story_summary = avatar_config.get("lifeStorySummary")
-    if life_story_summary:
-        life_story_section = f"# Your Complete Background\n{life_story_summary}"
-        sections.append(life_story_section)
-        logger.info(f"   ✅ Added life story summary ({len(life_story_summary)} chars)")
-    else:
-        logger.info(f"   ⚠️ No life story summary")
-
-    # 2. Core Identity (handle Convex format)
+    # Get core identity - just the essentials
     identity = avatar_config.get("identity", {})
-    if identity:
-        identity_section = f"# Your Identity\n"
-        if identity.get("fullName"):
-            identity_section += f"You are {identity['fullName']}"
-            if identity.get("title"):
-                identity_section += f", {identity['title']}"
-            identity_section += ".\n"
-        else:
-            identity_section += f"You are {avatar_name}.\n"
+    short_bio = identity.get("shortBio", "a friendly English teacher")
 
-        if identity.get("shortBio"):
-            identity_section += f"{identity['shortBio']}\n"
-
-        # Credentials - list of {degree, institution, year}
-        credentials = identity.get("credentials", [])
-        if credentials and isinstance(credentials, list):
-            identity_section += "Credentials:\n"
-            for cred in credentials[:3]:
-                if isinstance(cred, dict):
-                    identity_section += f"- {cred.get('degree', '')} from {cred.get('institution', '')} ({cred.get('year', '')})\n"
-                else:
-                    identity_section += f"- {cred}\n"
-
-        # Career History - list of {role, organization, yearStart, yearEnd, highlights}
-        career = identity.get("careerHistory", [])
-        if career and isinstance(career, list):
-            identity_section += "Experience:\n"
-            for job in career[:3]:
-                if isinstance(job, dict):
-                    identity_section += f"- {job.get('role', '')} at {job.get('organization', '')}\n"
-                else:
-                    identity_section += f"- {job}\n"
-
-        # Philosophy
-        philosophy = identity.get("philosophy", {})
-        if philosophy:
-            if isinstance(philosophy, dict):
-                if philosophy.get("approachDescription"):
-                    identity_section += f"Teaching Philosophy: {philosophy['approachDescription']}\n"
-                beliefs = philosophy.get("coreBeliefs", [])
-                if beliefs:
-                    identity_section += "Core Beliefs:\n"
-                    for belief in beliefs[:4]:
-                        identity_section += f"- {belief}\n"
-            else:
-                identity_section += f"Teaching Philosophy: {philosophy}\n"
-
-        # Anecdotes - list of {topic, story, context, emotions}
-        anecdotes = identity.get("anecdotes", [])
-        if anecdotes and isinstance(anecdotes, list):
-            identity_section += "Personal Stories (use naturally in conversation):\n"
-            for anecdote in anecdotes[:3]:
-                if isinstance(anecdote, dict) and anecdote.get("story"):
-                    topic = anecdote.get("topic", "")
-                    story = anecdote.get("story", "")
-                    context = anecdote.get("context", "")
-                    identity_section += f"- [{topic}] {story}"
-                    if context:
-                        identity_section += f" (Use: {context})"
-                    identity_section += "\n"
-                elif isinstance(anecdote, str):
-                    identity_section += f"- {anecdote}\n"
-
-        sections.append(identity_section)
-        logger.info(f"   ✅ Added identity section ({len(identity_section)} chars)")
-    else:
-        sections.append(f"# Your Identity\nYou are {avatar_name}, a friendly English teacher.\n")
-        logger.info(f"   ⚠️ No identity - using default")
-
-    # 2. Personality (handle both old list format and new Convex dict format)
+    # Get personality essence - keep it simple
     personality = avatar_config.get("personality", {})
-    if personality:
-        personality_section = "# Your Personality\n"
-
-        # Traits - can be dict (Convex) or list (legacy)
-        traits = personality.get("traits", {})
-        if isinstance(traits, dict) and traits:
-            # Convex format: {warmth: 9, patience: 8, humor: 6, ...}
-            trait_strs = [f"{k}: {v}/10" for k, v in traits.items() if isinstance(v, (int, float))]
-            if trait_strs:
-                personality_section += f"Personality Traits: {', '.join(trait_strs)}\n"
-        elif isinstance(traits, list) and traits:
-            personality_section += f"Personality Traits: {', '.join(traits)}\n"
-
-        # Style - can be dict or string
-        style = personality.get("style", {})
-        if isinstance(style, dict) and style:
-            style_items = []
-            if style.get("vocabulary"): style_items.append(f"vocabulary: {style['vocabulary']}")
-            if style.get("sentenceLength"): style_items.append(f"sentences: {style['sentenceLength']}")
-            if style.get("askQuestions"): style_items.append(f"asks questions {style['askQuestions']}")
-            if style_items:
-                personality_section += f"Teaching Style: {', '.join(style_items)}\n"
-        elif isinstance(style, str) and style:
-            personality_section += f"Teaching Style: {style}\n"
-
-        # Behaviors - can be dict (Convex) or list (legacy)
-        behaviors = personality.get("behaviors", {})
-        if isinstance(behaviors, dict) and behaviors:
-            personality_section += f"Key Behaviors:\n"
-            for key, value in behaviors.items():
-                if value:
-                    personality_section += f"- {key}: {value}\n"
-        elif isinstance(behaviors, list) and behaviors:
-            personality_section += f"Key Behaviors:\n"
-            for behavior in behaviors[:5]:
-                personality_section += f"- {behavior}\n"
-
-        # Voice hints - can be dict or string
-        voice_hints = personality.get("voiceHints", {})
-        if isinstance(voice_hints, dict) and voice_hints:
-            hints = [f"{k}: {v}" for k, v in voice_hints.items() if v]
-            if hints:
-                personality_section += f"Voice/Tone: {', '.join(hints)}\n"
-        elif isinstance(voice_hints, str) and voice_hints:
-            personality_section += f"Voice/Tone: {voice_hints}\n"
-
-        sections.append(personality_section)
-        logger.info(f"   ✅ Added personality section ({len(personality_section)} chars)")
+    style = personality.get("style", {})
+    if isinstance(style, dict):
+        style_desc = style.get("vocabulary", "warm and encouraging")
     else:
-        logger.info(f"   ⚠️ No personality data")
+        style_desc = str(style) if style else "warm and encouraging"
 
-    # 3. System Prompts
+    # Get base system prompt if exists (this is the main custom instruction)
     system_prompts = avatar_config.get("systemPrompts", {})
-    if system_prompts:
-        if system_prompts.get("base"):
-            sections.append(f"# Instructions\n{system_prompts['base']}")
-            logger.info(f"   ✅ Added base system prompt ({len(system_prompts['base'])} chars)")
+    base_prompt = system_prompts.get("base", "")
 
-        if system_prompts.get("lesson"):
-            sections.append(f"# Lesson Mode\n{system_prompts['lesson']}")
-            logger.info(f"   ✅ Added lesson prompt")
+    # Build SIMPLE prompt - this is intentionally short
+    prompt_parts = [f"You are {avatar_name}, {short_bio}.", f"Your style: {style_desc}"]
 
-    # 4. Behavior Rules
-    behavior_rules = avatar_config.get("behaviorRules", {})
-    if behavior_rules:
-        rules_section = "# Behavior Rules\n"
+    if base_prompt:
+        prompt_parts.append(base_prompt)
 
-        if behavior_rules.get("maxResponseLength"):
-            rules_section += f"- Keep responses under {behavior_rules['maxResponseLength']} words\n"
+    # Add essential conversation guidelines - keep it minimal
+    prompt_parts.append("""
+IMPORTANT:
+- Be conversational and natural - like talking to a friend
+- Keep responses SHORT (1-2 sentences usually, more only if explaining something)
+- Never repeat yourself or rephrase what you just said
+- Listen carefully and respond to what was actually said""")
 
-        if behavior_rules.get("errorCorrectionStyle"):
-            rules_section += f"- Error correction style: {behavior_rules['errorCorrectionStyle']}\n"
+    full_prompt = "\n\n".join(prompt_parts)
+    logger.info(f"📝 System prompt: {len(full_prompt)} chars (simplified)")
 
-        if behavior_rules.get("encouragementLevel"):
-            rules_section += f"- Encouragement level: {behavior_rules['encouragementLevel']}\n"
-
-        if behavior_rules.get("customRules") and isinstance(behavior_rules['customRules'], list):
-            for rule in behavior_rules['customRules'][:5]:
-                rules_section += f"- {rule}\n"
-
-        sections.append(rules_section)
-
-    # 5. Bilingual Config
-    bilingual = avatar_config.get("bilingualConfig", {})
-    if bilingual and bilingual.get("enabled"):
-        bilingual_section = "# Bilingual Teaching\n"
-        mode = bilingual.get("mode", "adaptive")
-        bilingual_section += f"Mode: {mode}\n"
-
-        if mode == "adaptive":
-            bilingual_section += "Switch to German when the student struggles. Otherwise use English.\n"
-        elif mode == "code_switching":
-            bilingual_section += "Mix German and English naturally, like a bilingual speaker.\n"
-        elif mode == "strict_separation":
-            bilingual_section += "Announce clearly when switching languages.\n"
-
-        sections.append(bilingual_section)
-
-    # 6. Session Start Behavior
-    session_config = avatar_config.get("sessionStartConfig", {})
-    if session_config:
-        behavior = session_config.get("behavior", "speak_first")
-        if behavior == "speak_first":
-            session_section = """# Session Start Behavior
-When the session begins, greet the student warmly and immediately.
-Do NOT wait for them to speak first - you initiate the conversation.
-Keep your opening brief and friendly, then smoothly transition to checking in on how they're doing."""
-            sections.append(session_section)
-            logger.info(f"   ✅ Added session start behavior: speak_first")
-        elif behavior == "wait_for_student":
-            session_section = """# Session Start Behavior
-Wait for the student to speak first before responding.
-Be attentive and ready to engage once they initiate the conversation."""
-            sections.append(session_section)
-            logger.info(f"   ✅ Added session start behavior: wait_for_student")
-        elif behavior == "contextual":
-            session_section = """# Session Start Behavior
-Adapt your greeting based on context - time of day, whether this is a returning student, etc.
-Be natural and personable in how you start the conversation."""
-            sections.append(session_section)
-            logger.info(f"   ✅ Added session start behavior: contextual")
-
-    # 7. Legacy persona (fallback)
-    if not identity and not personality and not life_story_summary:
-        persona = avatar_config.get("persona", "")
-        if persona:
-            sections.append(f"# Your Persona\n{persona}")
-
-    # Combine all sections
-    full_prompt = "\n\n".join(sections)
-
-    # Add default behavior if prompt is too short
-    if len(full_prompt) < 50:
-        full_prompt = f"You are {avatar_name}, a friendly and patient English teacher for German speakers. Keep responses conversational and under 50 words."
-
-    return full_prompt
+    return full_prompt.strip()
 
 
 def get_time_of_day() -> str:
@@ -632,6 +672,85 @@ def get_opening_greeting(avatar_config: Dict[str, Any], student_info: Optional[D
     return greeting
 
 
+def check_api_credentials_background():
+    """
+    Validate API credentials in background thread.
+    This helps catch quota/auth problems without blocking prewarm.
+    """
+    import threading
+
+    def _check():
+        issues = []
+        timeout = 2.0  # Reduced timeout for faster checks
+
+        # Check Beyond Presence API
+        bey_api_key = os.environ.get("BEY_API_KEY")
+        if bey_api_key:
+            try:
+                response = httpx.get(
+                    "https://api.bey.dev/latest/avatar",
+                    headers={"x-api-key": bey_api_key, "Content-Type": "application/json"},
+                    timeout=timeout
+                )
+                if response.status_code in (200, 404):
+                    logger.info("✅ Beyond Presence API: OK")
+                elif response.status_code == 402:
+                    logger.warning("⚠️ BEYOND PRESENCE QUOTA EXCEEDED - https://www.beyondpresence.ai/")
+                    issues.append("bey_quota")
+                elif response.status_code in (401, 403):
+                    logger.error("❌ Beyond Presence: Invalid API key")
+                    issues.append("bey_auth")
+            except Exception as e:
+                logger.debug(f"Beyond Presence check: {e}")
+
+        # Check Cartesia TTS API
+        cartesia_api_key = os.environ.get("CARTESIA_API_KEY")
+        if cartesia_api_key:
+            try:
+                response = httpx.get(
+                    "https://api.cartesia.ai/voices",
+                    headers={"X-API-Key": cartesia_api_key, "Cartesia-Version": "2024-06-10"},
+                    timeout=timeout
+                )
+                if response.status_code == 200:
+                    logger.info("✅ Cartesia TTS API: OK")
+                elif response.status_code == 402:
+                    logger.warning("⚠️ CARTESIA QUOTA EXCEEDED - https://play.cartesia.ai/settings")
+                    issues.append("cartesia_quota")
+                elif response.status_code in (401, 403):
+                    logger.error("❌ Cartesia: Invalid API key")
+                    issues.append("cartesia_auth")
+            except Exception as e:
+                logger.debug(f"Cartesia check: {e}")
+
+        # Check Deepgram STT API
+        deepgram_api_key = os.environ.get("DEEPGRAM_API_KEY")
+        if deepgram_api_key:
+            try:
+                response = httpx.get(
+                    "https://api.deepgram.com/v1/projects",
+                    headers={"Authorization": f"Token {deepgram_api_key}"},
+                    timeout=timeout
+                )
+                if response.status_code == 200:
+                    logger.info("✅ Deepgram STT API: OK")
+                elif response.status_code == 402:
+                    logger.warning("⚠️ DEEPGRAM QUOTA EXCEEDED")
+                    issues.append("deepgram_quota")
+                elif response.status_code == 401:
+                    logger.error("❌ Deepgram: Invalid API key")
+                    issues.append("deepgram_auth")
+            except Exception as e:
+                logger.debug(f"Deepgram check: {e}")
+
+        if issues:
+            logger.warning(f"⚠️ API issues: {', '.join(issues)}")
+
+    # Run in background thread so prewarm doesn't block
+    thread = threading.Thread(target=_check, daemon=True)
+    thread.start()
+
+
 def prewarm(proc: JobProcess):
     """
     Prewarm function - runs when worker starts, BEFORE any jobs.
@@ -640,27 +759,38 @@ def prewarm(proc: JobProcess):
     global _config
     logger.info("🔥 Prewarming agent process...")
 
+    # Check API credentials in background (non-blocking)
+    check_api_credentials_background()
+
     # Load config once
     _config = Config()
 
-    # Pre-initialize plugins (loads models, establishes connections)
+    # Note: Using Deepgram's server-side VAD instead of Silero for Python 3.14 compatibility
+    # Deepgram Nova-3 has excellent built-in voice activity detection
+    logger.info("🎤 Using Deepgram server-side VAD (no Silero required)")
+
+    # Pre-initialize STT with REDUCED endpointing for faster responses
     proc.userdata["deepgram_stt"] = deepgram.STT(
-        model="nova-2",
-        language="en",
+        model="nova-3",              # Best quality
+        language="multi",            # Bilingual EN/DE support
         smart_format=True,
         interim_results=True,
+        endpointing_ms=300,          # REDUCED from 600ms to 300ms for faster turn detection
     )
+    logger.info("🎙️ STT loaded (Deepgram Nova-3, endpointing=300ms)")
 
-    # Pre-create TTS instances
+    # Pre-create TTS instances with better defaults
     proc.userdata["cartesia_tts"] = cartesia.TTS(
-        model="sonic-english",
+        model="sonic-3",             # Upgraded from sonic-2 for lower latency
         voice="1463a4e1-56a1-4b41-b257-728d56e93605",
         language="en",
+        sample_rate=24000,
     )
 
     proc.userdata["deepgram_tts"] = deepgram.TTS(
         model="aura-asteria-en",
     )
+    logger.info("🔊 TTS loaded (Cartesia sonic-3)")
 
     # Initialize RAG components if Zep API key is available
     import os
@@ -672,7 +802,7 @@ def prewarm(proc: JobProcess):
     else:
         logger.info("⚠️ ZEP_API_KEY not set - RAG disabled")
 
-    logger.info("✅ Prewarm complete - STT/TTS ready")
+    logger.info("✅ Prewarm complete - VAD/STT/TTS ready")
 
 
 async def analyze_with_vision_llm(
@@ -812,6 +942,11 @@ async def entrypoint(ctx: JobContext):
                 avatar_config = room_metadata["avatar"]
                 logger.info(f"✅ Got avatar config from room metadata: {avatar_config.get('name', 'Unknown')}")
 
+                # CRITICAL: Log llmConfig and voiceProvider immediately
+                logger.info(f"   ⚡ [CRITICAL] llmConfig: {avatar_config.get('llmConfig')}")
+                logger.info(f"   ⚡ [CRITICAL] voiceProvider: {avatar_config.get('voiceProvider')}")
+                logger.info(f"   ⚡ [CRITICAL] All avatar keys: {list(avatar_config.keys())}")
+
                 # Detailed logging for personality and identity
                 personality = avatar_config.get('personality')
                 identity = avatar_config.get('identity')
@@ -890,15 +1025,27 @@ async def entrypoint(ctx: JobContext):
     else:
         logger.info("📖 No avatar ID - lesson manager skipped")
 
-    # Get LLM model (for conversation)
-    # Default to Sonnet 3.5 if not specified, much better than Haiku
-    llm_model = avatar_config.get("llm_model", "anthropic/claude-3.5-sonnet")
-    
-    # Get Vision config
-    vision_config = avatar_config.get("vision_config", {})
+    # Get LLM model - handle BOTH formats:
+    # 1. Room metadata: nested llmConfig object
+    # 2. Convex client: flat llm_model key (after transformation)
+    llm_config = avatar_config.get("llmConfig", {})
+    if llm_config and llm_config.get("model"):
+        # Room metadata format (nested)
+        llm_model = llm_config.get("model")
+        logger.info(f"🧠 LLM Config from avatar (nested): model={llm_model}, temp={llm_config.get('temperature')}")
+    else:
+        # Convex client format (flat)
+        llm_model = avatar_config.get("llm_model", "anthropic/claude-3.5-sonnet")
+        llm_temp = avatar_config.get("llm_temperature", 0.7)
+        logger.info(f"🧠 LLM Config from avatar (flat): model={llm_model}, temp={llm_temp}")
+
+    # Get Vision config (nested object in schema)
+    vision_config = avatar_config.get("visionConfig", {}) or avatar_config.get("vision_config", {})
     vision_enabled = vision_config.get("enabled", False)
-    vision_llm_model = vision_config.get("vision_llm_model", "google/gemini-2.5-flash-preview-05-20")
-    capture_mode = vision_config.get("capture_mode", "smart")
+    # Schema uses visionLLMModel (camelCase)
+    vision_llm_model = vision_config.get("visionLLMModel") or vision_config.get("vision_llm_model", "google/gemini-2.5-flash-preview-05-20")
+    # Schema uses captureMode (camelCase)
+    capture_mode = vision_config.get("captureMode") or vision_config.get("capture_mode", "smart")
 
     logger.info(f"👁️ Vision config: enabled={vision_enabled}, model={vision_llm_model}, mode={capture_mode}")
     logger.info(f"   Raw vision_config: {vision_config}")
@@ -928,28 +1075,81 @@ async def entrypoint(ctx: JobContext):
         await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
         logger.info(f"✅ Connected (audio only)")
     
-    # Initialize STT
-    stt = ctx.proc.userdata.get("deepgram_stt") or deepgram.STT(
-        model="nova-2",
-        language="en",
+    # Initialize STT - configurable via avatar sttConfig (nested object in schema)
+    stt_config = avatar_config.get("sttConfig", {})
+    stt_model = stt_config.get("model", "nova-3")
+    stt_language = stt_config.get("language", "en")
+    stt_settings = stt_config.get("settings", {})
+    stt_endpointing = stt_settings.get("endpointing", 300)  # Default reduced from 600 to 300ms for faster response
+    stt_smart_format = stt_settings.get("smartFormat", True)
+
+    logger.info(f"🎤 STT Config from avatar: model={stt_model}, language={stt_language}, endpointing={stt_endpointing}ms")
+
+    stt = deepgram.STT(
+        model=stt_model,
+        language=stt_language if stt_language != "en" else "multi",  # Use multi for bilingual support
+        smart_format=stt_smart_format,
         interim_results=True,
+        endpointing_ms=stt_endpointing,
     )
     
-    # Initialize TTS
+    # Initialize TTS - handle BOTH formats:
+    # 1. Room metadata: nested voiceProvider object
+    # 2. Convex client: flat voice_config object (after transformation)
+    voice_provider = avatar_config.get("voiceProvider", {})
     voice_config = avatar_config.get("voice_config", {})
-    voice_id = voice_config.get("voice_id", "")
-    
+
+    if voice_provider and voice_provider.get("voiceId"):
+        # Room metadata format (nested)
+        voice_settings = voice_provider.get("settings", {})
+        voice_id = voice_provider.get("voiceId", "")
+        tts_model = voice_provider.get("model", "sonic-2")
+        tts_speed = voice_settings.get("speed", 1.0)
+        tts_emotion = voice_settings.get("emotion", ["positivity:medium"])
+        logger.info(f"🔊 Voice Provider (nested): model={tts_model}, voice={voice_id}")
+    else:
+        # Convex client format (flat)
+        voice_id = voice_config.get("voice_id", "")
+        tts_model = voice_config.get("model", "sonic-2")
+        tts_speed = voice_config.get("speed", 1.0)
+        tts_emotion = voice_config.get("emotion", ["positivity:medium"])
+        logger.info(f"🔊 Voice Provider (flat): model={tts_model}, voice={voice_id}")
+
+    # Create slide command callback for TTS wrapper
+    async def send_slide_command(cmd_type: str, slide_num: Optional[int] = None):
+        """Send slide command via data channel when TTS detects markers."""
+        try:
+            if cmd_type == "next":
+                msg = {"type": "slide_command", "command": "next"}
+            elif cmd_type == "prev":
+                msg = {"type": "slide_command", "command": "prev"}
+            elif cmd_type == "goto" and slide_num:
+                msg = {"type": "slide_command", "command": "goto", "slideIndex": slide_num - 1}
+            else:
+                return
+
+            data = json.dumps(msg).encode('utf-8')
+            await ctx.room.local_participant.publish_data(data, reliable=True)
+            logger.info(f"📤 [SLIDE] Command sent via TTS wrapper: {msg}")
+        except Exception as e:
+            logger.error(f"❌ [SLIDE] Failed to send command: {e}")
+
     if voice_id.startswith("aura-"):
         logger.info(f"🔊 Using Deepgram TTS: {voice_id}")
-        tts = deepgram.TTS(model=voice_id)
+        base_tts = deepgram.TTS(model=voice_id)
     else:
         cartesia_voice = voice_id or "1463a4e1-56a1-4b41-b257-728d56e93605"
-        logger.info(f"🔊 Using Cartesia TTS: {cartesia_voice}")
-        tts = cartesia.TTS(
-            model="sonic-english",
+        logger.info(f"🔊 Using Cartesia TTS: model={tts_model}, voice={cartesia_voice}")
+        base_tts = cartesia.TTS(
+            model=tts_model,
             voice=cartesia_voice,
             language="en",
+            sample_rate=24000,
         )
+
+    # Use base TTS directly (slide navigation handled via LLM tool calls)
+    tts = base_tts
+    logger.info("🔊 TTS initialized (slide nav via tool calls)")
     
     # Initialize LLM (for conversation)
     logger.info(f"🧠 Using LLM: {llm_model}")
@@ -1020,66 +1220,70 @@ async def entrypoint(ctx: JobContext):
                 if msg.get("type") == "presentation_ready" or msg.get("type") == "slide_changed":
                     event_type = msg.get("type")
                     logger.info(f"📄 Event received: {event_type} for {msg.get('presentationId')}")
-                    
-                    if event_type == "presentation_ready":
-                        # Add system message to guide the agent into presentation mode
-                        if session.chat_ctx:
-                            teaching_instruction = (
-                                "STUDENT UPLOADED A PRESENTATION: You can now see the slides via your vision input. "
-                                "Greet the student, acknowledge the document, and begin teaching based on slide 1."
-                            )
-                            session.chat_ctx.messages.append(ChatMessage(role=ChatRole.SYSTEM, content=teaching_instruction))
-                            logger.info("🎓 Injected presentation teaching instruction")
-                        
-                        # Immediate greeting
-                        asyncio.create_task(agent.say("I see you've uploaded a presentation! Let's take a look at it together.", allow_interruptions=True))
 
                         
             except Exception as e:
                 logger.error(f"Data packet error: {e}")
     
-    # Create agent session
+    # Create agent session - OPTIMIZED for low latency
+    # Using STT endpointing for turn detection (Python 3.14 compatible, no Silero)
     session = AgentSession(
         stt=stt,
         tts=tts,
         llm=llm_instance,
-        turn_detection="stt",
-        min_endpointing_delay=0.3,
-        max_endpointing_delay=1.0,
+        turn_detection="stt",          # Use STT endpointing for turn detection
+        min_endpointing_delay=0.3,     # REDUCED from 0.5 - faster turn completion
+        max_endpointing_delay=1.0,     # REDUCED from 1.5 - don't wait too long
+        allow_interruptions=True,      # Let user interrupt if needed
     )
     
-    # Event logging
+    # Event logging with latency tracking
     @session.on("user_input_transcribed")
     def on_speech(event):
         if event.is_final and event.transcript:
+            _latency_tracker.mark("stt_transcript_final")
             logger.info(f"🎯 HEARD: '{event.transcript}'")
-    
+        elif not event.is_final:
+            # First interim result marks when user started speaking
+            if "user_speech_start" not in _latency_tracker._timings:
+                _latency_tracker.reset()
+                _latency_tracker.mark("user_speech_start")
+
     @session.on("agent_state_changed")
     def on_state(event):
         logger.info(f"🤖 STATE: {event.old_state} → {event.new_state}")
+        # Track key state transitions for latency
+        if event.new_state == "thinking":
+            _latency_tracker.mark("user_speech_end")
+            _latency_tracker.mark("llm_start")
+        elif event.new_state == "speaking":
+            _latency_tracker.mark("tts_first_audio")
+            # Log summary when avatar starts speaking (full pipeline complete)
+            _latency_tracker.log_summary()
+        elif event.old_state == "speaking" and event.new_state == "listening":
+            _latency_tracker.mark("tts_end")
+
+    @session.on("agent_started_speaking")
+    def on_agent_speaking(event):
+        _latency_tracker.mark("agent_speaking_start")
+        logger.info(f"🗣️ Agent started speaking")
+
+    @session.on("agent_stopped_speaking")
+    def on_agent_stopped(event):
+        _latency_tracker.mark("agent_speaking_end")
+        logger.info(f"🤫 Agent stopped speaking")
     
     # Get Beyond Presence avatar settings
     avatar_provider = avatar_config.get("avatar_provider", {})
     avatar_id = avatar_provider.get("avatar_id")
     avatar_name = avatar_config.get("name", "Ludwig")
-    
-    logger.info(f"📺 Starting avatar: {avatar_name}")
-    
-    # Initialize avatar
-    if config.bey_api_key and avatar_id:
-        try:
-            avatar = bey.AvatarSession(
-                avatar_id=avatar_id,
-                avatar_participant_name=avatar_name,
-            )
-            await avatar.start(session, room=ctx.room)
-            logger.info(f"✅ Avatar '{avatar_name}' connected!")
-        except Exception as e:
-            logger.error(f"❌ Avatar failed: {e}")
-            logger.exception(e)
-    else:
-        logger.error(f"❌ Missing API Key or Avatar ID")
-    
+
+    logger.info(f"📺 Avatar configured: {avatar_name} (will start after session)")
+
+    # Track avatar mode for session (will be set after avatar start attempt)
+    audio_only_mode = False
+    avatar_error_reason = None
+
     # Create agent with instructions - build rich prompt from personality/identity
     system_prompt = build_system_prompt(avatar_config)
     logger.info(f"📝 Built system prompt ({len(system_prompt)} chars)")
@@ -1147,6 +1351,8 @@ You are conducting a structured lesson from this presentation.
         final_prompt = final_prompt + structured_lesson_prompt
         logger.info("🎓 Added structured lesson teaching mode to prompt")
 
+    # NOTE: Slide navigation removed - focusing on ultra-low latency
+
     # Get RAG components from prewarm
     rag_retriever = ctx.proc.userdata.get("rag_retriever")
     rag_cache = ctx.proc.userdata.get("rag_cache")
@@ -1164,58 +1370,7 @@ You are conducting a structured lesson from this presentation.
     elif rag_retriever:
         logger.info(f"📚 RAG retriever ready but no knowledge bases configured for this avatar")
 
-    # Define presentation control tools (need access to room)
-    available_presentation_ids = {p.get('id') for p in available_presentations if p.get('id')}
-    presentation_tools = []
-
-    if available_presentations:
-        async def send_data_message(message: Dict[str, Any]):
-            """Helper to send data channel messages to frontend."""
-            try:
-                data = json.dumps(message).encode('utf-8')
-                await ctx.room.local_participant.publish_data(data, reliable=True)
-                logger.info(f"📤 Sent data message: {message.get('type')}")
-            except Exception as e:
-                logger.error(f"❌ Failed to send data message: {e}")
-
-        @llm.function_tool(description="Load and display a presentation on the whiteboard to teach from. Use this when the student asks to see a presentation or when you want to teach using slides.")
-        async def load_presentation(
-            presentation_id: Annotated[str, "The ID of the presentation to load"]
-        ) -> str:
-            """Load a presentation for teaching."""
-            if presentation_id not in available_presentation_ids:
-                return f"Presentation ID '{presentation_id}' not found. Available presentations: {[p.get('name') for p in available_presentations]}"
-
-            await send_data_message({
-                "type": "load_presentation",
-                "presentationId": presentation_id
-            })
-
-            pres_name = next((p.get('name') for p in available_presentations if p.get('id') == presentation_id), 'Unknown')
-            return f"Loading presentation '{pres_name}'. The slides will appear on the whiteboard. You can now teach from the presentation using next_slide, prev_slide, and goto_slide."
-
-        @llm.function_tool(description="Move to the next slide in the current presentation.")
-        async def next_slide() -> str:
-            """Advance to the next slide."""
-            await send_data_message({"type": "slide_command", "command": "next"})
-            return "Moving to next slide."
-
-        @llm.function_tool(description="Go back to the previous slide in the current presentation.")
-        async def prev_slide() -> str:
-            """Go back to the previous slide."""
-            await send_data_message({"type": "slide_command", "command": "prev"})
-            return "Moving to previous slide."
-
-        @llm.function_tool(description="Jump to a specific slide number in the current presentation.")
-        async def goto_slide(
-            slide_number: Annotated[int, "The slide number to jump to (1-based)"]
-        ) -> str:
-            """Jump to a specific slide."""
-            await send_data_message({"type": "slide_command", "command": "goto", "slideIndex": slide_number - 1})
-            return f"Jumping to slide {slide_number}."
-
-        presentation_tools = [load_presentation, next_slide, prev_slide, goto_slide]
-        logger.info(f"🛠️ Registered {len(presentation_tools)} presentation control tools")
+    # NOTE: Slide control tools removed for now - focusing on ultra-low latency speech
 
     # Use BeethovenTeacher (with vision/RAG/lesson hooks) if vision is enabled, otherwise plain Agent
     if vision_enabled:
@@ -1227,33 +1382,94 @@ You are conducting a structured lesson from this presentation.
             rag_cache=rag_cache,
             knowledge_base_ids=zep_collection_ids,
             lesson_manager=lesson_manager,
-            tools=presentation_tools if presentation_tools else None,
         )
         logger.info(f"🎓 Using BeethovenTeacher with vision (model: {llm_model})")
         if lesson_manager:
             logger.info(f"📖 Lesson manager attached with {len(lesson_manager.index)} lessons")
     else:
-        agent = Agent(
-            instructions=final_prompt,
-            tools=presentation_tools if presentation_tools else None,
-        )
+        agent = Agent(instructions=final_prompt)
     
-    # Start the session
+    # Start the session FIRST (before avatar, so audio pipeline is ready)
     await session.start(
         room=ctx.room,
         agent=agent
     )
 
+    logger.info(f"✨ Session started (Vision: {'ON' if vision_enabled else 'OFF'})")
+
+    # NOW start the avatar (after session is ready, so TTS audio can flow to avatar)
+    if config.bey_api_key and avatar_id:
+        try:
+            logger.info(f"📺 Starting avatar: {avatar_name}")
+            avatar = bey.AvatarSession(
+                avatar_id=avatar_id,
+                avatar_participant_name=avatar_name,
+            )
+            await avatar.start(session, room=ctx.room)
+            logger.info(f"✅ Avatar '{avatar_name}' connected!")
+        except Exception as e:
+            error_str = str(e).lower()
+
+            # Check for quota/payment errors (402 Payment Required)
+            if "402" in error_str or "payment" in error_str or "quota" in error_str or "credit" in error_str or "limit" in error_str:
+                logger.warning(f"⚠️ BEYOND PRESENCE QUOTA EXCEEDED - Switching to audio-only mode")
+                logger.warning(f"💳 Please check your Beyond Presence account credits at https://app.beyondpresence.ai/billing")
+                audio_only_mode = True
+                avatar_error_reason = "quota_exceeded"
+            # Check for authentication errors
+            elif "401" in error_str or "unauthorized" in error_str or "invalid" in error_str and "key" in error_str:
+                logger.error(f"🔑 BEYOND PRESENCE AUTH ERROR - Invalid API key. Switching to audio-only mode")
+                audio_only_mode = True
+                avatar_error_reason = "auth_error"
+            # Check for rate limiting
+            elif "429" in error_str or "rate" in error_str:
+                logger.warning(f"⏱️ BEYOND PRESENCE RATE LIMITED - Switching to audio-only mode")
+                audio_only_mode = True
+                avatar_error_reason = "rate_limited"
+            # General avatar failure
+            else:
+                logger.error(f"❌ Avatar failed: {e}")
+                logger.exception(e)
+                audio_only_mode = True
+                avatar_error_reason = "unknown_error"
+
+            if audio_only_mode:
+                logger.info(f"🎧 Continuing session in AUDIO-ONLY mode (no avatar video)")
+    else:
+        logger.warning(f"⚠️ Missing API Key or Avatar ID - Running in audio-only mode")
+        audio_only_mode = True
+        avatar_error_reason = "missing_config"
+
+    # Store audio-only state in job context for potential use
+    if audio_only_mode:
+        ctx.userdata["audio_only_mode"] = True
+        ctx.userdata["avatar_error_reason"] = avatar_error_reason
+        logger.info(f"📋 Session state: audio_only_mode={audio_only_mode}, reason={avatar_error_reason}")
+
     logger.info(f"✨ Agent '{avatar_name}' ready (Vision: {'ON' if vision_enabled else 'OFF'})")
 
     # Deliver opening greeting immediately (if speak_first behavior)
     opening_greeting = get_opening_greeting(avatar_config)
+    logger.info(f"🎤 Opening greeting: {opening_greeting[:80] if opening_greeting else 'None'}...")
+
     if opening_greeting:
-        import asyncio
-        # Small delay to ensure avatar is fully connected
-        await asyncio.sleep(0.5)
-        await session.say(opening_greeting, allow_interruptions=True)
-        logger.info(f"👋 Delivered opening greeting: '{opening_greeting[:50]}...'")
+        try:
+            import asyncio
+            # Small delay to ensure avatar is fully connected
+            await asyncio.sleep(0.5)
+            logger.info(f"🎤 Calling session.say() with greeting...")
+            # Use asyncio.wait_for to prevent hanging forever
+            try:
+                await asyncio.wait_for(
+                    session.say(opening_greeting, allow_interruptions=True),
+                    timeout=10.0  # 10 second timeout for greeting
+                )
+                logger.info(f"👋 Delivered opening greeting: '{opening_greeting[:50]}...'")
+            except asyncio.TimeoutError:
+                logger.warning(f"⏱️ Opening greeting timed out after 10s - continuing without greeting")
+        except Exception as e:
+            logger.error(f"❌ Failed to deliver opening greeting: {e}")
+            logger.exception(e)
     else:
         logger.info(f"⏳ No opening greeting (behavior != speak_first)")
 

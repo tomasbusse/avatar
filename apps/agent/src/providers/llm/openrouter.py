@@ -3,13 +3,21 @@
 Updated for LiveKit Agents SDK v1.2+
 """
 
+import asyncio
 import json
 import logging
 import os
+import random
 import uuid
 from typing import Any, Dict, List, Optional
 
 import httpx
+
+# Retry configuration for transient errors
+MAX_RETRIES = 3
+INITIAL_BACKOFF = 0.5  # seconds
+MAX_BACKOFF = 4.0  # seconds
+RETRYABLE_STATUS_CODES = {500, 502, 503, 504, 429}
 
 logger = logging.getLogger("beethoven-agent.openrouter")
 from livekit.agents import llm, APIConnectOptions
@@ -160,7 +168,7 @@ class OpenRouterStream(LLMStream):
         return messages
 
     async def _run(self) -> None:
-        """Execute the streaming request."""
+        """Execute the streaming request with retry logic for transient errors."""
         headers = {
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
@@ -178,50 +186,87 @@ class OpenRouterStream(LLMStream):
             "stream": True,
         }
 
-        try:
-            logger.info(f"📤 [LLM] Sending request to OpenRouter (model: {self._model})")
-            async with self._client.stream(
-                "POST",
-                f"{self._base_url}/chat/completions",
-                headers=headers,
-                json=payload,
-            ) as response:
-                if response.status_code != 200:
-                    error_text = await response.aread()
-                    logger.error(f"❌ [LLM] OpenRouter error {response.status_code}: {error_text.decode()}")
-                    raise Exception(f"OpenRouter API error: {response.status_code}")
+        last_error = None
+        for attempt in range(MAX_RETRIES + 1):
+            try:
+                if attempt > 0:
+                    # Exponential backoff with jitter
+                    backoff = min(INITIAL_BACKOFF * (2 ** (attempt - 1)), MAX_BACKOFF)
+                    jitter = random.uniform(0, backoff * 0.1)
+                    wait_time = backoff + jitter
+                    logger.info(f"🔄 [LLM] Retry attempt {attempt}/{MAX_RETRIES} after {wait_time:.2f}s")
+                    await asyncio.sleep(wait_time)
 
-                async for line in response.aiter_lines():
-                    if not line or not line.startswith("data: "):
-                        continue
+                logger.info(f"📤 [LLM] Sending request to OpenRouter (model: {self._model})")
+                async with self._client.stream(
+                    "POST",
+                    f"{self._base_url}/chat/completions",
+                    headers=headers,
+                    json=payload,
+                ) as response:
+                    if response.status_code != 200:
+                        error_text = await response.aread()
+                        error_msg = error_text.decode()
+                        logger.error(f"❌ [LLM] OpenRouter error {response.status_code}: {error_msg}")
 
-                    data = line[6:]
-                    if data == "[DONE]":
-                        break
+                        # Check if retryable
+                        if response.status_code in RETRYABLE_STATUS_CODES and attempt < MAX_RETRIES:
+                            last_error = Exception(f"OpenRouter API error: {response.status_code}")
+                            continue  # Retry
 
-                    try:
-                        chunk = json.loads(data)
-                        choices = chunk.get("choices", [])
-                        if not choices:
+                        raise Exception(f"OpenRouter API error: {response.status_code}")
+
+                    # Successful response - process the stream
+                    async for line in response.aiter_lines():
+                        if not line or not line.startswith("data: "):
                             continue
 
-                        delta = choices[0].get("delta", {})
-                        content = delta.get("content", "")
+                        data = line[6:]
+                        if data == "[DONE]":
+                            break
 
-                        if content:
-                            chat_chunk = ChatChunk(
-                                id=chunk.get("id", str(uuid.uuid4())),
-                                delta=ChoiceDelta(
-                                    role="assistant",
-                                    content=content,
+                        try:
+                            chunk = json.loads(data)
+                            choices = chunk.get("choices", [])
+                            if not choices:
+                                continue
+
+                            delta = choices[0].get("delta", {})
+                            content = delta.get("content", "")
+
+                            if content:
+                                chat_chunk = ChatChunk(
+                                    id=chunk.get("id", str(uuid.uuid4())),
+                                    delta=ChoiceDelta(
+                                        role="assistant",
+                                        content=content,
+                                    )
                                 )
-                            )
-                            self._event_ch.send_nowait(chat_chunk)
-                    except json.JSONDecodeError:
-                        continue
-        except httpx.HTTPStatusError as e:
-            logger.error(f"❌ [LLM] HTTP error: {e}")
-            raise Exception(f"OpenRouter API error: {e.response.status_code}") from e
-        except Exception as e:
-            logger.error(f"❌ [LLM] Request failed: {e}")
-            raise Exception(f"OpenRouter request failed: {e}") from e
+                                self._event_ch.send_nowait(chat_chunk)
+                        except json.JSONDecodeError:
+                            continue
+
+                    # Success - exit retry loop
+                    return
+
+            except httpx.HTTPStatusError as e:
+                logger.error(f"❌ [LLM] HTTP error: {e}")
+                if e.response.status_code in RETRYABLE_STATUS_CODES and attempt < MAX_RETRIES:
+                    last_error = e
+                    continue
+                raise Exception(f"OpenRouter API error: {e.response.status_code}") from e
+            except httpx.TimeoutException as e:
+                logger.warning(f"⏱️ [LLM] Timeout on attempt {attempt + 1}: {e}")
+                if attempt < MAX_RETRIES:
+                    last_error = e
+                    continue
+                raise Exception(f"OpenRouter request timed out after {MAX_RETRIES + 1} attempts") from e
+            except Exception as e:
+                # For other exceptions, don't retry
+                logger.error(f"❌ [LLM] Request failed: {e}")
+                raise Exception(f"OpenRouter request failed: {e}") from e
+
+        # All retries exhausted
+        if last_error:
+            logger.error(f"❌ [LLM] All {MAX_RETRIES + 1} attempts failed")
+            raise Exception(f"OpenRouter request failed after {MAX_RETRIES + 1} attempts: {last_error}") from last_error
