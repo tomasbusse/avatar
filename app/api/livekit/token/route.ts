@@ -6,37 +6,38 @@ export async function POST(req: NextRequest) {
   try {
     const { userId } = await auth();
 
-    if (!userId) {
+    const body = await req.json();
+    const { roomName, participantName, sessionId, avatar, isGuest, guestId } = body;
+
+    // Allow authenticated users OR guests with a guestId/sessionId
+    const effectiveUserId = userId || (isGuest && (guestId || `guest_${sessionId}`));
+
+    if (!effectiveUserId) {
       return NextResponse.json(
-        { error: "Unauthorized" },
+        { error: "Unauthorized - must be authenticated or provide guest credentials" },
         { status: 401 }
       );
     }
 
-    const body = await req.json();
-    const { roomName, participantName, sessionId, avatar } = body;
-
+    // CRITICAL DEBUG: Log ALL avatar keys to see what's being received
     console.log("🎟️ [TOKEN] Generating token for:", {
       roomName,
       participantName,
-      userId,
+      userId: effectiveUserId,
+      isGuest: !userId,
       hasAvatar: !!avatar,
       avatarId: avatar?._id,
       avatarName: avatar?.name,
+      avatarKeys: avatar ? Object.keys(avatar) : [],
     });
 
-    // Detailed logging for identity/personality
+    // Log critical config fields explicitly
     if (avatar) {
-      console.log("📝 [TOKEN] Avatar details:", {
-        name: avatar.name,
-        hasPersonality: !!avatar.personality,
-        personalityKeys: avatar.personality ? Object.keys(avatar.personality) : [],
-        hasIdentity: !!avatar.identity,
-        identityKeys: avatar.identity ? Object.keys(avatar.identity) : [],
-        hasSystemPrompts: !!avatar.systemPrompts,
-        systemPromptsBase: avatar.systemPrompts?.base?.substring(0, 100) + "...",
-        hasVisionConfig: !!avatar.visionConfig,
-        visionEnabled: avatar.visionConfig?.enabled,
+      console.log("⚡ [TOKEN] CRITICAL CONFIG:", {
+        llmConfig: avatar.llmConfig,
+        voiceProvider: avatar.voiceProvider,
+        visionConfig: avatar.visionConfig,
+        sttConfig: avatar.sttConfig,
       });
     }
 
@@ -49,7 +50,11 @@ export async function POST(req: NextRequest) {
 
     const apiKey = process.env.LIVEKIT_API_KEY;
     const apiSecret = process.env.LIVEKIT_API_SECRET;
-    const livekitUrl = process.env.LIVEKIT_URL || process.env.NEXT_PUBLIC_LIVEKIT_URL;
+    const livekitWsUrl = process.env.LIVEKIT_URL || process.env.NEXT_PUBLIC_LIVEKIT_URL;
+
+    // RoomServiceClient and AgentDispatchClient need HTTP URL, not WebSocket
+    // Convert wss:// to https:// for server SDK calls
+    const livekitUrl = livekitWsUrl?.replace('wss://', 'https://').replace('ws://', 'http://');
 
     if (!apiKey || !apiSecret) {
       console.error("LiveKit credentials not configured");
@@ -63,7 +68,8 @@ export async function POST(req: NextRequest) {
     // Note: Python agent uses snake_case, so we include both formats
     const roomMetadata = JSON.stringify({
       sessionId,
-      userId,
+      userId: effectiveUserId,
+      isGuest: !userId,
       avatar: avatar ? {
         // Core identity
         _id: avatar._id,
@@ -117,12 +123,20 @@ export async function POST(req: NextRequest) {
       } : undefined,
     });
 
-    // Create or update room with metadata
+    // ==========================================================================
+    // ROOM MANAGEMENT - ALWAYS update metadata to ensure correct avatar
+    // ==========================================================================
+    // CACHING STRATEGY:
+    // - Room metadata is NOT cached - always updated to reflect current avatar
+    // - This prevents stale avatar configs when user switches avatars
+    // - Agent dispatch metadata is also updated for consistency
+    // ==========================================================================
     if (livekitUrl) {
-      try {
-        const roomService = new RoomServiceClient(livekitUrl, apiKey, apiSecret);
+      console.log("🔗 [LIVEKIT] Using URL:", livekitUrl);
+      const roomService = new RoomServiceClient(livekitUrl, apiKey, apiSecret);
 
-        // Create room with metadata (or update if exists)
+      try {
+        // Try to create room with metadata
         await roomService.createRoom({
           name: roomName,
           metadata: roomMetadata,
@@ -130,34 +144,53 @@ export async function POST(req: NextRequest) {
           maxParticipants: 10,
         });
 
-        console.log("🏠 [ROOM] Created/updated room with avatar metadata:", {
+        console.log("🏠 [ROOM] Created room with avatar metadata:", {
           roomName,
-          hasAvatar: !!avatar,
-          hasPersonality: !!avatar?.personality,
-          hasIdentity: !!avatar?.identity,
-          hasVisionConfig: !!avatar?.visionConfig,
-          visionEnabled: avatar?.visionConfig?.enabled,
+          avatarName: avatar?.name,
+          beyAvatarId: avatar?.avatarProvider?.avatarId,
         });
-
-        // Dispatch agent to room
-        try {
-          const agentDispatch = new AgentDispatchClient(livekitUrl, apiKey, apiSecret);
-          await agentDispatch.createDispatch(roomName, "beethoven-teacher", {
-            metadata: roomMetadata,
+      } catch (roomError: any) {
+        // Room already exists - MUST update metadata to use current avatar!
+        if (roomError?.message?.includes("already exists")) {
+          console.log("🏠 [ROOM] Room exists, updating metadata for avatar:", avatar?.name);
+          try {
+            // CRITICAL: Update room metadata to ensure correct avatar is used
+            await roomService.updateRoomMetadata(roomName, roomMetadata);
+            console.log("✅ [ROOM] Metadata updated with current avatar config");
+          } catch (updateError: any) {
+            console.error("❌ [ROOM] Failed to update metadata:", updateError?.message);
+          }
+        } else {
+          console.error("🏠 [ROOM] Room creation error:", {
+            message: roomError?.message,
+            code: roomError?.code,
           });
-          console.log("🤖 [AGENT] Dispatched beethoven-teacher to room:", roomName);
-        } catch (dispatchError) {
-          console.error("🤖 [AGENT] Dispatch error:", dispatchError);
         }
-      } catch (roomError) {
-        // Room might already exist, which is fine
-        console.log("🏠 [ROOM] Room creation note:", roomError);
       }
+
+      // Dispatch agent to room with current metadata
+      try {
+        const agentDispatch = new AgentDispatchClient(livekitUrl, apiKey, apiSecret);
+        await agentDispatch.createDispatch(roomName, "beethoven-teacher", {
+          metadata: roomMetadata,
+        });
+        console.log("🤖 [AGENT] Dispatched beethoven-teacher to room:", roomName);
+      } catch (dispatchError: any) {
+        // Agent might already be dispatched - this is fine
+        if (!dispatchError?.message?.includes("already exists")) {
+          console.error("🤖 [AGENT] Dispatch error:", {
+            message: dispatchError?.message,
+            code: dispatchError?.code,
+          });
+        }
+      }
+    } else {
+      console.warn("⚠️ [LIVEKIT] No LiveKit URL configured, skipping room creation");
     }
 
     const TOKEN_TTL_HOURS = 6;
     const at = new AccessToken(apiKey, apiSecret, {
-      identity: userId,
+      identity: effectiveUserId,
       name: participantName || "Student",
       ttl: TOKEN_TTL_HOURS * 60 * 60,
     });

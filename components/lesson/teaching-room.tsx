@@ -353,6 +353,8 @@ interface LoadGameCommand {
   instructions: string;
   level: string;
   category: string;
+  // Full game data for multi-participant sync (optional for backward compat)
+  gameData?: WordGame;
 }
 
 // Agent-initiated slide loading command
@@ -833,6 +835,8 @@ function RoomContent({
       instructions: game.config?.instructions || "",
       level: game.level || "",
       category: game.config?.category || "",
+      // Include full game data for other participants
+      gameData: game,
     });
   }, [publishDataMessage]);
 
@@ -1110,10 +1114,10 @@ function RoomContent({
           }
         }
 
-        // Handle avatar-initiated game loading
+        // Handle avatar-initiated game loading or broadcast from other participant
         if (message.type === "load_game") {
           const requestedGameId = message.gameId;
-          console.log("[TeachingRoom] Avatar requested game:", requestedGameId, message.title);
+          console.log("[TeachingRoom] Received game load:", requestedGameId, message.title);
 
           // Log to debug panel
           setAgentCommands(prev => [...prev.slice(-9), {
@@ -1122,20 +1126,31 @@ function RoomContent({
             data: `Game: ${message.title || requestedGameId}`,
           }]);
 
-          // Check if the requested game matches the linked game
+          // Try to get game from: 1) linked game, 2) broadcast gameData
+          let gameToActivate: WordGame | null = null;
+
           if (linkedGame && linkedGame._id === requestedGameId) {
             console.log("[TeachingRoom] Activating linked game:", linkedGame.title);
-            setActiveGame(linkedGame as WordGame);
+            gameToActivate = linkedGame as WordGame;
+          } else if (message.gameData) {
+            // Use game data from broadcast (multi-participant sync)
+            console.log("[TeachingRoom] Activating game from broadcast:", message.gameData.title);
+            gameToActivate = message.gameData;
+          }
+
+          if (gameToActivate) {
+            setActiveGame(gameToActivate);
             setGameModeActive(true);
             setCurrentGameItemIndex(0);
             setGameResults({ correctAnswers: 0, incorrectAnswers: 0 });
             gameActivatedRef.current = true;
 
-            // Notify avatar that game is loaded
-            notifyGameLoaded(linkedGame as WordGame);
+            // Notify avatar that game is loaded (only if from linkedGame)
+            if (linkedGame && linkedGame._id === requestedGameId) {
+              notifyGameLoaded(gameToActivate);
+            }
           } else {
-            console.warn("[TeachingRoom] Requested game not available:", requestedGameId);
-            // In the future, we could query for the game dynamically here
+            console.warn("[TeachingRoom] Game not available and no broadcast data:", requestedGameId);
           }
         }
 
