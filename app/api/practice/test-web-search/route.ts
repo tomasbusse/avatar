@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
 interface SearchConfig {
   searchDepth?: string;
@@ -109,26 +110,17 @@ function cleanArticleContent(rawContent: string): string {
 }
 
 /**
- * Use Claude to rewrite articles into clean, professional journalist prose
- * Takes the raw/cleaned article content and produces clear, readable text
+ * Build the prompt for rewriting articles
  */
-async function rewriteWithLLM(
+function buildRewritePrompt(
   articles: Array<{ title: string; content: string; url: string }>,
   topic: string
-): Promise<string> {
-  if (!ANTHROPIC_API_KEY) {
-    console.warn("[LLM Rewrite] No ANTHROPIC_API_KEY, returning cleaned content as-is");
-    return articles.map(a => `**${a.title}**\n\n${a.content}`).join("\n\n---\n\n");
-  }
-
-  const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
-
-  // Combine articles into a single prompt
+): string {
   const articleText = articles
     .map((a, i) => `ARTICLE ${i + 1}: ${a.title}\nSource: ${a.url}\n\n${a.content}`)
     .join("\n\n---\n\n");
 
-  const prompt = `You are a professional news editor. Rewrite the following news articles into clean, clear prose suitable for discussion.
+  return `You are a professional news editor. Rewrite the following news articles into clean, clear prose suitable for discussion.
 
 REQUIREMENTS:
 - Write in clear, professional English like a quality newspaper
@@ -153,28 +145,112 @@ HEADLINE: [clear headline]
 ---
 
 Begin:`;
+}
 
-  try {
-    console.log(`[LLM Rewrite] Sending ${articles.length} articles to Claude...`);
+/**
+ * Rewrite articles using Anthropic Claude
+ */
+async function rewriteWithAnthropic(prompt: string, articleCount: number): Promise<string> {
+  const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
 
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 2000,
-      messages: [{ role: "user", content: prompt }],
-    });
+  console.log(`[LLM Rewrite] Sending ${articleCount} articles to Claude...`);
 
-    const content = response.content[0];
-    if (content.type === "text") {
-      console.log(`[LLM Rewrite] Received ${content.text.length} chars of cleaned content`);
-      return content.text;
-    }
+  const response = await anthropic.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 2000,
+    messages: [{ role: "user", content: prompt }],
+  });
 
-    throw new Error("Unexpected response format from Claude");
-  } catch (error) {
-    console.error("[LLM Rewrite] Error:", error);
-    // Fallback to cleaned content without LLM rewrite
-    return articles.map(a => `**${a.title}**\n\n${a.content}`).join("\n\n---\n\n");
+  const content = response.content[0];
+  if (content.type === "text") {
+    console.log(`[LLM Rewrite] Received ${content.text.length} chars from Claude`);
+    return content.text;
   }
+
+  throw new Error("Unexpected response format from Claude");
+}
+
+/**
+ * Rewrite articles using OpenRouter (works with any model)
+ */
+async function rewriteWithOpenRouter(prompt: string, articleCount: number): Promise<string> {
+  // Use a fast, capable model for news rewriting
+  const model = "google/gemini-2.0-flash-001";
+
+  console.log(`[LLM Rewrite] Sending ${articleCount} articles to OpenRouter (${model})...`);
+
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+      "X-Title": "Beethoven AI News Rewriter",
+    },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 2000,
+      temperature: 0.3, // Lower temperature for factual news rewriting
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenRouter API error ${response.status}: ${errorText}`);
+  }
+
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content;
+
+  if (content) {
+    console.log(`[LLM Rewrite] Received ${content.length} chars from OpenRouter`);
+    return content;
+  }
+
+  throw new Error("No content in OpenRouter response");
+}
+
+/**
+ * Use LLM to rewrite articles into clean, professional journalist prose
+ * Tries Anthropic first, falls back to OpenRouter if not available
+ */
+async function rewriteWithLLM(
+  articles: Array<{ title: string; content: string; url: string }>,
+  topic: string
+): Promise<string> {
+  const fallbackContent = articles.map(a => `**${a.title}**\n\n${a.content}`).join("\n\n---\n\n");
+
+  // Check if we have any LLM available
+  if (!ANTHROPIC_API_KEY && !OPENROUTER_API_KEY) {
+    console.warn("[LLM Rewrite] No ANTHROPIC_API_KEY or OPENROUTER_API_KEY, returning cleaned content as-is");
+    return fallbackContent;
+  }
+
+  const prompt = buildRewritePrompt(articles, topic);
+
+  // Try Anthropic first (higher quality), then OpenRouter
+  if (ANTHROPIC_API_KEY) {
+    try {
+      return await rewriteWithAnthropic(prompt, articles.length);
+    } catch (error) {
+      console.error("[LLM Rewrite] Anthropic failed:", error);
+      // Fall through to OpenRouter
+    }
+  }
+
+  // Try OpenRouter as fallback or primary
+  if (OPENROUTER_API_KEY) {
+    try {
+      return await rewriteWithOpenRouter(prompt, articles.length);
+    } catch (error) {
+      console.error("[LLM Rewrite] OpenRouter failed:", error);
+    }
+  }
+
+  // All LLMs failed, return fallback
+  console.warn("[LLM Rewrite] All LLM providers failed, returning cleaned content");
+  return fallbackContent;
 }
 
 /**
