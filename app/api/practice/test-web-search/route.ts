@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import Anthropic from "@anthropic-ai/sdk";
 
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
 interface SearchConfig {
   searchDepth?: string;
@@ -107,6 +109,94 @@ function cleanArticleContent(rawContent: string): string {
 }
 
 /**
+ * Use Claude to rewrite articles into clean, professional journalist prose
+ * Takes the raw/cleaned article content and produces clear, readable text
+ */
+async function rewriteWithLLM(
+  articles: Array<{ title: string; content: string; url: string }>,
+  topic: string
+): Promise<string> {
+  if (!ANTHROPIC_API_KEY) {
+    console.warn("[LLM Rewrite] No ANTHROPIC_API_KEY, returning cleaned content as-is");
+    return articles.map(a => `**${a.title}**\n\n${a.content}`).join("\n\n---\n\n");
+  }
+
+  const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
+
+  // Combine articles into a single prompt
+  const articleText = articles
+    .map((a, i) => `ARTICLE ${i + 1}: ${a.title}\nSource: ${a.url}\n\n${a.content}`)
+    .join("\n\n---\n\n");
+
+  const prompt = `You are a professional news editor. Rewrite the following news articles into clean, clear prose suitable for discussion.
+
+REQUIREMENTS:
+- Write in clear, professional English like a quality newspaper
+- Remove any remaining formatting artifacts, broken links, or navigation text
+- Keep the key facts and news content
+- Use complete sentences and proper paragraphs
+- For each article, include: headline, 2-3 paragraph summary of key points
+- Do NOT add commentary or opinions - just present the facts
+- Do NOT include URLs or source links in the text
+- Keep it concise - each article summary should be 100-200 words
+
+Topic context: ${topic}
+
+RAW ARTICLES:
+${articleText}
+
+OUTPUT FORMAT:
+For each article, write:
+HEADLINE: [clear headline]
+[2-3 paragraphs of clean prose summarizing the article]
+
+---
+
+Begin:`;
+
+  try {
+    console.log(`[LLM Rewrite] Sending ${articles.length} articles to Claude...`);
+
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 2000,
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const content = response.content[0];
+    if (content.type === "text") {
+      console.log(`[LLM Rewrite] Received ${content.text.length} chars of cleaned content`);
+      return content.text;
+    }
+
+    throw new Error("Unexpected response format from Claude");
+  } catch (error) {
+    console.error("[LLM Rewrite] Error:", error);
+    // Fallback to cleaned content without LLM rewrite
+    return articles.map(a => `**${a.title}**\n\n${a.content}`).join("\n\n---\n\n");
+  }
+}
+
+/**
+ * Filter articles to only include those from today
+ */
+function filterToToday(results: TavilyResult[]): TavilyResult[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return results.filter(r => {
+    if (!r.published_date) return true; // Include if no date (can't filter)
+
+    const pubDate = new Date(r.published_date);
+    pubDate.setHours(0, 0, 0, 0);
+
+    // Include if published today or yesterday (to handle timezone differences)
+    const diffDays = Math.floor((today.getTime() - pubDate.getTime()) / (1000 * 60 * 60 * 24));
+    return diffDays <= 1;
+  });
+}
+
+/**
  * Fetch web search results from Tavily API
  * Called when user joins a conversation practice or admin clicks "Fetch Now"
  * Returns results in the format expected by the session schema
@@ -155,6 +245,7 @@ export async function POST(request: NextRequest) {
 
     // Call Tavily API
     // - "detailed" mode uses advanced search + raw_content for full articles
+    // - days: 1 to filter to recent news only
     const response = await fetch("https://api.tavily.com/search", {
       method: "POST",
       headers: {
@@ -169,6 +260,7 @@ export async function POST(request: NextRequest) {
         topic: topic,
         include_answer: true,
         include_raw_content: isDetailed, // Get full article text in detailed mode
+        days: 1, // Only fetch news from the last 24 hours
       }),
     });
 
@@ -183,21 +275,39 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json();
 
+    // Filter to today's news only (extra safety beyond Tavily's days param)
+    const filteredResults = filterToToday(data.results || []);
+    console.log(`[Tavily] Filtered ${data.results?.length || 0} → ${filteredResults.length} results (today only)`);
+
+    // Process results
+    const processedResults = filteredResults.map((r: TavilyResult) => ({
+      title: r.title,
+      url: r.url,
+      content: r.content || "",
+      rawContent: r.raw_content ? cleanArticleContent(r.raw_content) : undefined,
+      publishedDate: r.published_date,
+    }));
+
+    // For detailed mode, rewrite with LLM for clean journalist prose
+    let llmRewrittenContent: string | undefined;
+    if (isDetailed && processedResults.length > 0) {
+      const articlesToRewrite = processedResults.map(r => ({
+        title: r.title,
+        content: r.rawContent || r.content,
+        url: r.url,
+      }));
+      llmRewrittenContent = await rewriteWithLLM(articlesToRewrite, topic);
+    }
+
     // Return in the format expected by the session schema
-    // This can be passed directly to the createSession mutation
     const webSearchResults = {
       fetchedAt: Date.now(),
       query,
       answer: data.answer || undefined,
       searchDepth,
-      results: (data.results || []).map((r: TavilyResult) => ({
-        title: r.title,
-        url: r.url,
-        content: r.content || "",
-        // Include cleaned full article content when available (detailed mode)
-        rawContent: r.raw_content ? cleanArticleContent(r.raw_content) : undefined,
-        publishedDate: r.published_date,
-      })),
+      // For detailed mode, include the LLM-rewritten content as the primary content
+      llmRewrittenContent,
+      results: processedResults,
     };
 
     const totalContent = webSearchResults.results.reduce(
@@ -205,7 +315,7 @@ export async function POST(request: NextRequest) {
         sum + (r.rawContent?.length || r.content.length),
       0
     );
-    console.log(`[Tavily] Found ${webSearchResults.results.length} results (${Math.round(totalContent / 1000)}k chars${isDetailed ? ", with full articles" : ""})`);
+    console.log(`[Tavily] Final: ${webSearchResults.results.length} results (${Math.round(totalContent / 1000)}k chars${isDetailed ? ", with LLM rewrite" : ""})`);
 
     return NextResponse.json({
       success: true,

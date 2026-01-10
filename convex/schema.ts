@@ -3,7 +3,7 @@ import { v } from "convex/values";
 
 export default defineSchema({
   users: defineTable({
-    clerkId: v.string(),
+    clerkId: v.optional(v.string()), // Optional - allows admin-created users before Clerk signup
     email: v.string(),
     firstName: v.optional(v.string()),
     lastName: v.optional(v.string()),
@@ -23,6 +23,9 @@ export default defineSchema({
     lastLoginAt: v.optional(v.number()),
     loginCount: v.number(),
     metadata: v.optional(v.any()),
+    // Invitation tracking for admin-created users
+    invitedBy: v.optional(v.id("users")),
+    invitedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -71,6 +74,227 @@ export default defineSchema({
     .index("by_level", ["currentLevel"])
     .index("by_streak", ["currentStreak"]),
 
+  // ============================================
+  // RBAC - ROLES
+  // ============================================
+  roles: defineTable({
+    // Unique identifier (e.g., "super_admin", "company_admin", "custom_role_123")
+    id: v.string(),
+    name: v.string(),
+    description: v.optional(v.string()),
+    // Classification
+    type: v.union(v.literal("system"), v.literal("company_custom")),
+    companyId: v.optional(v.id("companies")), // For custom roles
+    // Permissions
+    permissions: v.array(v.string()),
+    inheritsFrom: v.optional(v.string()), // Role ID to inherit from
+    // Status
+    isActive: v.boolean(),
+    isDefault: v.optional(v.boolean()), // Default role for new users in company
+    // Metadata
+    createdBy: v.optional(v.id("users")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_role_id", ["id"])
+    .index("by_type", ["type"])
+    .index("by_company", ["companyId"])
+    .index("by_active", ["isActive"]),
+
+  // ============================================
+  // RBAC - USER ROLE ASSIGNMENTS
+  // ============================================
+  userRoleAssignments: defineTable({
+    userId: v.id("users"),
+    roleId: v.string(), // References roles.id
+    // Scope
+    scope: v.union(
+      v.literal("global"),
+      v.literal("company"),
+      v.literal("group")
+    ),
+    scopeId: v.optional(v.string()), // Company or Group ID for scoped roles
+    // Assignment metadata
+    assignedBy: v.id("users"),
+    assignedAt: v.number(),
+    expiresAt: v.optional(v.number()),
+    isActive: v.boolean(),
+    notes: v.optional(v.string()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_active", ["userId", "isActive"])
+    .index("by_role", ["roleId"])
+    .index("by_scope", ["scope", "scopeId"])
+    .index("by_expiring", ["expiresAt"]),
+
+  // ============================================
+  // RBAC - PERMISSION DEFINITIONS (Reference Table)
+  // ============================================
+  permissions: defineTable({
+    key: v.string(), // e.g., "courses.create"
+    name: v.string(), // Human-readable name
+    description: v.string(),
+    category: v.union(
+      v.literal("users"),
+      v.literal("companies"),
+      v.literal("groups"),
+      v.literal("content"),
+      v.literal("enrollments"),
+      v.literal("analytics"),
+      v.literal("avatars"),
+      v.literal("sessions")
+    ),
+    defaultRoles: v.array(v.string()), // Role IDs that have this by default
+    isActive: v.boolean(),
+  })
+    .index("by_key", ["key"])
+    .index("by_category", ["category"]),
+
+  // ============================================
+  // COMPANIES
+  // ============================================
+  companies: defineTable({
+    name: v.string(),
+    slug: v.string(),
+    description: v.optional(v.string()),
+    logoUrl: v.optional(v.string()),
+    primaryColor: v.optional(v.string()),
+    website: v.optional(v.string()),
+    billingEmail: v.optional(v.string()),
+    subscriptionTier: v.union(
+      v.literal("free"),
+      v.literal("starter"),
+      v.literal("professional"),
+      v.literal("enterprise")
+    ),
+    subscriptionStatus: v.union(
+      v.literal("active"),
+      v.literal("trial"),
+      v.literal("suspended"),
+      v.literal("cancelled")
+    ),
+    trialEndsAt: v.optional(v.number()),
+    settings: v.optional(
+      v.object({
+        defaultLanguage: v.optional(v.string()),
+        timezone: v.optional(v.string()),
+        allowSelfEnrollment: v.optional(v.boolean()),
+        requireApproval: v.optional(v.boolean()),
+        customBranding: v.optional(v.boolean()),
+      })
+    ),
+    // RBAC Settings
+    rbacSettings: v.optional(
+      v.object({
+        customRolesEnabled: v.boolean(),
+        maxCustomRoles: v.number(),
+        allowSelfEnrollment: v.boolean(),
+        requireApprovalForNewUsers: v.boolean(),
+        defaultNewUserRole: v.optional(v.string()),
+      })
+    ),
+    maxStudents: v.optional(v.number()),
+    maxGroups: v.optional(v.number()),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_status", ["subscriptionStatus"])
+    .index("by_created", ["createdAt"]),
+
+  // ============================================
+  // GROUPS
+  // ============================================
+  groups: defineTable({
+    companyId: v.id("companies"),
+    name: v.string(),
+    slug: v.string(),
+    description: v.optional(v.string()),
+    defaultAvatarId: v.optional(v.id("avatars")),
+    targetLevel: v.optional(
+      v.union(
+        v.literal("A1"),
+        v.literal("A2"),
+        v.literal("B1"),
+        v.literal("B2"),
+        v.literal("C1"),
+        v.literal("C2")
+      )
+    ),
+    capacity: v.optional(v.number()),
+    status: v.union(v.literal("active"), v.literal("archived")),
+    // Group leads (users with Group Lead role for this group)
+    leadUserIds: v.optional(v.array(v.id("users"))),
+    settings: v.optional(
+      v.object({
+        allowPeerInteraction: v.optional(v.boolean()),
+        showLeaderboard: v.optional(v.boolean()),
+        notifyOnProgress: v.optional(v.boolean()),
+      })
+    ),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_company", ["companyId"])
+    .index("by_company_slug", ["companyId", "slug"])
+    .index("by_status", ["status"])
+    .index("by_created", ["createdAt"]),
+
+  // ============================================
+  // GROUP MEMBERS
+  // ============================================
+  groupMembers: defineTable({
+    groupId: v.id("groups"),
+    studentId: v.id("students"),
+    role: v.union(v.literal("member"), v.literal("lead")),
+    joinedAt: v.number(),
+    status: v.union(
+      v.literal("active"),
+      v.literal("paused"),
+      v.literal("removed")
+    ),
+    removedAt: v.optional(v.number()),
+    removedReason: v.optional(v.string()),
+  })
+    .index("by_group", ["groupId"])
+    .index("by_student", ["studentId"])
+    .index("by_group_student", ["groupId", "studentId"])
+    .index("by_status", ["status"]),
+
+  // ============================================
+  // RBAC AUDIT LOG
+  // ============================================
+  roleAuditLog: defineTable({
+    action: v.union(
+      v.literal("role_assigned"),
+      v.literal("role_revoked"),
+      v.literal("role_expired"),
+      v.literal("bulk_assign")
+    ),
+    userId: v.id("users"),
+    roleId: v.string(),
+    roleName: v.string(),
+    scope: v.union(
+      v.literal("global"),
+      v.literal("company"),
+      v.literal("group")
+    ),
+    scopeId: v.optional(v.string()),
+    scopeName: v.optional(v.string()),
+    performedBy: v.optional(v.id("users")),
+    performedByName: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    metadata: v.optional(v.any()),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_role", ["roleId"])
+    .index("by_action", ["action"])
+    .index("by_performed_by", ["performedBy"])
+    .index("by_created", ["createdAt"]),
+
   avatars: defineTable({
     name: v.string(),
     slug: v.string(),
@@ -103,7 +327,10 @@ export default defineSchema({
         speed: v.number(),
         pitch: v.optional(v.number()),
         stability: v.optional(v.number()),
-        emotion: v.optional(v.string()),
+        emotion: v.optional(v.union(
+          v.string(),  // Legacy: "neutral"
+          v.array(v.string())  // New: ["positivity:medium"]
+        )),
       }),
       languageVoices: v.optional(
         v.object({
@@ -112,11 +339,26 @@ export default defineSchema({
         })
       ),
     }),
+    // STT (Speech-to-Text) configuration
+    sttConfig: v.optional(
+      v.object({
+        provider: v.union(v.literal("deepgram")),
+        model: v.string(),  // "nova-3", "nova-2"
+        language: v.optional(v.string()),  // "en", "de", "multi"
+        settings: v.optional(
+          v.object({
+            smartFormat: v.optional(v.boolean()),
+            endpointing: v.optional(v.number()),  // milliseconds
+          })
+        ),
+      })
+    ),
     llmConfig: v.object({
       provider: v.union(
         v.literal("openrouter"),
         v.literal("anthropic"),
-        v.literal("openai")
+        v.literal("openai"),
+        v.literal("cerebras")
       ),
       model: v.string(),
       temperature: v.number(),
@@ -414,14 +656,20 @@ export default defineSchema({
         mentionPreviousSession: v.optional(v.boolean()),
       })
     ),
+    // Session Duration Configuration
+    sessionConfig: v.optional(
+      v.object({
+        defaultDurationMinutes: v.optional(v.number()), // 10, 20, 30, 60 or null for no limit
+        wrapUpBufferMinutes: v.optional(v.number()), // Default 2 minutes before end
+        autoEnd: v.optional(v.boolean()), // Whether to auto-end after wrap-up
+      })
+    ),
     isActive: v.boolean(),
-    isDefault: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_slug", ["slug"])
-    .index("by_active", ["isActive"])
-    .index("by_default", ["isDefault"]),
+    .index("by_active", ["isActive"]),
 
   lessons: defineTable({
     lessonId: v.string(),
@@ -563,6 +811,20 @@ export default defineSchema({
     structuredLessonId: v.optional(v.id("structuredLessons")),
     roomName: v.string(),
     roomSid: v.optional(v.string()),
+    guestName: v.optional(v.string()), // For anonymous/guest users in open access lessons
+    // Extended guest metadata (for conversation practice)
+    isGuest: v.optional(v.boolean()),
+    guestMetadata: v.optional(
+      v.object({
+        email: v.optional(v.string()),
+        customFields: v.optional(v.any()), // Custom field responses
+        acceptedTermsAt: v.optional(v.number()), // Timestamp of terms acceptance
+        referrer: v.optional(v.string()), // Where they came from
+        userAgent: v.optional(v.string()), // Browser info
+      })
+    ),
+    // Link to conversation practice instance
+    conversationPracticeId: v.optional(v.id("conversationPractice")),
     startedAt: v.number(),
     endedAt: v.optional(v.number()),
     durationMinutes: v.optional(v.number()),
@@ -579,7 +841,8 @@ export default defineSchema({
       v.literal("free_conversation"),
       v.literal("vocabulary_review"),
       v.literal("pronunciation_drill"),
-      v.literal("presentation")
+      v.literal("presentation"),
+      v.literal("conversation_practice") // Conversation practice sessions
     ),
     transcript: v.optional(
       v.array(
@@ -614,6 +877,24 @@ export default defineSchema({
       })
     ),
 
+    // Game teaching mode state
+    gameMode: v.optional(
+      v.object({
+        active: v.boolean(),
+        gameId: v.optional(v.id("wordGames")),
+        gameSessionId: v.optional(v.id("gameSessions")),
+        currentItemIndex: v.number(),
+        startedAt: v.optional(v.number()),
+        controlledBy: v.optional(
+          v.union(
+            v.literal("avatar"),
+            v.literal("student"),
+            v.literal("shared")
+          )
+        ),
+      })
+    ),
+
     metrics: v.optional(
       v.object({
         wordsSpoken: v.number(),
@@ -621,6 +902,33 @@ export default defineSchema({
         errorsCorreected: v.number(),
         germanSupportUsed: v.number(),
         avgResponseLatency: v.optional(v.number()),
+      })
+    ),
+    // Session Timer Configuration
+    timerConfig: v.optional(
+      v.object({
+        targetDurationMinutes: v.number(), // Target duration for this session
+        wrapUpBufferMinutes: v.number(), // When to start wrap-up before end
+        wrapUpStartedAt: v.optional(v.number()), // Timestamp when wrap-up was triggered
+      })
+    ),
+    // Pre-fetched web search results (Tavily)
+    webSearchResults: v.optional(
+      v.object({
+        fetchedAt: v.number(), // When the search was performed
+        query: v.string(), // The search query used
+        answer: v.optional(v.string()), // Tavily's synthesized answer
+        searchDepth: v.optional(v.string()), // "basic" | "advanced" | "detailed"
+        llmRewrittenContent: v.optional(v.string()), // LLM-rewritten clean journalist prose (detailed mode)
+        results: v.array(
+          v.object({
+            title: v.string(),
+            url: v.string(),
+            content: v.string(), // Summary/snippet
+            rawContent: v.optional(v.string()), // Full article content (detailed mode)
+            publishedDate: v.optional(v.string()),
+          })
+        ),
       })
     ),
     rating: v.optional(v.number()),
@@ -635,7 +943,9 @@ export default defineSchema({
     .index("by_room", ["roomName"])
     .index("by_status", ["status"])
     .index("by_started", ["startedAt"])
-    .index("by_structured_lesson", ["structuredLessonId"]),
+    .index("by_structured_lesson", ["structuredLessonId"])
+    .index("by_conversation_practice", ["conversationPracticeId"])
+    .index("by_guest", ["isGuest"]),
 
   progress: defineTable({
     studentId: v.id("students"),
@@ -814,6 +1124,8 @@ export default defineSchema({
       v.literal("error")
     ),
     errorMessage: v.optional(v.string()),
+    // Vector store reference (e.g., Zep user ID for the entire KB)
+    vectorStoreRef: v.optional(v.string()),
     // Metadata
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -830,6 +1142,7 @@ export default defineSchema({
     userId: v.string(), // Clerk ID
     avatarSlug: v.string(), // Avatar context
     zepUserId: v.string(), // Zep user ID: "student:{userId}:{avatarSlug}"
+    createdAt: v.optional(v.number()), // When this sync record was first created
     lastSyncedAt: v.number(),
     // Cached facts for quick access (synced from Zep periodically)
     cachedFacts: v.optional(
@@ -868,7 +1181,7 @@ export default defineSchema({
 
   memories: defineTable({
     studentId: v.string(), // Student identifier
-    type: v.string(), // "personal_fact", "preference", "struggle", "achievement", etc.
+    type: v.string(), // "personal_fact", "preference", "struggle", "achievement", "upcoming", etc.
     content: v.string(), // The actual memory content
     topic: v.optional(v.string()), // Related topic
     tags: v.optional(v.array(v.string())), // Tags for categorization
@@ -877,6 +1190,9 @@ export default defineSchema({
     sessionId: v.optional(v.string()), // Session where memory was created
     avatarSlug: v.optional(v.string()), // Avatar that created this memory
     source: v.optional(v.string()), // "auto_extracted", "manual", "session_summary"
+    // For "upcoming" type memories - tracks when the event occurs
+    eventDate: v.optional(v.number()), // Timestamp of when event is scheduled
+    followedUp: v.optional(v.boolean()), // Whether we've asked about this event after it passed
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -884,7 +1200,8 @@ export default defineSchema({
     .index("by_student_type", ["studentId", "type"])
     .index("by_student_importance", ["studentId", "importance"])
     .index("by_session", ["sessionId"])
-    .index("by_created", ["createdAt"]),
+    .index("by_created", ["createdAt"])
+    .index("by_upcoming_events", ["studentId", "type", "eventDate"]),
 
   // ============================================
   // ERROR PATTERNS (Student mistake tracking)
@@ -1059,9 +1376,10 @@ export default defineSchema({
   structuredLessons: defineTable({
     title: v.string(),
     description: v.optional(v.string()),
-    // Content source - either from knowledge base or direct presentation
+    // Content source - either from knowledge base, presentation, or word game
     knowledgeContentId: v.optional(v.id("knowledgeContent")),
     presentationId: v.optional(v.id("presentations")),
+    wordGameId: v.optional(v.id("wordGames")),
     // Avatar to teach this lesson
     avatarId: v.id("avatars"),
     // Session type when student joins
@@ -1073,10 +1391,21 @@ export default defineSchema({
     shareToken: v.string(), // Unique token for public URL
     isPublic: v.boolean(), // Whether lesson is publicly discoverable
     requiresAuth: v.boolean(), // Whether authentication is required to join
+    // Enrollment settings
+    enrollmentSettings: v.optional(
+      v.object({
+        allowSelfEnrollment: v.optional(v.boolean()), // Can students self-enroll?
+        maxEnrollments: v.optional(v.number()), // Enrollment limit
+        enrollmentDeadline: v.optional(v.number()), // Deadline timestamp
+      })
+    ),
     // Customization
     welcomeMessage: v.optional(v.string()),
     // Analytics
     totalSessions: v.number(), // Count of sessions created from this lesson
+    // Session duration configuration
+    durationMinutes: v.optional(v.number()), // Override avatar default (10, 20, 30, 60)
+    wrapUpBufferMinutes: v.optional(v.number()), // Override avatar default
     // Metadata
     createdBy: v.id("users"),
     createdAt: v.number(),
@@ -1085,4 +1414,1196 @@ export default defineSchema({
     .index("by_share_token", ["shareToken"])
     .index("by_creator", ["createdBy"])
     .index("by_public", ["isPublic"]),
+
+  // ============================================
+  // LESSON ENROLLMENTS
+  // ============================================
+  lessonEnrollments: defineTable({
+    lessonId: v.id("structuredLessons"),
+
+    // Assignment target (one of these)
+    studentId: v.optional(v.id("students")),
+    groupId: v.optional(v.id("groups")),
+
+    // Enrollment type
+    type: v.union(
+      v.literal("admin_assigned"), // Admin assigned directly
+      v.literal("group_assigned"), // Inherited from group
+      v.literal("self_enrolled") // Student enrolled themselves
+    ),
+
+    // Status tracking
+    status: v.union(
+      v.literal("enrolled"),
+      v.literal("in_progress"),
+      v.literal("completed"),
+      v.literal("dropped")
+    ),
+
+    // Progress tracking
+    progress: v.optional(v.number()), // 0-100 percentage
+    lastAccessedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+
+    // Metadata
+    assignedBy: v.optional(v.id("users")), // For admin assignments
+    enrolledAt: v.number(),
+    dueDate: v.optional(v.number()),
+    notes: v.optional(v.string()),
+  })
+    .index("by_lesson", ["lessonId"])
+    .index("by_student", ["studentId"])
+    .index("by_group", ["groupId"])
+    .index("by_student_lesson", ["studentId", "lessonId"])
+    .index("by_status", ["status"]),
+
+  // ============================================
+  // WORD GAMES SYSTEM
+  // ============================================
+
+  // Word Games - Game definitions
+  wordGames: defineTable({
+    // Identity
+    title: v.string(),
+    slug: v.string(), // URL-friendly identifier
+    description: v.optional(v.string()),
+    instructions: v.string(), // Shown to student
+
+    // Classification
+    type: v.union(
+      v.literal("sentence_builder"),
+      v.literal("fill_in_blank"),
+      v.literal("word_ordering"),
+      v.literal("matching_pairs"),
+      v.literal("word_scramble"),
+      v.literal("multiple_choice"),
+      v.literal("flashcards"),
+      v.literal("hangman"),
+      v.literal("crossword")
+    ),
+    category: v.union(
+      v.literal("grammar"),
+      v.literal("vocabulary"),
+      v.literal("mixed")
+    ),
+    level: v.union(
+      v.literal("A1"),
+      v.literal("A2"),
+      v.literal("B1"),
+      v.literal("B2"),
+      v.literal("C1"),
+      v.literal("C2")
+    ),
+    tags: v.optional(v.array(v.string())),
+
+    // Game Configuration (type-specific JSON)
+    config: v.any(), // GameConfig union type
+
+    // Difficulty Settings
+    difficultyConfig: v.object({
+      hintsAvailable: v.number(),
+      distractorDifficulty: v.union(
+        v.literal("easy"),
+        v.literal("medium"),
+        v.literal("hard")
+      ),
+      timeMultiplier: v.optional(v.number()),
+    }),
+
+    // Hints (generic across all types)
+    hints: v.array(v.string()),
+
+    // Status
+    status: v.union(
+      v.literal("draft"),
+      v.literal("published"),
+      v.literal("archived")
+    ),
+
+    // Metadata
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+
+    // Analytics aggregates (updated periodically)
+    stats: v.optional(
+      v.object({
+        totalPlays: v.number(),
+        completionRate: v.number(),
+        averageStars: v.number(),
+        averageTimeSeconds: v.number(),
+      })
+    ),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_type", ["type"])
+    .index("by_level", ["level"])
+    .index("by_status", ["status"])
+    .index("by_category", ["category"])
+    .index("by_created", ["createdAt"]),
+
+  // Game-Lesson Links
+  gameLessonLinks: defineTable({
+    gameId: v.id("wordGames"),
+    lessonId: v.id("structuredLessons"),
+    triggerType: v.union(
+      v.literal("slide"),
+      v.literal("avatar"),
+      v.literal("student"),
+      v.literal("checkpoint")
+    ),
+    triggerConfig: v.object({
+      slideIndex: v.optional(v.number()),
+      afterMinutes: v.optional(v.number()),
+      keywords: v.optional(v.array(v.string())),
+    }),
+    isRequired: v.boolean(),
+    order: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_game", ["gameId"])
+    .index("by_lesson", ["lessonId"])
+    .index("by_lesson_order", ["lessonId", "order"]),
+
+  // Content-Lesson Links (multiple knowledge content items per lesson)
+  contentLessonLinks: defineTable({
+    contentId: v.id("knowledgeContent"),
+    lessonId: v.id("structuredLessons"),
+    // How this content is triggered
+    triggerType: v.union(
+      v.literal("student"),    // Student chooses from Materials panel
+      v.literal("avatar"),     // Avatar triggers based on conversation
+      v.literal("scheduled")   // Auto-trigger at specific time
+    ),
+    triggerConfig: v.object({
+      afterMinutes: v.optional(v.number()),  // For scheduled trigger
+      keywords: v.optional(v.array(v.string())),  // For avatar trigger
+    }),
+    order: v.number(),  // Display order in Materials panel
+    createdAt: v.number(),
+  })
+    .index("by_content", ["contentId"])
+    .index("by_lesson", ["lessonId"])
+    .index("by_lesson_order", ["lessonId", "order"]),
+
+  // Game Sessions (individual play instances)
+  gameSessions: defineTable({
+    // References
+    gameId: v.id("wordGames"),
+    sessionId: v.optional(v.id("sessions")), // Lesson session if applicable
+    studentId: v.optional(v.id("students")), // Optional for guest multiplayer
+
+    // State
+    status: v.union(
+      v.literal("in_progress"),
+      v.literal("completed"),
+      v.literal("abandoned"),
+      v.literal("waiting") // For multiplayer waiting room
+    ),
+
+    // Game State (for resume capability)
+    gameState: v.any(), // Current game state JSON
+
+    // Progress
+    currentItemIndex: v.number(), // For multi-item games
+    totalItems: v.number(),
+    correctAnswers: v.number(),
+    incorrectAnswers: v.number(),
+    hintsUsed: v.number(),
+
+    // Scoring
+    stars: v.optional(v.number()), // 0-3, set on completion
+    scorePercent: v.optional(v.number()), // 0-100
+
+    // Timing
+    startedAt: v.number(),
+    completedAt: v.optional(v.number()),
+    totalTimeSeconds: v.optional(v.number()),
+
+    // Detailed Event Log (for analytics)
+    events: v.array(
+      v.object({
+        type: v.string(), // "answer", "hint", "scaffold"
+        timestamp: v.number(),
+        data: v.any(),
+      })
+    ),
+
+    // ============================================
+    // MULTIPLAYER FIELDS
+    // ============================================
+    isMultiplayer: v.optional(v.boolean()),
+    shareToken: v.optional(v.string()), // Unique token for shareable link
+    hostUserId: v.optional(v.id("users")), // Teacher/creator who shared
+
+    // Participants (guests don't need accounts)
+    participants: v.optional(
+      v.array(
+        v.object({
+          participantId: v.string(), // Unique ID for this participant
+          displayName: v.string(),
+          userId: v.optional(v.id("users")), // If logged in
+          joinedAt: v.number(),
+          isHost: v.boolean(),
+          isActive: v.boolean(), // For tracking disconnects
+          lastSeenAt: v.number(),
+        })
+      )
+    ),
+
+    // Shared game state for real-time sync
+    sharedState: v.optional(
+      v.object({
+        currentTurn: v.optional(v.string()), // participantId for turn-based games
+        answers: v.optional(v.any()), // Collected answers from all participants
+        syncedItemIndex: v.optional(v.number()), // Which item everyone sees
+        gameMode: v.optional(
+          v.union(
+            v.literal("collaborative"), // Work together
+            v.literal("competitive"), // Race/score
+            v.literal("turn_based") // Take turns
+          )
+        ),
+        // Cursor positions for each participant
+        cursors: v.optional(
+          v.record(
+            v.string(), // participantId
+            v.object({
+              x: v.number(),
+              y: v.number(),
+              lastUpdate: v.number(),
+            })
+          )
+        ),
+        // Live inputs from each participant (what they're typing)
+        inputs: v.optional(
+          v.record(
+            v.string(), // participantId
+            v.object({
+              value: v.string(), // Current input value
+              itemIndex: v.number(), // Which game item they're on
+              lastUpdate: v.number(),
+            })
+          )
+        ),
+        // Element positions for drag-and-drop sync (sentence builder, word ordering, etc.)
+        elements: v.optional(
+          v.object({
+            itemIndex: v.number(), // Which game item
+            positions: v.array(
+              v.object({
+                id: v.string(), // Element ID (e.g., word index)
+                x: v.number(),
+                y: v.number(),
+                slot: v.optional(v.number()), // Target slot index if dropped
+              })
+            ),
+            lastUpdate: v.number(),
+            updatedBy: v.string(), // participantId who made the change
+          })
+        ),
+        // Control system - who can interact with the game
+        controlledBy: v.optional(v.string()), // participantId or null for everyone
+        controlMode: v.optional(
+          v.union(
+            v.literal("host_only"), // Only host can interact
+            v.literal("single"), // One person at a time (controlled by host)
+            v.literal("free") // Everyone can interact
+          )
+        ),
+        // Crossword grid state (JSON stringified 2D array)
+        crosswordGrid: v.optional(
+          v.object({
+            itemIndex: v.number(),
+            gridState: v.string(), // JSON stringified grid
+            lastUpdate: v.number(),
+            updatedBy: v.string(),
+          })
+        ),
+      })
+    ),
+
+    // Session settings
+    allowSelfStart: v.optional(v.boolean()), // Students can start without host
+
+    // Token expiration
+    tokenExpiresAt: v.optional(v.number()),
+
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_game", ["gameId"])
+    .index("by_student", ["studentId"])
+    .index("by_session", ["sessionId"])
+    .index("by_status", ["status"])
+    .index("by_student_game", ["studentId", "gameId"])
+    .index("by_started", ["startedAt"])
+    .index("by_share_token", ["shareToken"]) // Fast lookup for join links
+    .index("by_host", ["hostUserId"]),
+
+  // Game Analytics Aggregates (for dashboard)
+  gameAnalytics: defineTable({
+    // Scope
+    gameId: v.optional(v.id("wordGames")), // null = global
+    studentId: v.optional(v.id("students")), // null = all students
+    period: v.union(
+      v.literal("all_time"),
+      v.literal("monthly"),
+      v.literal("weekly"),
+      v.literal("daily")
+    ),
+    periodStart: v.optional(v.number()), // For non-all_time periods
+
+    // Metrics
+    totalSessions: v.number(),
+    completedSessions: v.number(),
+    abandonedSessions: v.number(),
+    totalStars: v.number(),
+    averageStars: v.number(),
+    averageTimeSeconds: v.number(),
+    totalHintsUsed: v.number(),
+    averageHintsPerGame: v.number(),
+
+    // Per-type breakdown (if gameId is null)
+    byType: v.optional(
+      v.object({
+        sentence_builder: v.optional(v.number()),
+        fill_in_blank: v.optional(v.number()),
+        word_ordering: v.optional(v.number()),
+        matching_pairs: v.optional(v.number()),
+        word_scramble: v.optional(v.number()),
+        multiple_choice: v.optional(v.number()),
+        flashcards: v.optional(v.number()),
+        hangman: v.optional(v.number()),
+        crossword: v.optional(v.number()),
+      })
+    ),
+
+    // Per-level breakdown
+    byLevel: v.optional(
+      v.object({
+        A1: v.optional(v.number()),
+        A2: v.optional(v.number()),
+        B1: v.optional(v.number()),
+        B2: v.optional(v.number()),
+        C1: v.optional(v.number()),
+        C2: v.optional(v.number()),
+      })
+    ),
+
+    updatedAt: v.number(),
+  })
+    .index("by_game", ["gameId"])
+    .index("by_student", ["studentId"])
+    .index("by_period", ["period", "periodStart"]),
+
+  // ============================================
+  // PDF WORKSHEETS SYSTEM
+  // ============================================
+
+  pdfWorksheets: defineTable({
+    // Basic info
+    title: v.string(),
+    description: v.optional(v.string()),
+
+    // Classification
+    cefrLevel: v.union(
+      v.literal("A1"),
+      v.literal("A2"),
+      v.literal("B1"),
+      v.literal("B2"),
+      v.literal("C1"),
+      v.literal("C2")
+    ),
+    category: v.union(
+      v.literal("grammar"),
+      v.literal("vocabulary"),
+      v.literal("reading"),
+      v.literal("writing"),
+      v.literal("mixed")
+    ),
+
+    // PDF Source
+    sourceType: v.union(
+      v.literal("upload"),    // Uploaded PDF
+      v.literal("template"),  // Created from template
+      v.literal("blank")      // Created from scratch
+    ),
+    templateId: v.optional(v.string()), // Template ID if sourceType is "template"
+
+    // PDF Storage
+    originalPdfStorageId: v.optional(v.id("_storage")), // Original uploaded PDF
+    renderedPdfStorageId: v.optional(v.id("_storage")), // PDF with fields rendered (for print)
+
+    // Page Configuration
+    pageSize: v.object({
+      width: v.number(),  // mm (A4 = 210)
+      height: v.number(), // mm (A4 = 297)
+    }),
+    pageCount: v.number(),
+
+    // Pages with extracted/generated content
+    pages: v.array(
+      v.object({
+        index: v.number(),
+        imageStorageId: v.optional(v.id("_storage")), // Page rendered as image for background
+        extractedText: v.optional(v.string()), // OCR extracted text
+        ocrConfidence: v.optional(v.number()), // 0-1 OCR confidence score
+      })
+    ),
+
+    // Form Fields
+    fields: v.array(
+      v.object({
+        id: v.string(),
+        pageIndex: v.number(),
+        type: v.union(
+          v.literal("text_input"),      // Short text answer
+          v.literal("multiple_choice"), // Radio buttons
+          v.literal("checkbox"),        // Multiple select
+          v.literal("matching"),        // Match pairs (rendered as numbered items for print)
+          v.literal("drag_drop"),       // Drag and drop (rendered as fill-in-blank for print)
+          v.literal("long_text")        // Paragraph answer
+        ),
+        // Position on page (relative coordinates 0-1)
+        position: v.object({
+          x: v.number(),
+          y: v.number(),
+          width: v.number(),
+          height: v.number(),
+        }),
+        // Field configuration
+        label: v.optional(v.string()),
+        placeholder: v.optional(v.string()),
+        required: v.optional(v.boolean()),
+        // Answer configuration for auto-grading
+        correctAnswers: v.array(v.string()), // Multiple acceptable answers
+        caseSensitive: v.optional(v.boolean()),
+        points: v.optional(v.number()), // Points for this field (default 1)
+        // Type-specific config
+        config: v.optional(v.any()), // MultipleChoiceConfig, MatchingConfig, etc.
+      })
+    ),
+
+    // Grading Configuration
+    gradingConfig: v.object({
+      passingScore: v.number(), // Percentage to pass (e.g., 70)
+      showCorrectAnswers: v.boolean(), // Show correct answers after submission
+      maxAttempts: v.optional(v.number()), // null = unlimited
+    }),
+
+    // Sharing
+    shareToken: v.string(), // Unique token for public URL
+    isPublic: v.boolean(),
+
+    // Status
+    status: v.union(
+      v.literal("processing"), // PDF being processed/OCR
+      v.literal("draft"),      // Not yet published
+      v.literal("published"),  // Available to students
+      v.literal("archived")    // Hidden from listing
+    ),
+    processingError: v.optional(v.string()),
+
+    // OCR + AI Structuring (New workflow)
+    processingStage: v.optional(
+      v.union(
+        v.literal("uploading"),        // File being uploaded
+        v.literal("ocr_extracting"),   // OCR in progress
+        v.literal("ai_structuring"),   // Claude structuring content
+        v.literal("ready"),            // Ready for editing
+        v.literal("generating_pdf"),   // Exporting to PDF
+        v.literal("failed")            // Processing failed
+      )
+    ),
+    ocrText: v.optional(v.string()),   // Raw OCR extracted text
+    jsonContent: v.optional(v.any()),  // WorksheetContent structured JSON
+
+    // Collaboration
+    lockedBy: v.optional(v.id("users")), // User currently editing
+    lockedAt: v.optional(v.number()),
+    lockedFields: v.optional(v.array(v.string())), // Field IDs being edited
+
+    // Metadata
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+
+    // Version tracking (for future use)
+    version: v.optional(v.number()),
+  })
+    .index("by_share_token", ["shareToken"])
+    .index("by_creator", ["createdBy"])
+    .index("by_status", ["status"])
+    .index("by_level", ["cefrLevel"])
+    .index("by_category", ["category"])
+    .index("by_public", ["isPublic"])
+    .index("by_created", ["createdAt"]),
+
+  // PDF Worksheet Analytics (Anonymous aggregation)
+  pdfWorksheetAnalytics: defineTable({
+    worksheetId: v.id("pdfWorksheets"),
+
+    // Aggregated metrics
+    totalSubmissions: v.number(),
+    completedSubmissions: v.number(),
+    averageScore: v.number(), // 0-100
+    averageTimeSeconds: v.number(),
+    passRate: v.number(), // Percentage who passed
+
+    // Per-field analytics
+    fieldAnalytics: v.array(
+      v.object({
+        fieldId: v.string(),
+        totalAttempts: v.number(),
+        correctAttempts: v.number(),
+        averageScore: v.number(),
+        commonIncorrectAnswers: v.optional(v.array(
+          v.object({
+            answer: v.string(),
+            count: v.number(),
+          })
+        )),
+      })
+    ),
+
+    // Score distribution (buckets)
+    scoreDistribution: v.optional(
+      v.object({
+        bucket_0_20: v.number(),
+        bucket_21_40: v.number(),
+        bucket_41_60: v.number(),
+        bucket_61_80: v.number(),
+        bucket_81_100: v.number(),
+      })
+    ),
+
+    // Time period
+    period: v.union(
+      v.literal("all_time"),
+      v.literal("monthly"),
+      v.literal("weekly")
+    ),
+    periodStart: v.optional(v.number()),
+
+    updatedAt: v.number(),
+  })
+    .index("by_worksheet", ["worksheetId"])
+    .index("by_period", ["period", "periodStart"]),
+
+  // PDF User Templates (Personal saved templates)
+  pdfUserTemplates: defineTable({
+    userId: v.id("users"),
+    worksheetId: v.id("pdfWorksheets"), // Source worksheet to use as template
+
+    name: v.string(),
+    description: v.optional(v.string()),
+
+    // Template metadata
+    category: v.union(
+      v.literal("grammar"),
+      v.literal("vocabulary"),
+      v.literal("reading"),
+      v.literal("writing"),
+      v.literal("mixed")
+    ),
+    recommendedLevel: v.optional(
+      v.union(
+        v.literal("A1"),
+        v.literal("A2"),
+        v.literal("B1"),
+        v.literal("B2"),
+        v.literal("C1"),
+        v.literal("C2")
+      )
+    ),
+
+    // Usage tracking
+    usageCount: v.number(),
+    lastUsedAt: v.optional(v.number()),
+
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_category", ["category"])
+    .index("by_usage", ["usageCount"]),
+
+  // ============================================
+  // CONVERSATION PRACTICE SYSTEM
+  // ============================================
+
+  conversationPractice: defineTable({
+    // Basic info
+    title: v.string(),
+    description: v.optional(v.string()),
+
+    // Content mode
+    mode: v.union(
+      v.literal("free_conversation"), // No context - open practice
+      v.literal("transcript_based"), // Based on uploaded transcript
+      v.literal("knowledge_based"), // Based on existing KB content
+      v.literal("topic_guided") // Guided by topic/scenario
+    ),
+
+    // Transcript content (for mode: "transcript_based")
+    transcript: v.optional(
+      v.object({
+        content: v.string(), // The full transcript text
+        sourceType: v.union(
+          v.literal("paste"), // Pasted text
+          v.literal("file_upload"), // Uploaded .txt/.vtt/.srt
+          v.literal("auto_generated") // From platform recording
+        ),
+        sourceMetadata: v.optional(
+          v.object({
+            originalFileName: v.optional(v.string()),
+            recordingDate: v.optional(v.number()),
+            recordingPlatform: v.optional(v.string()), // "zoom", "teams", "meet"
+            duration: v.optional(v.string()),
+            speakerCount: v.optional(v.number()),
+          })
+        ),
+        processingStatus: v.union(
+          v.literal("raw"), // As uploaded
+          v.literal("processing"), // Being processed
+          v.literal("processed"), // Cleaned/formatted
+          v.literal("summarized") // Also has summary
+        ),
+        summary: v.optional(v.string()), // AI-generated summary
+        keyPoints: v.optional(v.array(v.string())), // Extracted key points
+        topics: v.optional(v.array(v.string())), // Detected topics
+      })
+    ),
+
+    // Topic/subject for guided conversations
+    subject: v.optional(v.string()),
+
+    // Existing KB integration (for mode: "knowledge_based")
+    knowledgeBaseIds: v.optional(v.array(v.id("knowledgeBases"))),
+    knowledgeContentIds: v.optional(v.array(v.id("knowledgeContent"))),
+
+    // Avatar configuration
+    avatarId: v.id("avatars"),
+
+    // Conversation behavior configuration
+    behaviorConfig: v.object({
+      conversationStyle: v.union(
+        v.literal("discussion"), // Open discussion about content
+        v.literal("quiz"), // Quiz student on content
+        v.literal("review"), // Review/summarize content
+        v.literal("q_and_a"), // Student asks questions
+        v.literal("mixed") // Avatar adapts based on student
+      ),
+      difficultyAdaptation: v.boolean(), // Adapt to student level
+      allowTopicDrift: v.boolean(), // Allow going off-topic
+      targetDurationMinutes: v.optional(v.number()),
+    }),
+
+    // Web search capability (optional) - uses Tavily
+    webSearchEnabled: v.optional(v.boolean()),
+    webSearchConfig: v.optional(
+      v.object({
+        // Search depth: basic (faster), advanced (more thorough), or detailed (full article content)
+        searchDepth: v.optional(v.union(v.literal("basic"), v.literal("advanced"), v.literal("detailed"))),
+        // Maximum number of results to fetch
+        maxResults: v.optional(v.number()),
+        // Specific domains to include (e.g., ["bbc.com", "reuters.com"])
+        includeDomains: v.optional(v.array(v.string())),
+        // Domains to exclude from results
+        excludeDomains: v.optional(v.array(v.string())),
+        // Search topic focus: general, news, or finance
+        topic: v.optional(v.union(v.literal("general"), v.literal("news"), v.literal("finance"))),
+        // Custom search queries to run (in addition to conversation context)
+        customQueries: v.optional(v.array(v.string())),
+        // How often to refresh search results (in minutes)
+        refreshIntervalMinutes: v.optional(v.number()),
+      })
+    ),
+
+    // Entry Flow UI Configuration
+    entryFlowConfig: v.optional(
+      v.object({
+        // Start Button Customization
+        startButton: v.optional(
+          v.object({
+            text: v.optional(v.string()), // Default: "Start Conversation"
+            variant: v.optional(
+              v.union(
+                v.literal("primary"), // Solid primary color
+                v.literal("gradient"), // Gradient background
+                v.literal("outline"), // Outlined style
+                v.literal("glow") // With glow effect
+              )
+            ),
+            showAvatarPreview: v.optional(v.boolean()), // Show avatar thumbnail
+            animation: v.optional(
+              v.union(
+                v.literal("none"),
+                v.literal("pulse"),
+                v.literal("breathe"), // Subtle scale animation
+                v.literal("shimmer") // Shimmer effect
+              )
+            ),
+          })
+        ),
+
+        // Waiting Screen Configuration
+        waitingScreen: v.optional(
+          v.object({
+            text: v.optional(v.string()), // Default: "{avatarName} is preparing..."
+            subtext: v.optional(v.string()), // Secondary text below main
+            animation: v.optional(
+              v.union(
+                v.literal("pulse"), // Default gentle pulse
+                v.literal("dots"), // Three bouncing dots
+                v.literal("wave"), // Wave animation
+                v.literal("rings") // Concentric rings
+              )
+            ),
+            showAvatarImage: v.optional(v.boolean()), // Show avatar during wait
+            estimatedWaitSeconds: v.optional(v.number()), // Show countdown
+          })
+        ),
+      })
+    ),
+
+    // Access Mode Configuration
+    accessMode: v.optional(
+      v.union(
+        v.literal("authenticated_only"), // Must be logged in
+        v.literal("public_link"), // Works without login
+        v.literal("both") // Both methods work
+      )
+    ),
+
+    // Guest Settings (for public_link mode)
+    guestSettings: v.optional(
+      v.object({
+        collectName: v.optional(v.boolean()), // Ask for name before start
+        collectEmail: v.optional(v.boolean()), // Ask for email (optional)
+        nameRequired: v.optional(v.boolean()), // Is name mandatory?
+        emailRequired: v.optional(v.boolean()), // Is email mandatory?
+        customFields: v.optional(
+          // Additional custom fields
+          v.array(
+            v.object({
+              id: v.string(),
+              label: v.string(),
+              type: v.union(v.literal("text"), v.literal("select")),
+              required: v.boolean(),
+              options: v.optional(v.array(v.string())), // For select type
+            })
+          )
+        ),
+        termsRequired: v.optional(v.boolean()), // Must accept terms
+        termsText: v.optional(v.string()), // Custom terms text
+        welcomeNote: v.optional(v.string()), // Shown before start
+      })
+    ),
+
+    // Sharing & access
+    shareToken: v.string(),
+    isPublic: v.boolean(),
+    requiresAuth: v.boolean(),
+
+    // Ownership
+    createdBy: v.id("users"),
+
+    // Stats
+    totalSessions: v.number(),
+
+    // Public link tracking (anonymous analytics)
+    publicLinkStats: v.optional(
+      v.object({
+        totalGuestSessions: v.number(),
+        lastGuestSessionAt: v.optional(v.number()),
+      })
+    ),
+
+    // Timestamps
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_share_token", ["shareToken"])
+    .index("by_creator", ["createdBy"])
+    .index("by_mode", ["mode"])
+    .index("by_public", ["isPublic"])
+    .index("by_avatar", ["avatarId"]),
+
+  // ============================================
+  // ENTRY TEST SYSTEM (Cambridge English Assessment)
+  // ============================================
+
+  // Entry Test Templates - Hierarchical test definitions
+  entryTestTemplates: defineTable({
+    title: v.string(),
+    slug: v.string(),
+    description: v.optional(v.string()),
+
+    // Target CEFR range this test assesses
+    targetLevelRange: v.object({
+      min: v.union(
+        v.literal("A1"),
+        v.literal("A2"),
+        v.literal("B1"),
+        v.literal("B2"),
+        v.literal("C1"),
+        v.literal("C2")
+      ),
+      max: v.union(
+        v.literal("A1"),
+        v.literal("A2"),
+        v.literal("B1"),
+        v.literal("B2"),
+        v.literal("C1"),
+        v.literal("C2")
+      ),
+    }),
+
+    // Hierarchical ownership
+    ownership: v.object({
+      type: v.union(
+        v.literal("platform"), // Official platform templates
+        v.literal("company"),  // Company-specific templates
+        v.literal("group")     // Group-specific templates
+      ),
+      companyId: v.optional(v.id("companies")),
+      groupId: v.optional(v.id("groups")),
+      parentTemplateId: v.optional(v.id("entryTestTemplates")), // Template this was derived from
+    }),
+
+    // Test sections configuration
+    sections: v.array(
+      v.object({
+        id: v.string(),
+        type: v.union(
+          v.literal("reading"),
+          v.literal("grammar"),
+          v.literal("vocabulary"),
+          v.literal("listening"),
+          v.literal("writing"),
+          v.literal("speaking")
+        ),
+        title: v.string(),
+        instructions_en: v.string(),
+        instructions_de: v.optional(v.string()),
+        questionCount: v.number(),
+        questionBankFilter: v.object({
+          types: v.array(v.string()), // QuestionType values
+          levels: v.array(v.string()), // CEFR levels
+          tags: v.optional(v.array(v.string())),
+        }),
+        // Question selection mode: auto (use filter) or manual (use selectedQuestionIds)
+        selectionMode: v.optional(
+          v.union(v.literal("auto"), v.literal("manual"))
+        ),
+        // Manually selected question IDs (used when selectionMode is "manual")
+        selectedQuestionIds: v.optional(
+          v.array(v.id("entryTestQuestionBank"))
+        ),
+        weight: v.number(), // Weight for overall CEFR calculation (0-1)
+        order: v.number(),
+      })
+    ),
+
+    // Delivery configuration
+    deliveryConfig: v.object({
+      minimumMode: v.union(
+        v.literal("web_only"),
+        v.literal("audio_avatar"),
+        v.literal("video_avatar")
+      ),
+      allowUpgrade: v.boolean(),
+      avatarId: v.optional(v.id("avatars")),
+    }),
+
+    // Audio configuration for listening questions
+    audioConfig: v.optional(
+      v.object({
+        maxReplays: v.number(),
+        voiceId: v.optional(v.string()),
+        speed: v.optional(v.number()),
+      })
+    ),
+
+    // Feedback configuration
+    feedbackConfig: v.object({
+      showScoreImmediately: v.boolean(),
+      avatarFeedbackLevel: v.union(
+        v.literal("none"),
+        v.literal("score_only"),
+        v.literal("personalized"),
+        v.literal("learning_path"),
+        v.literal("full_debrief")
+      ),
+      showSectionBreakdown: v.boolean(),
+      showCorrectAnswers: v.boolean(),
+    }),
+
+    // Status
+    status: v.union(
+      v.literal("draft"),
+      v.literal("published"),
+      v.literal("archived")
+    ),
+    version: v.number(),
+
+    // Metadata
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_status", ["status"])
+    .index("by_ownership_type", ["ownership.type"])
+    .index("by_company", ["ownership.companyId"])
+    .index("by_group", ["ownership.groupId"]),
+
+  // Entry Test Question Bank - Curated questions for tests
+  entryTestQuestionBank: defineTable({
+    // Question type
+    type: v.union(
+      v.literal("reading_comprehension"),
+      v.literal("grammar_mcq"),
+      v.literal("grammar_fill_blank"),
+      v.literal("vocabulary_mcq"),
+      v.literal("vocabulary_matching"),
+      v.literal("listening_mcq"),
+      v.literal("listening_fill_blank"),
+      v.literal("writing_prompt"),
+      v.literal("speaking_prompt")
+    ),
+
+    // CEFR level
+    cefrLevel: v.union(
+      v.literal("A1"),
+      v.literal("A2"),
+      v.literal("B1"),
+      v.literal("B2"),
+      v.literal("C1"),
+      v.literal("C2")
+    ),
+
+    // Categorization
+    tags: v.array(v.string()),
+
+    // Question content (structure varies by type)
+    content: v.any(), // Type-specific content object
+
+    // For listening questions - pre-generated audio
+    audioStorageId: v.optional(v.id("_storage")),
+    audioText: v.optional(v.string()), // Text that was converted to audio
+
+    // Delivery mode - how the question is presented to the student
+    // text: Student reads the question (default for grammar, vocabulary, reading, writing)
+    // audio: TTS audio plays the question (default for listening)
+    // avatar: Video avatar (Beyond Presence) presents the question (default for speaking)
+    deliveryMode: v.optional(
+      v.union(v.literal("text"), v.literal("audio"), v.literal("avatar"))
+    ),
+
+    // Generation metadata
+    generatedBy: v.union(v.literal("ai"), v.literal("manual")),
+    generationModel: v.optional(v.string()),
+
+    // Curation status
+    curationStatus: v.union(
+      v.literal("pending"),
+      v.literal("approved"),
+      v.literal("rejected")
+    ),
+    curatedBy: v.optional(v.id("users")),
+    curatedAt: v.optional(v.number()),
+    rejectionReason: v.optional(v.string()),
+
+    // Usage statistics
+    usageCount: v.number(),
+    averageScore: v.optional(v.number()),
+    discriminationIndex: v.optional(v.number()), // How well question differentiates levels
+
+    // Metadata
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_type", ["type"])
+    .index("by_level", ["cefrLevel"])
+    .index("by_type_level", ["type", "cefrLevel"])
+    .index("by_curation_status", ["curationStatus"])
+    .index("by_created", ["createdAt"]),
+
+  // Entry Test Sessions - Individual test attempts
+  entryTestSessions: defineTable({
+    templateId: v.id("entryTestTemplates"),
+    studentId: v.id("students"),
+    userId: v.id("users"),
+
+    // Session status
+    status: v.union(
+      v.literal("not_started"),
+      v.literal("in_progress"),
+      v.literal("paused"),
+      v.literal("completed"),
+      v.literal("abandoned")
+    ),
+
+    // Delivery mode used
+    deliveryMode: v.union(
+      v.literal("web_only"),
+      v.literal("audio_avatar"),
+      v.literal("video_avatar")
+    ),
+
+    // LiveKit room for avatar modes
+    liveKitRoomName: v.optional(v.string()),
+
+    // Current state for resume capability
+    currentState: v.object({
+      currentSectionIndex: v.number(),
+      currentQuestionIndex: v.number(),
+      sectionOrder: v.array(v.string()), // Section IDs in order
+      questionOrder: v.any(), // Map of sectionId -> array of questionIds
+    }),
+
+    // Question instances for this test (snapshot for consistency)
+    questionInstances: v.array(
+      v.object({
+        instanceId: v.string(),
+        sectionId: v.string(),
+        questionBankId: v.id("entryTestQuestionBank"),
+        order: v.number(),
+      })
+    ),
+
+    // Student answers
+    answers: v.array(
+      v.object({
+        instanceId: v.string(),
+        answer: v.any(), // Answer value varies by question type
+        audioRecordingStorageId: v.optional(v.id("_storage")), // For speaking questions
+        transcript: v.optional(v.string()), // Deepgram transcript for speaking
+        answeredAt: v.number(),
+        timeSpentSeconds: v.number(),
+        audioReplaysUsed: v.optional(v.number()), // For listening questions
+      })
+    ),
+
+    // Section scores (populated after completion)
+    sectionScores: v.optional(
+      v.array(
+        v.object({
+          sectionId: v.string(),
+          sectionType: v.string(),
+          rawScore: v.number(),
+          maxScore: v.number(),
+          percentScore: v.number(),
+          cefrLevel: v.string(),
+          aiEvaluation: v.optional(v.any()), // LLM evaluation details for writing/speaking
+        })
+      )
+    ),
+
+    // Overall result (populated after completion)
+    overallResult: v.optional(
+      v.object({
+        recommendedLevel: v.string(),
+        confidenceScore: v.number(),
+        totalScore: v.number(),
+        maxPossibleScore: v.number(),
+        percentScore: v.number(),
+        strengths: v.array(v.string()),
+        weaknesses: v.array(v.string()),
+        levelApplied: v.boolean(),
+        levelAppliedAt: v.optional(v.number()),
+        levelAppliedBy: v.optional(v.id("users")),
+      })
+    ),
+
+    // Analytics
+    analytics: v.optional(
+      v.object({
+        totalTimeSeconds: v.number(),
+        averageTimePerQuestion: v.number(),
+        audioReplaysUsed: v.number(),
+        pauseCount: v.number(),
+        resumeCount: v.number(),
+        browserInfo: v.optional(v.string()),
+        deviceType: v.optional(v.string()),
+      })
+    ),
+
+    // Avatar feedback
+    avatarFeedbackDelivered: v.boolean(),
+
+    // Timestamps
+    startedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+    lastActivityAt: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_student", ["studentId"])
+    .index("by_template", ["templateId"])
+    .index("by_status", ["status"])
+    .index("by_student_status", ["studentId", "status"])
+    .index("by_last_activity", ["lastActivityAt"])
+    .index("by_room", ["liveKitRoomName"]),
+
+  // Entry Test Generation Jobs - Track AI question generation
+  entryTestGenerationJobs: defineTable({
+    // Job type
+    type: v.union(
+      v.literal("question_batch"),
+      v.literal("section"),
+      v.literal("full_template")
+    ),
+
+    // Target template (optional)
+    targetTemplateId: v.optional(v.id("entryTestTemplates")),
+
+    // Generation parameters
+    parameters: v.object({
+      questionType: v.optional(v.string()),
+      cefrLevel: v.optional(v.string()),
+      count: v.number(),
+      topic: v.optional(v.string()),
+      customPrompt: v.optional(v.string()),
+    }),
+
+    // Model used
+    model: v.string(),
+
+    // Job status
+    status: v.union(
+      v.literal("pending"),
+      v.literal("processing"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+    progress: v.number(), // 0-100
+
+    // Generated questions
+    generatedQuestionIds: v.array(v.id("entryTestQuestionBank")),
+
+    // Error information
+    error: v.optional(v.string()),
+
+    // Token usage
+    tokenUsage: v.optional(
+      v.object({
+        promptTokens: v.number(),
+        completionTokens: v.number(),
+        totalCost: v.optional(v.number()),
+      })
+    ),
+
+    // Metadata
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    completedAt: v.optional(v.number()),
+  })
+    .index("by_status", ["status"])
+    .index("by_template", ["targetTemplateId"])
+    .index("by_created", ["createdAt"]),
 });

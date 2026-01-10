@@ -44,6 +44,8 @@ import {
   X,
   Pencil,
   Zap,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -51,7 +53,7 @@ import Link from "next/link";
 type ConversationMode = "free_conversation" | "transcript_based" | "knowledge_based" | "topic_guided";
 type ConversationStyle = "discussion" | "quiz" | "review" | "q_and_a" | "mixed";
 type AccessMode = "authenticated_only" | "public_link" | "both";
-type SearchDepth = "basic" | "advanced";
+type SearchDepth = "basic" | "advanced" | "detailed";
 type SearchTopic = "general" | "news" | "finance";
 
 export default function AdminPracticePage() {
@@ -59,6 +61,25 @@ export default function AdminPracticePage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPracticeId, setEditingPracticeId] = useState<Id<"conversationPractice"> | null>(null);
   const [isTestingWebSearch, setIsTestingWebSearch] = useState<string | null>(null);
+
+  // Web search preview state
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+  const [previewResults, setPreviewResults] = useState<{
+    query: string;
+    answer?: string;
+    searchDepth?: string;
+    llmRewrittenContent?: string; // LLM-rewritten clean journalist prose (detailed mode)
+    results: Array<{
+      title: string;
+      url: string;
+      content: string;
+      rawContent?: string; // Full article content (detailed mode)
+      publishedDate?: string;
+    }>;
+    fetchedAt: number;
+  } | null>(null);
+  const [previewPracticeTitle, setPreviewPracticeTitle] = useState("");
+  const [expandedArticles, setExpandedArticles] = useState<Set<number>>(new Set());
 
   // Form state
   const [title, setTitle] = useState("");
@@ -162,7 +183,7 @@ export default function AdminPracticePage() {
     setAccessMode((practice.accessMode || "both") as AccessMode);
     setCollectName(practice.guestSettings?.collectName ?? true);
     setCollectEmail(practice.guestSettings?.collectEmail ?? false);
-    setWelcomeNote(practice.entryFlowConfig?.welcomeNote || "");
+    setWelcomeNote(practice.guestSettings?.welcomeNote || "");
     // Web search
     setWebSearchEnabled(practice.webSearchEnabled || false);
     setSearchDepth((practice.webSearchConfig?.searchDepth || "basic") as SearchDepth);
@@ -170,20 +191,25 @@ export default function AdminPracticePage() {
     setIncludeDomains(practice.webSearchConfig?.includeDomains || []);
     setMaxResults(practice.webSearchConfig?.maxResults || 5);
     // Transcript
-    setTranscriptContent(practice.transcript || "");
+    setTranscriptContent(practice.transcript?.content || "");
     // Knowledge bases
     setSelectedKnowledgeBaseIds(practice.knowledgeBaseIds || []);
 
     setIsDialogOpen(true);
   };
 
-  // Test web search with Tavily
-  const testWebSearch = async (practiceId: string, searchConfig: {
-    searchDepth?: string;
-    topic?: string;
-    includeDomains?: string[];
-    maxResults?: number;
-  } | undefined, subject?: string) => {
+  // Test web search with Tavily and show results in preview dialog
+  const testWebSearch = async (
+    practiceId: string,
+    practiceTitle: string,
+    searchConfig: {
+      searchDepth?: string;
+      topic?: string;
+      includeDomains?: string[];
+      maxResults?: number;
+    } | undefined,
+    subject?: string
+  ) => {
     setIsTestingWebSearch(practiceId);
     try {
       const response = await fetch("/api/practice/test-web-search", {
@@ -201,21 +227,23 @@ export default function AdminPracticePage() {
         throw new Error(data.error || "Failed to test web search");
       }
 
-      if (data.results && data.results.length > 0) {
-        toast.success(
-          <div className="space-y-1">
-            <div className="font-medium">Web Search Working!</div>
-            <div className="text-sm text-muted-foreground">
-              Found {data.results.length} results for "{data.query}"
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              {data.results.slice(0, 2).map((r: { title: string }, i: number) => (
-                <div key={i}>• {r.title}</div>
-              ))}
-            </div>
-          </div>,
-          { duration: 5000 }
-        );
+      if (data.webSearchResults && data.webSearchResults.results.length > 0) {
+        // Store results and open preview dialog
+        setPreviewResults(data.webSearchResults);
+        setPreviewPracticeTitle(practiceTitle);
+        setPreviewDialogOpen(true);
+        toast.success(`Found ${data.webSearchResults.results.length} results`);
+      } else if (data.results && data.results.length > 0) {
+        // Legacy format fallback
+        setPreviewResults({
+          query: data.query,
+          answer: data.answer,
+          results: data.results,
+          fetchedAt: Date.now(),
+        });
+        setPreviewPracticeTitle(practiceTitle);
+        setPreviewDialogOpen(true);
+        toast.success(`Found ${data.results.length} results`);
       } else {
         toast.warning("No results found - try different search settings");
       }
@@ -250,14 +278,12 @@ export default function AdminPracticePage() {
     setIsCreating(true);
     try {
       if (editingPracticeId) {
-        // Update existing practice
+        // Update existing practice (mode and avatarId are immutable)
         await updatePractice({
           practiceId: editingPracticeId,
           title: title.trim(),
           description: description.trim() || undefined,
-          mode,
           subject: subject.trim() || undefined,
-          avatarId: avatarId as Id<"avatars">,
           behaviorConfig: {
             conversationStyle,
             difficultyAdaptation: true,
@@ -273,15 +299,10 @@ export default function AdminPracticePage() {
                 includeDomains: includeDomains.length > 0 ? includeDomains : undefined,
               }
             : undefined,
-          knowledgeBaseIds: selectedKnowledgeBaseIds.length > 0
-            ? selectedKnowledgeBaseIds.map((id) => id as Id<"knowledgeBases">)
-            : undefined,
           accessMode,
           guestSettings: {
             collectName,
             collectEmail,
-          },
-          entryFlowConfig: {
             welcomeNote: welcomeNote.trim() || undefined,
           },
         });
@@ -746,6 +767,7 @@ export default function AdminPracticePage() {
                             <SelectContent>
                               <SelectItem value="basic">Basic (faster)</SelectItem>
                               <SelectItem value="advanced">Advanced (more thorough)</SelectItem>
+                              <SelectItem value="detailed">Detailed (full articles)</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -1037,16 +1059,17 @@ export default function AdminPracticePage() {
                           className="text-blue-600 hover:text-blue-700"
                           onClick={() => testWebSearch(
                             practice._id,
+                            practice.title,
                             practice.webSearchConfig,
                             practice.subject
                           )}
                           disabled={isTestingWebSearch === practice._id}
-                          title="Test Web Search"
+                          title="Fetch & Preview Web Search"
                         >
                           {isTestingWebSearch === practice._id ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
                           ) : (
-                            <Zap className="w-4 h-4" />
+                            <Search className="w-4 h-4" />
                           )}
                         </Button>
                       )}
@@ -1076,6 +1099,177 @@ export default function AdminPracticePage() {
             ))}
           </div>
         )}
+
+        {/* Web Search Preview Dialog */}
+        <Dialog open={previewDialogOpen} onOpenChange={(open) => {
+          setPreviewDialogOpen(open);
+          if (!open) setExpandedArticles(new Set());
+        }}>
+          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Globe className="w-5 h-5 text-blue-600" />
+                Web Search Preview: {previewPracticeTitle}
+              </DialogTitle>
+            </DialogHeader>
+
+            {previewResults && (
+              <div className="space-y-4">
+                {/* Query and metadata */}
+                <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <Search className="w-4 h-4 text-blue-600" />
+                      <span className="font-medium">Query:</span>
+                      <span className="text-muted-foreground">{previewResults.query}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {previewResults.searchDepth === "detailed" && (
+                        <Badge className="bg-purple-500 text-xs">Full Articles</Badge>
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(previewResults.fetchedAt).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Synthesized answer */}
+                {previewResults.answer && (
+                  <div className="p-4 bg-green-50 rounded-lg border border-green-100">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Zap className="w-4 h-4 text-green-600" />
+                      <span className="font-medium text-green-800">AI Summary (what avatar sees first)</span>
+                    </div>
+                    <p className="text-sm text-green-900">{previewResults.answer}</p>
+                  </div>
+                )}
+
+                {/* LLM Rewritten Content - Clean journalist prose */}
+                {previewResults.llmRewrittenContent && (
+                  <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                    <div className="flex items-center gap-2 mb-3">
+                      <FileText className="w-4 h-4 text-purple-600" />
+                      <span className="font-medium text-purple-800">Clean Article Content (what avatar uses)</span>
+                      <Badge className="bg-purple-500 text-xs">LLM Rewritten</Badge>
+                    </div>
+                    <div className="text-sm text-purple-900 whitespace-pre-wrap max-h-[400px] overflow-y-auto">
+                      {previewResults.llmRewrittenContent}
+                    </div>
+                  </div>
+                )}
+
+                {/* Results list */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <FileText className="w-4 h-4 text-muted-foreground" />
+                    <span className="font-medium">
+                      Sources ({previewResults.results.length} results)
+                    </span>
+                    {previewResults.searchDepth === "detailed" && (
+                      <span className="text-xs text-purple-600">
+                        ({Math.round(previewResults.results.reduce((sum, r) => sum + (r.rawContent?.length || r.content.length), 0) / 1000)}k chars)
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
+                    {previewResults.results.map((result, i) => {
+                      const isExpanded = expandedArticles.has(i);
+                      const hasFullContent = !!result.rawContent;
+
+                      return (
+                        <div
+                          key={i}
+                          className="p-3 bg-muted/50 rounded-lg border"
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <h4 className="font-medium text-sm line-clamp-1">
+                              {i + 1}. {result.title}
+                            </h4>
+                            <div className="flex items-center gap-1 shrink-0">
+                              {hasFullContent && (
+                                <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+                                  {Math.round((result.rawContent?.length || 0) / 1000)}k
+                                </Badge>
+                              )}
+                              {result.publishedDate && (
+                                <Badge variant="outline" className="text-xs">
+                                  {result.publishedDate}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <a
+                            href={result.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-600 hover:underline line-clamp-1 mb-2 block"
+                          >
+                            {result.url}
+                          </a>
+
+                          {/* Content display */}
+                          {hasFullContent ? (
+                            <div>
+                              <p className={`text-sm text-muted-foreground ${isExpanded ? "" : "line-clamp-3"}`}>
+                                {isExpanded ? result.rawContent : result.content}
+                              </p>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="mt-2 h-6 text-xs text-purple-600 hover:text-purple-700 px-2"
+                                onClick={() => {
+                                  const newExpanded = new Set(expandedArticles);
+                                  if (isExpanded) {
+                                    newExpanded.delete(i);
+                                  } else {
+                                    newExpanded.add(i);
+                                  }
+                                  setExpandedArticles(newExpanded);
+                                }}
+                              >
+                                {isExpanded ? (
+                                  <>
+                                    <ChevronUp className="w-3 h-3 mr-1" />
+                                    Show less
+                                  </>
+                                ) : (
+                                  <>
+                                    <ChevronDown className="w-3 h-3 mr-1" />
+                                    Show full article ({Math.round((result.rawContent?.length || 0) / 1000)}k chars)
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          ) : (
+                            <p className="text-sm text-muted-foreground line-clamp-3">
+                              {result.content}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Info box */}
+                <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-sm">
+                  <p className="text-amber-800">
+                    <strong>How it works:</strong> When a user joins this practice session,
+                    Tavily will fetch fresh news/information and inject it into the avatar's
+                    context. The avatar will be able to discuss this current information naturally.
+                    {previewResults.searchDepth === "detailed" && (
+                      <span className="block mt-1 text-purple-700">
+                        <strong>Detailed mode:</strong> Full article text is included, giving the avatar deep knowledge of each source.
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
