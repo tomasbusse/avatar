@@ -42,6 +42,8 @@ import {
   Upload,
   BookOpen,
   X,
+  Pencil,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -55,6 +57,8 @@ type SearchTopic = "general" | "news" | "finance";
 export default function AdminPracticePage() {
   const [isCreating, setIsCreating] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingPracticeId, setEditingPracticeId] = useState<Id<"conversationPractice"> | null>(null);
+  const [isTestingWebSearch, setIsTestingWebSearch] = useState<string | null>(null);
 
   // Form state
   const [title, setTitle] = useState("");
@@ -92,6 +96,7 @@ export default function AdminPracticePage() {
 
   // Mutations
   const createPractice = useMutation(api.conversationPractice.create);
+  const updatePractice = useMutation(api.conversationPractice.update);
   const deletePractice = useMutation(api.conversationPractice.remove);
   const regenerateToken = useMutation(api.conversationPractice.regenerateShareToken);
   const uploadTranscript = useMutation(api.conversationPractice.uploadTranscript);
@@ -142,6 +147,159 @@ export default function AdminPracticePage() {
   // Handle removing a domain from the list
   const handleRemoveDomain = (domain: string) => {
     setIncludeDomains(includeDomains.filter((d) => d !== domain));
+  };
+
+  // Load practice data for editing
+  const loadPracticeForEdit = (practice: NonNullable<typeof practices>[number]) => {
+    setEditingPracticeId(practice._id);
+    setTitle(practice.title);
+    setDescription(practice.description || "");
+    setMode(practice.mode as ConversationMode);
+    setSubject(practice.subject || "");
+    setAvatarId(practice.avatarId);
+    setConversationStyle((practice.behaviorConfig.conversationStyle || "discussion") as ConversationStyle);
+    setTargetDuration(practice.behaviorConfig.targetDurationMinutes || 15);
+    setAccessMode((practice.accessMode || "both") as AccessMode);
+    setCollectName(practice.guestSettings?.collectName ?? true);
+    setCollectEmail(practice.guestSettings?.collectEmail ?? false);
+    setWelcomeNote(practice.entryFlowConfig?.welcomeNote || "");
+    // Web search
+    setWebSearchEnabled(practice.webSearchEnabled || false);
+    setSearchDepth((practice.webSearchConfig?.searchDepth || "basic") as SearchDepth);
+    setSearchTopic((practice.webSearchConfig?.topic || "general") as SearchTopic);
+    setIncludeDomains(practice.webSearchConfig?.includeDomains || []);
+    setMaxResults(practice.webSearchConfig?.maxResults || 5);
+    // Transcript
+    setTranscriptContent(practice.transcript || "");
+    // Knowledge bases
+    setSelectedKnowledgeBaseIds(practice.knowledgeBaseIds || []);
+
+    setIsDialogOpen(true);
+  };
+
+  // Test web search with Tavily
+  const testWebSearch = async (practiceId: string, searchConfig: {
+    searchDepth?: string;
+    topic?: string;
+    includeDomains?: string[];
+    maxResults?: number;
+  } | undefined, subject?: string) => {
+    setIsTestingWebSearch(practiceId);
+    try {
+      const response = await fetch("/api/practice/test-web-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          searchConfig,
+          subject,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to test web search");
+      }
+
+      if (data.results && data.results.length > 0) {
+        toast.success(
+          <div className="space-y-1">
+            <div className="font-medium">Web Search Working!</div>
+            <div className="text-sm text-muted-foreground">
+              Found {data.results.length} results for "{data.query}"
+            </div>
+            <div className="text-xs text-muted-foreground mt-1">
+              {data.results.slice(0, 2).map((r: { title: string }, i: number) => (
+                <div key={i}>• {r.title}</div>
+              ))}
+            </div>
+          </div>,
+          { duration: 5000 }
+        );
+      } else {
+        toast.warning("No results found - try different search settings");
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to test web search");
+    } finally {
+      setIsTestingWebSearch(null);
+    }
+  };
+
+  // Handle save (create or update)
+  const handleSave = async () => {
+    if (!title.trim()) {
+      toast.error("Please enter a title");
+      return;
+    }
+    if (!avatarId) {
+      toast.error("Please select an avatar");
+      return;
+    }
+
+    // Mode-specific validation
+    if (mode === "transcript_based" && !transcriptContent.trim()) {
+      toast.error("Please enter or upload a transcript");
+      return;
+    }
+    if (mode === "knowledge_based" && selectedKnowledgeBaseIds.length === 0) {
+      toast.error("Please select at least one knowledge base");
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      if (editingPracticeId) {
+        // Update existing practice
+        await updatePractice({
+          practiceId: editingPracticeId,
+          title: title.trim(),
+          description: description.trim() || undefined,
+          mode,
+          subject: subject.trim() || undefined,
+          avatarId: avatarId as Id<"avatars">,
+          behaviorConfig: {
+            conversationStyle,
+            difficultyAdaptation: true,
+            allowTopicDrift: true,
+            targetDurationMinutes: targetDuration,
+          },
+          webSearchEnabled,
+          webSearchConfig: webSearchEnabled
+            ? {
+                searchDepth,
+                topic: searchTopic,
+                maxResults,
+                includeDomains: includeDomains.length > 0 ? includeDomains : undefined,
+              }
+            : undefined,
+          knowledgeBaseIds: selectedKnowledgeBaseIds.length > 0
+            ? selectedKnowledgeBaseIds.map((id) => id as Id<"knowledgeBases">)
+            : undefined,
+          accessMode,
+          guestSettings: {
+            collectName,
+            collectEmail,
+          },
+          entryFlowConfig: {
+            welcomeNote: welcomeNote.trim() || undefined,
+          },
+        });
+        toast.success("Practice updated!");
+      } else {
+        // Create new practice
+        await handleCreate();
+        return; // handleCreate already handles success/error
+      }
+
+      resetForm();
+      setEditingPracticeId(null);
+      setIsDialogOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to save");
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   // Handle transcript file selection
@@ -299,7 +457,13 @@ export default function AdminPracticePage() {
             </p>
           </div>
 
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) {
+              resetForm();
+              setEditingPracticeId(null);
+            }
+          }}>
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <Plus className="w-4 h-4" />
@@ -308,7 +472,9 @@ export default function AdminPracticePage() {
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Create Conversation Practice</DialogTitle>
+                <DialogTitle>
+                  {editingPracticeId ? "Edit Conversation Practice" : "Create Conversation Practice"}
+                </DialogTitle>
               </DialogHeader>
 
               <div className="space-y-6 py-4">
@@ -727,17 +893,21 @@ export default function AdminPracticePage() {
 
                 {/* Actions */}
                 <div className="flex justify-end gap-2 pt-4 border-t">
-                  <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  <Button variant="outline" onClick={() => {
+                    setIsDialogOpen(false);
+                    resetForm();
+                    setEditingPracticeId(null);
+                  }}>
                     Cancel
                   </Button>
-                  <Button onClick={handleCreate} disabled={isCreating}>
+                  <Button onClick={handleSave} disabled={isCreating}>
                     {isCreating ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Creating...
+                        {editingPracticeId ? "Saving..." : "Creating..."}
                       </>
                     ) : (
-                      "Create Practice"
+                      editingPracticeId ? "Save Changes" : "Create Practice"
                     )}
                   </Button>
                 </div>
@@ -858,14 +1028,48 @@ export default function AdminPracticePage() {
                       </div>
                     </div>
 
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => handleDelete(practice._id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      {/* Test Web Search Button */}
+                      {practice.webSearchEnabled && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-blue-600 hover:text-blue-700"
+                          onClick={() => testWebSearch(
+                            practice._id,
+                            practice.webSearchConfig,
+                            practice.subject
+                          )}
+                          disabled={isTestingWebSearch === practice._id}
+                          title="Test Web Search"
+                        >
+                          {isTestingWebSearch === practice._id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Zap className="w-4 h-4" />
+                          )}
+                        </Button>
+                      )}
+                      {/* Edit Button */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => loadPracticeForEdit(practice)}
+                        title="Edit Practice"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      {/* Delete Button */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => handleDelete(practice._id)}
+                        title="Delete Practice"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
