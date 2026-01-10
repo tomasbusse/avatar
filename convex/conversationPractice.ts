@@ -691,6 +691,7 @@ export const createSession = mutation({
         query: v.string(),
         answer: v.optional(v.string()),
         searchDepth: v.optional(v.string()), // "basic" | "advanced" | "detailed"
+        llmRewrittenContent: v.optional(v.string()), // LLM-rewritten clean journalist prose
         results: v.array(
           v.object({
             title: v.string(),
