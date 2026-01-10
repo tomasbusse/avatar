@@ -9,7 +9,7 @@ import {
   useTracks,
   useVoiceAssistant,
   VideoTrack,
-  useTrackContext,
+  useTrackRefContext,
   useTrackVolume,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
@@ -34,7 +34,7 @@ import {
   MonitorOff,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
 interface LessonRoomProps {
@@ -43,6 +43,36 @@ interface LessonRoomProps {
   participantName: string;
   avatar?: any; // Full avatar object with personality, identity, etc.
   onSessionEnd?: () => void;
+  isGuest?: boolean; // For open access lessons without authentication
+}
+
+/**
+ * Pre-warm audio context to avoid delay on first interaction
+ * Only runs once per page load
+ */
+let audioContextWarmed = false;
+function warmAudioContext(): void {
+  if (audioContextWarmed) return;
+  audioContextWarmed = true;
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+    if (AudioContext) {
+      const ctx = new AudioContext();
+      // Create a silent oscillator to warm up the audio pipeline
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      gainNode.gain.value = 0; // Silent
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      oscillator.start();
+      oscillator.stop(ctx.currentTime + 0.001);
+      console.log("[LessonRoom] Audio context warmed up");
+    }
+  } catch (e) {
+    console.warn("[LessonRoom] Failed to warm audio context:", e);
+  }
 }
 
 
@@ -73,6 +103,7 @@ export function LessonRoom({
   participantName,
   avatar,
   onSessionEnd,
+  isGuest = false,
 }: LessonRoomProps) {
   const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -82,18 +113,57 @@ export function LessonRoom({
   const livekitUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL;
 
   // Memoize avatar to prevent unnecessary re-renders/re-fetches
-  // Only use the initial avatar value to prevent race conditions
   const avatarRef = useRef(avatar);
-  if (avatar && !avatarRef.current) {
+  if (avatar) {
     avatarRef.current = avatar;
   }
 
+  // Debug: Log avatar when component mounts
+  console.log("[LessonRoom] Avatar prop received:", {
+    hasAvatar: !!avatar,
+    avatarName: avatar?.name,
+    hasLlmConfig: !!avatar?.llmConfig,
+    llmModel: avatar?.llmConfig?.model,
+    hasVoiceProvider: !!avatar?.voiceProvider,
+    voiceModel: avatar?.voiceProvider?.model,
+    voiceId: avatar?.voiceProvider?.voiceId,
+  });
+
+  // Warm up audio context on mount for faster first response
   useEffect(() => {
-    // Only fetch token once
+    warmAudioContext();
+  }, []);
+
+  useEffect(() => {
+    // Only fetch token once per session - use sessionStorage to handle React StrictMode double-mount
+    const tokenCacheKey = `livekit_token_${roomName}_${sessionId}`;
+    const cachedToken = sessionStorage.getItem(tokenCacheKey);
+
+    // If we already have a token for this session, use it
+    if (cachedToken && !token) {
+      console.log("[LessonRoom] Using cached token for session");
+      setToken(cachedToken);
+      setIsConnecting(false);
+      return;
+    }
+
+    // Prevent duplicate fetches with ref (handles rapid re-renders)
     if (tokenFetchedRef.current) return;
     tokenFetchedRef.current = true;
 
+    const startTime = performance.now();
+
     async function fetchToken() {
+      // Debug: Log what we're sending
+      console.log("[LessonRoom] Fetching token with avatar:", {
+        hasAvatarRef: !!avatarRef.current,
+        avatarName: avatarRef.current?.name,
+        hasLlmConfig: !!avatarRef.current?.llmConfig,
+        llmModel: avatarRef.current?.llmConfig?.model,
+        hasVoiceProvider: !!avatarRef.current?.voiceProvider,
+        voiceModel: avatarRef.current?.voiceProvider?.model,
+      });
+
       try {
         const response = await fetch("/api/livekit/token", {
           method: "POST",
@@ -103,6 +173,8 @@ export function LessonRoom({
             participantName,
             sessionId,
             avatar: avatarRef.current, // Use ref to get stable avatar value
+            isGuest,
+            guestId: isGuest ? `guest_${sessionId}` : undefined,
           }),
         });
 
@@ -111,7 +183,10 @@ export function LessonRoom({
         }
 
         const data = await response.json();
+        // Cache the token in sessionStorage to prevent double-fetch on StrictMode remount
+        sessionStorage.setItem(tokenCacheKey, data.token);
         setToken(data.token);
+        console.log(`[LessonRoom] Connection ready in ${(performance.now() - startTime).toFixed(0)}ms`);
       } catch (err) {
         console.error("Token fetch error:", err);
         setError("Failed to connect to lesson room");
@@ -121,7 +196,10 @@ export function LessonRoom({
     }
 
     fetchToken();
-  }, [roomName, participantName, sessionId]); // Removed avatar from deps
+
+    // NO cleanup - don't reset ref to avoid StrictMode double-fetch issues
+    // Token is cached in sessionStorage per room+session, so navigation away/back is safe
+  }, [roomName, participantName, sessionId, token]); // Added token to deps
 
   if (error) {
     return (
@@ -153,11 +231,17 @@ export function LessonRoom({
       audio={true}
       video={true}
       onDisconnected={() => {
+        console.log("[LessonRoom] Room disconnected");
         onSessionEnd?.();
       }}
       className="h-full"
     >
-      <RoomContent sessionId={sessionId} roomName={roomName} onEnd={onSessionEnd} />
+      <RoomContent
+        sessionId={sessionId}
+        roomName={roomName}
+        participantName={participantName}
+        onEnd={onSessionEnd}
+      />
       <RoomAudioRenderer />
     </LiveKitRoom>
   );
@@ -166,10 +250,12 @@ export function LessonRoom({
 function RoomContent({
   sessionId,
   roomName,
+  participantName,
   onEnd,
 }: {
   sessionId: string;
   roomName: string;
+  participantName: string;
   onEnd?: () => void;
 }) {
   const router = useRouter();
@@ -199,23 +285,37 @@ function RoomContent({
     if (!localParticipant) return;
 
     try {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.src = imageUrl;
+      // Fetch image as blob to avoid CORS issues
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
 
-      await new Promise((resolve) => { img.onload = resolve; });
+      const img = new Image();
+      img.src = objectUrl;
+
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
 
       const canvas = document.createElement("canvas");
       const MAX_WIDTH = 1024; // High enough for OCR/detail
-      const scale = MAX_WIDTH / img.width;
-      canvas.width = MAX_WIDTH;
+      const scale = Math.min(1, MAX_WIDTH / img.width);
+      canvas.width = img.width * scale;
       canvas.height = img.height * scale;
 
       const ctx = canvas.getContext("2d");
-      if (!ctx) return;
+      if (!ctx) {
+        URL.revokeObjectURL(objectUrl);
+        return;
+      }
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
       const base64 = canvas.toDataURL("image/jpeg", 0.7);
+
+      // Clean up object URL
+      URL.revokeObjectURL(objectUrl);
+
       const encoder = new TextEncoder();
       const payload = JSON.stringify({
         type: "document_image",
@@ -260,7 +360,9 @@ function RoomContent({
         }
 
         // 2. Send High-Quality Snapshot (Data Packet) for focused vision
-        sendHighQualitySnapshot(slideData.url);
+        if (slideData.url) {
+          sendHighQualitySnapshot(slideData.url);
+        }
       }
     }
   }, [currentSlideIndex, presentation, room.localParticipant, sendHighQualitySnapshot]);
@@ -295,21 +397,9 @@ function RoomContent({
 
     setIsUploading(true);
 
-    // Automatically start NATIVE screen share on upload to provide vision context
-    if (!isScreenShareEnabled && localParticipant) {
-      try {
-        console.log("[VISION] Launching native screen share picker (preferring current tab)...");
-        await localParticipant.setScreenShareEnabled(true, {
-          selfBrowserSurface: "include",
-          // @ts-ignore - Support newer browser hint for preferring current tab
-          preferCurrentTab: true,
-          surfaceSwitching: "include",
-          systemAudio: "exclude"
-        });
-      } catch (err) {
-        console.error("Failed to start auto-screenshare:", err);
-      }
-    }
+    // NOTE: Screen share is DISABLED - we use direct canvas capture instead
+    // Slides are automatically captured and sent via data channel when they load/change
+    // This avoids the browser's screen share picker dialog entirely
 
     const formData = new FormData();
     formData.append("file", file);
@@ -368,6 +458,7 @@ function RoomContent({
   };
 
   const session = useQuery(api.sessions.getSessionByRoom, { roomName });
+  const endSessionByRoom = useMutation(api.sessions.endSessionByRoom);
 
   // Get the avatar details for personalized messages
   const avatar = useQuery(
@@ -426,6 +517,33 @@ function RoomContent({
     }
   }, [localParticipant, isCameraOff]);
 
+  // Toggle screen share - configured to show ONLY current tab option
+  const toggleScreenShare = useCallback(async () => {
+    if (!localParticipant) return;
+
+    try {
+      const newState = !isScreenShareEnabled;
+      console.log(`[LessonRoom] ${newState ? "Starting" : "Stopping"} screen share...`);
+
+      await localParticipant.setScreenShareEnabled(newState, {
+        audio: false,
+        video: {
+          // @ts-ignore - Chrome-specific: restrict to current tab only
+          displaySurface: "browser", // Only allow tab sharing (not window/screen)
+        },
+        selfBrowserSurface: "include", // Include current tab in picker
+        // @ts-ignore - Chrome 109+: prefer/pre-select current tab
+        preferCurrentTab: true,
+        surfaceSwitching: "exclude", // Don't allow switching to other surfaces
+        systemAudio: "exclude",
+      });
+
+      console.log(`[LessonRoom] ✅ Screen share ${newState ? "started" : "stopped"}`);
+    } catch (error) {
+      console.error("[LessonRoom] Screen share failed:", error);
+    }
+  }, [localParticipant, isScreenShareEnabled]);
+
   const localAudioTrack = useTracks([Track.Source.Microphone]).find(
     (t) => t.participant.identity === localParticipant.identity
   );
@@ -433,6 +551,25 @@ function RoomContent({
   const endLesson = useCallback(async () => {
     setIsEnding(true);
     try {
+      console.log("[LessonRoom] Ending lesson...");
+
+      // Mark session as completed in database BEFORE disconnecting
+      // This ensures cleanup even if LiveKit disconnect fails
+      try {
+        await endSessionByRoom({ roomName, reason: "completed" });
+        console.log("[LessonRoom] Session marked as completed");
+      } catch (sessionError) {
+        console.warn("[LessonRoom] Failed to end session in DB (may already be ended):", sessionError);
+      }
+
+      // Disable tracks before disconnecting
+      if (localParticipant) {
+        await localParticipant.setMicrophoneEnabled(false);
+        await localParticipant.setCameraEnabled(false);
+        if (isScreenShareEnabled) {
+          await localParticipant.setScreenShareEnabled(false);
+        }
+      }
       await room.disconnect();
       onEnd?.();
       router.push("/dashboard");
@@ -440,7 +577,40 @@ function RoomContent({
       console.error("Error ending lesson:", error);
       router.push("/dashboard");
     }
-  }, [room, onEnd, router]);
+  }, [room, onEnd, router, localParticipant, isScreenShareEnabled, endSessionByRoom, roomName]);
+
+  // Cleanup on unmount - ensures resources are released
+  useEffect(() => {
+    return () => {
+      console.log("[LessonRoom] RoomContent unmounting - cleaning up resources");
+      // Disable tracks on unmount
+      if (localParticipant) {
+        localParticipant.setMicrophoneEnabled(false).catch(() => {});
+        localParticipant.setCameraEnabled(false).catch(() => {});
+      }
+    };
+  }, [localParticipant]);
+
+  // Browser close/refresh cleanup via beacon API
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Use sendBeacon to ensure the request completes even as page unloads
+      const data = JSON.stringify({
+        roomName,
+        reason: "browser_closed",
+      });
+
+      // sendBeacon is fire-and-forget, works reliably during page unload
+      navigator.sendBeacon("/api/sessions/cleanup", data);
+      console.log("[LessonRoom] Sent cleanup beacon for room:", roomName);
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [roomName]);
 
   useEffect(() => {
     const handleDisconnect = () => {
@@ -511,7 +681,7 @@ function RoomContent({
             </div>
             <h2 className="text-xl font-bold mb-2">Enable Audio</h2>
             <p className="text-muted-foreground mb-6">
-              Your browser has blocked audio playback. Click the button below to hear Ludwig.
+              Your browser has blocked audio playback. Click the button below to hear {avatarName}.
             </p>
             <Button onClick={handleResumeAudio} size="lg" className="w-full gap-2">
               <Volume2 className="w-5 h-5" />
@@ -748,8 +918,8 @@ function RoomContent({
               variant={isScreenShareEnabled ? "destructive" : "secondary"}
               size="lg"
               className="rounded-full w-14 h-14"
-              onClick={() => localParticipant?.setScreenShareEnabled(!isScreenShareEnabled)}
-              title={isScreenShareEnabled ? "Stop Screen Share" : "Share Screen"}
+              onClick={toggleScreenShare}
+              title={isScreenShareEnabled ? "Stop Screen Share" : "Share Current Tab"}
             >
               {isScreenShareEnabled ? (
                 <MonitorOff className="w-6 h-6" />

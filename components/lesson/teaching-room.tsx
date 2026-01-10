@@ -129,16 +129,26 @@ export function TeachingRoom({
   }, []);
 
   useEffect(() => {
-    // Only fetch token once per mount
+    // Use sessionStorage to handle React StrictMode double-mount
+    // This prevents duplicate token fetches which cause double agent dispatches
+    const tokenCacheKey = `livekit_token_${roomName}_${sessionId}`;
+    const cachedToken = sessionStorage.getItem(tokenCacheKey);
+
+    // If we already have a token for this session, use it
+    if (cachedToken && !token) {
+      console.log("[TeachingRoom] Using cached token for session");
+      setToken(cachedToken);
+      setIsConnecting(false);
+      return;
+    }
+
+    // Prevent duplicate fetches with ref (handles rapid re-renders)
     if (tokenFetchedRef.current) return;
     tokenFetchedRef.current = true;
 
     const startTime = performance.now();
 
     async function fetchToken() {
-      // Always fetch fresh token - this ensures the agent is dispatched to the room
-      // The token endpoint dispatches the agent, so we can't skip it
-
       // Debug: Log what we're sending
       console.log("[TeachingRoom] Fetching token with avatar:", {
         hasAvatarRef: !!avatarRef.current,
@@ -168,6 +178,8 @@ export function TeachingRoom({
         }
 
         const data = await response.json();
+        // Cache the token in sessionStorage to prevent double-fetch on StrictMode remount
+        sessionStorage.setItem(tokenCacheKey, data.token);
         setToken(data.token);
         console.log(`[TeachingRoom] Connection ready in ${(performance.now() - startTime).toFixed(0)}ms`);
       } catch (err) {
@@ -180,12 +192,8 @@ export function TeachingRoom({
 
     fetchToken();
 
-    // Cleanup: reset ref on unmount so re-entry fetches fresh token
-    return () => {
-      console.log("[TeachingRoom] Cleanup: resetting token fetch ref");
-      tokenFetchedRef.current = false;
-    };
-  }, [roomName, participantName, sessionId]); // Removed avatar from deps
+    // NO cleanup - don't reset ref to avoid StrictMode double-fetch issues
+  }, [roomName, participantName, sessionId, token]); // Added token to deps for cache check
 
   if (error) {
     return (
@@ -547,35 +555,9 @@ function RoomContent({
     (track) => track.participant.identity === localParticipant.identity
   );
 
-  // Get all remote participants for multi-participant classroom mode
+  // Simplified: 2 participants only (1 student + 1 avatar)
+  // Multi-participant classroom mode removed for simplicity
   const remoteParticipants = useRemoteParticipants();
-
-  // Filter to get other students (exclude avatar/agent participants)
-  const otherStudents = remoteParticipants.filter((participant) => {
-    const identity = participant.identity.toLowerCase();
-    // Exclude avatar/agent participants
-    if (identity.includes("bey") || identity.includes("avatar") || identity.includes("agent")) {
-      return false;
-    }
-    // Exclude participants of kind "agent" (LiveKit agent participants)
-    if (participant.kind === "agent") {
-      return false;
-    }
-    return true;
-  });
-
-  // Get video tracks for other students
-  const otherStudentTracks = allVideoTracks.filter((trackRef) => {
-    // Skip avatar and local participant
-    if (trackRef.participant.identity === localParticipant.identity) return false;
-    const identity = trackRef.participant.identity.toLowerCase();
-    if (identity.includes("bey") || identity.includes("avatar") || identity.includes("agent")) {
-      return false;
-    }
-    // Only camera tracks, not screen shares
-    if (trackRef.source !== Track.Source.Camera) return false;
-    return true;
-  });
 
   // Publish data channel message to avatar
   const publishDataMessage = useCallback(async (message: DataChannelMessage) => {
@@ -810,35 +792,7 @@ function RoomContent({
     });
   }, [publishDataMessage]);
 
-  // Broadcast content selection to all participants (for multi-participant sync)
-  const broadcastSlidesLoaded = useCallback(async (slides: HtmlSlide[], title: string, contentId: string) => {
-    console.log(`[TeachingRoom] Broadcasting slides to all participants: ${title} (${slides.length} slides)`);
-
-    await publishDataMessage({
-      type: "load_slides",
-      contentId,
-      title,
-      slides,
-      slideCount: slides.length,
-    });
-  }, [publishDataMessage]);
-
-  // Broadcast game selection to all participants
-  const broadcastGameLoaded = useCallback(async (game: WordGame) => {
-    console.log(`[TeachingRoom] Broadcasting game to all participants: ${game.title}`);
-
-    await publishDataMessage({
-      type: "load_game",
-      gameId: game._id,
-      title: game.title,
-      gameType: game.type,
-      instructions: game.config?.instructions || "",
-      level: game.level || "",
-      category: game.config?.category || "",
-      // Include full game data for other participants
-      gameData: game,
-    });
-  }, [publishDataMessage]);
+  // Simplified: 2 participants only - broadcast functions removed
 
   // Manual game trigger for debugging
   const manualLoadGame = useCallback(() => {
@@ -1699,8 +1653,7 @@ function RoomContent({
                               title: content.title,
                               contentId: content._id,
                             });
-                            // Broadcast to all participants
-                            broadcastSlidesLoaded(slides, content.title, content._id);
+                            // Simplified: 2 participants only - no broadcast needed
                           }
                           setPresentationModeActive(true);
                           setCurrentSlideIndex(0);
@@ -1764,9 +1717,8 @@ function RoomContent({
                           setCurrentGameItemIndex(0);
                           gameActivatedRef.current = true;
                           setShowMaterialsPanel(false);
-                          // Notify avatar and broadcast to all participants
+                          // Notify avatar (simplified: 2 participants only)
                           notifyGameLoaded(wordGame);
-                          broadcastGameLoaded(wordGame);
                         }}
                         className="w-full p-3 bg-gray-50 rounded-lg hover:bg-gray-100 text-left flex items-center gap-3 transition-colors"
                       >
@@ -1803,9 +1755,8 @@ function RoomContent({
                       setCurrentGameItemIndex(0);
                       gameActivatedRef.current = true;
                       setShowMaterialsPanel(false);
-                      // Notify avatar and broadcast to all participants
+                      // Notify avatar (simplified: 2 participants only)
                       notifyGameLoaded(wordGame);
-                      broadcastGameLoaded(wordGame);
                     }}
                     className="w-full p-3 bg-gray-50 rounded-lg hover:bg-gray-100 text-left flex items-center gap-3 transition-colors"
                   >
@@ -1913,49 +1864,7 @@ function RoomContent({
           </div>
         </div>
 
-        {/* Other students in the classroom */}
-        {otherStudentTracks.length > 0 && (
-          <div className="p-3 border-b border-sls-beige/50">
-            <div className="flex items-center gap-1.5 mb-2">
-              <Users className="w-3.5 h-3.5 text-sls-olive" />
-              <span className="text-[10px] font-medium text-sls-olive">
-                {otherStudentTracks.length} other{otherStudentTracks.length > 1 ? "s" : ""} in class
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {otherStudentTracks.map((trackRef) => (
-                <div key={trackRef.participant.identity} className="aspect-video bg-sls-beige/30 rounded-lg overflow-hidden relative">
-                  <VideoTrack
-                    trackRef={trackRef}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute bottom-1 left-1 bg-sls-olive/80 text-white px-1.5 py-0.5 rounded text-[9px] font-medium truncate max-w-[80%]">
-                    {trackRef.participant.name || trackRef.participant.identity}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Show other participants without video (audio only) */}
-        {otherStudents.length > otherStudentTracks.length && (
-          <div className="px-3 py-2 border-b border-sls-beige/50">
-            <div className="flex flex-wrap gap-1.5">
-              {otherStudents
-                .filter((p) => !otherStudentTracks.some((t) => t.participant.identity === p.identity))
-                .map((participant) => (
-                  <div
-                    key={participant.identity}
-                    className="flex items-center gap-1 bg-sls-beige/50 px-2 py-1 rounded text-[10px] text-sls-olive"
-                  >
-                    <Mic className="w-3 h-3" />
-                    <span className="truncate max-w-16">{participant.name || participant.identity}</span>
-                  </div>
-                ))}
-            </div>
-          </div>
-        )}
+        {/* Simplified: 2 participants only (student + avatar) - multi-participant UI removed */}
 
         {/* Transcript section */}
         {showTranscript && (

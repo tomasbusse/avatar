@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
           name: roomName,
           metadata: roomMetadata,
           emptyTimeout: 60 * 10, // 10 minutes
-          maxParticipants: 10,
+          maxParticipants: 2, // Simplified: 1 student + 1 avatar agent
         });
 
         console.log("🏠 [ROOM] Created room with avatar metadata:", {
@@ -168,21 +168,48 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Dispatch agent to room with current metadata
+      // Dispatch agent to room - Only dispatch if agent is NOT already in the room
+      // IMPORTANT: Do NOT delete existing dispatches - this causes double-agent issues
       try {
         const agentDispatch = new AgentDispatchClient(livekitUrl, apiKey, apiSecret);
-        await agentDispatch.createDispatch(roomName, "beethoven-teacher", {
-          metadata: roomMetadata,
-        });
-        console.log("🤖 [AGENT] Dispatched beethoven-teacher to room:", roomName);
-      } catch (dispatchError: any) {
-        // Agent might already be dispatched - this is fine
-        if (!dispatchError?.message?.includes("already exists")) {
-          console.error("🤖 [AGENT] Dispatch error:", {
-            message: dispatchError?.message,
-            code: dispatchError?.code,
-          });
+
+        // Check if agent is actually in the room as a participant
+        let agentInRoom = false;
+        try {
+          const participants = await roomService.listParticipants(roomName);
+          agentInRoom = participants.some(p =>
+            p.identity?.includes("beethoven") || p.identity?.includes("bey-avatar")
+          );
+          if (agentInRoom) {
+            console.log("🤖 [AGENT] Agent already in room, skipping dispatch:", roomName);
+          }
+        } catch (listError: any) {
+          // Room might not exist yet, which is fine
+          console.log("🤖 [AGENT] Could not list participants (room may not exist yet)");
         }
+
+        // Only create dispatch if agent is not already in room
+        if (!agentInRoom) {
+          try {
+            await agentDispatch.createDispatch(roomName, "beethoven-teacher", {
+              metadata: roomMetadata,
+            });
+            console.log("🤖 [AGENT] Dispatched beethoven-teacher to room:", roomName);
+          } catch (createError: any) {
+            // If dispatch already exists, that's fine - don't delete it
+            if (createError?.message?.includes("already exists") || createError?.code === 409) {
+              console.log("🤖 [AGENT] Dispatch already exists for room (keeping it):", roomName);
+            } else {
+              throw createError;
+            }
+          }
+        }
+      } catch (dispatchError: any) {
+        // Log error but don't fail token generation
+        console.error("🤖 [AGENT] Dispatch error:", {
+          message: dispatchError?.message,
+          code: dispatchError?.code,
+        });
       }
     } else {
       console.warn("⚠️ [LIVEKIT] No LiveKit URL configured, skipping room creation");
