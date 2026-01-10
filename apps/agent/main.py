@@ -7,6 +7,7 @@ Beethoven Agent - Ultra Low Latency Voice + Vision
 - Beyond Presence Avatar
 """
 
+import asyncio
 import logging
 import io
 import base64
@@ -38,16 +39,22 @@ sentry.initialize(
 )
 
 from livekit import rtc
-from livekit.agents import AutoSubscribe, JobContext, JobProcess, WorkerOptions, cli, llm
-from livekit.agents.voice import AgentSession, Agent
+from livekit.agents import AutoSubscribe, JobContext, JobProcess, WorkerOptions, cli, llm, function_tool, RunContext
+from livekit.agents.voice import AgentSession, Agent, room_io
 from livekit.agents.llm import ChatMessage, ChatRole
-from livekit.plugins import deepgram, cartesia, bey
+from livekit.plugins import deepgram, cartesia, bey, silero, noise_cancellation
+from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 from src.utils.config import Config
 from src.utils.convex_client import ConvexClient
 from src.providers.llm.openrouter import OpenRouterLLM
+from src.providers.llm.cerebras import CerebrasLLM
+from src.providers.llm.groq import GroqLLM
 from src.rag import ZepRetriever, RAGCache
-from src.knowledge import LessonKnowledgeManager
+from src.knowledge import LessonKnowledgeManager, search_web, WebSearchConfig, format_search_for_context
+from src.memory import process_session_end
+from src.agents import EntryTestAgent, create_entry_test_session
+from src.games import AvatarGameHandler
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("beethoven-agent")
@@ -140,6 +147,178 @@ class LatencyTracker:
 
 # Global latency tracker instance
 _latency_tracker = LatencyTracker()
+
+
+# =============================================================================
+# SESSION TIMER - Auto wrap-up and session end management
+# =============================================================================
+class SessionTimer:
+    """
+    Monitors session elapsed time and triggers callbacks for wrap-up and expiry.
+
+    Usage:
+        timer = SessionTimer(
+            target_duration_minutes=30,
+            wrap_up_buffer_minutes=2,
+            on_wrap_up=async_wrap_up_callback,
+            on_expired=async_expired_callback
+        )
+        await timer.start()
+    """
+
+    def __init__(
+        self,
+        target_duration_minutes: int,
+        wrap_up_buffer_minutes: int = 2,
+        on_wrap_up: Optional[callable] = None,
+        on_expired: Optional[callable] = None,
+        convex_client: Optional["ConvexClient"] = None,
+        session_id: Optional[str] = None,
+    ):
+        self._target_minutes = target_duration_minutes
+        self._wrap_up_buffer = wrap_up_buffer_minutes
+        self._on_wrap_up = on_wrap_up
+        self._on_expired = on_expired
+        self._convex_client = convex_client
+        self._session_id = session_id
+
+        self._start_time: Optional[float] = None
+        self._wrap_up_triggered = False
+        self._expired_triggered = False
+        self._running = False
+        self._task: Optional[asyncio.Task] = None
+
+        logger.info(f"⏱️ [TIMER] Initialized: {target_duration_minutes}min target, {wrap_up_buffer_minutes}min buffer")
+
+    @property
+    def elapsed_seconds(self) -> float:
+        """Get elapsed time since session start in seconds."""
+        if not self._start_time:
+            return 0
+        return time.time() - self._start_time
+
+    @property
+    def elapsed_minutes(self) -> float:
+        """Get elapsed time in minutes."""
+        return self.elapsed_seconds / 60
+
+    @property
+    def remaining_minutes(self) -> float:
+        """Get remaining time in minutes (can be negative if expired)."""
+        return self._target_minutes - self.elapsed_minutes
+
+    @property
+    def wrap_up_time_minutes(self) -> float:
+        """When wrap-up should start (in minutes from start)."""
+        return self._target_minutes - self._wrap_up_buffer
+
+    @property
+    def is_in_wrap_up(self) -> bool:
+        """Whether we're in the wrap-up period."""
+        return self.elapsed_minutes >= self.wrap_up_time_minutes and not self._expired_triggered
+
+    @property
+    def is_expired(self) -> bool:
+        """Whether session time has expired."""
+        return self.elapsed_minutes >= self._target_minutes
+
+    def get_status(self) -> Dict[str, Any]:
+        """Get current timer status for function tool response."""
+        return {
+            "elapsed_minutes": round(self.elapsed_minutes, 1),
+            "remaining_minutes": round(max(0, self.remaining_minutes), 1),
+            "target_minutes": self._target_minutes,
+            "wrap_up_buffer_minutes": self._wrap_up_buffer,
+            "is_in_wrap_up": self.is_in_wrap_up,
+            "is_expired": self.is_expired,
+            "wrap_up_triggered": self._wrap_up_triggered,
+        }
+
+    async def start(self):
+        """Start the timer monitoring loop."""
+        if self._running:
+            logger.warning("⏱️ [TIMER] Already running")
+            return
+
+        self._start_time = time.time()
+        self._running = True
+        self._task = asyncio.create_task(self._monitor_loop())
+        logger.info(f"⏱️ [TIMER] Started at {datetime.now().strftime('%H:%M:%S')}")
+
+    async def stop(self):
+        """Stop the timer monitoring loop."""
+        self._running = False
+        if self._task:
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
+        logger.info(f"⏱️ [TIMER] Stopped after {self.elapsed_minutes:.1f} minutes")
+
+    async def _monitor_loop(self):
+        """Background loop that checks time every 10 seconds."""
+        try:
+            while self._running:
+                await asyncio.sleep(10)  # Check every 10 seconds
+
+                # Check for wrap-up trigger
+                if not self._wrap_up_triggered and self.elapsed_minutes >= self.wrap_up_time_minutes:
+                    self._wrap_up_triggered = True
+                    logger.info(f"⏱️ [TIMER] WRAP-UP triggered at {self.elapsed_minutes:.1f} min")
+
+                    # Update session in Convex with wrap-up timestamp
+                    if self._convex_client and self._session_id:
+                        try:
+                            await self._convex_client.mutation(
+                                "sessions:updateSessionTimerConfig",
+                                {
+                                    "sessionId": self._session_id,
+                                    "timerConfig": {
+                                        "targetDurationMinutes": self._target_minutes,
+                                        "wrapUpBufferMinutes": self._wrap_up_buffer,
+                                        "wrapUpStartedAt": int(time.time() * 1000),
+                                    }
+                                }
+                            )
+                        except Exception as e:
+                            logger.error(f"⏱️ [TIMER] Failed to update Convex: {e}")
+
+                    # Trigger wrap-up callback
+                    if self._on_wrap_up:
+                        try:
+                            await self._on_wrap_up()
+                        except Exception as e:
+                            logger.error(f"⏱️ [TIMER] Wrap-up callback error: {e}")
+
+                # Check for expiry trigger
+                if not self._expired_triggered and self.elapsed_minutes >= self._target_minutes:
+                    self._expired_triggered = True
+                    logger.info(f"⏱️ [TIMER] EXPIRED at {self.elapsed_minutes:.1f} min")
+
+                    # Trigger expired callback
+                    if self._on_expired:
+                        try:
+                            await self._on_expired()
+                        except Exception as e:
+                            logger.error(f"⏱️ [TIMER] Expired callback error: {e}")
+
+                    # Stop monitoring after expiry is handled
+                    break
+
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.error(f"⏱️ [TIMER] Monitor loop error: {e}")
+        finally:
+            self._running = False
+
+
+# Global session timer instance (set in entrypoint)
+_session_timer: Optional[SessionTimer] = None
+
+# Global material context (slides, games) for function tools
+_material_context: Optional[dict] = None
 
 
 # =============================================================================
@@ -255,7 +434,13 @@ class BeethovenTeacher(Agent):
             # Game-related messages
             elif msg_type == "game_loaded":
                 self._game_active = True
-                self._game_info = payload.get("game", {})
+                # Frontend sends fields directly in payload, not nested under "game"
+                self._game_info = {
+                    "id": payload.get("gameId"),
+                    "type": payload.get("gameType"),
+                    "title": payload.get("title"),
+                    "level": payload.get("level"),
+                }
                 self._game_state = {
                     "currentItemIndex": 0,
                     "totalItems": payload.get("totalItems", 1),
@@ -317,6 +502,78 @@ class BeethovenTeacher(Agent):
             logger.info(f"🎮 [GAME] Sent command: {command} {kwargs}")
         except Exception as e:
             logger.error(f"🎮 [GAME] Failed to send command: {e}")
+
+    # =========================================================================
+    # FUNCTION TOOLS - TEMPORARILY DISABLED
+    # =========================================================================
+    # These tools allow the LLM to control slides/games via function calling.
+    # Disabled to simplify agent and reduce latency. Re-enable when needed.
+    #
+    # Tools disabled:
+    #   - load_lesson_slides: Load and display slides
+    #   - get_session_timer: Check remaining lesson time
+    #   - load_word_game: Start a vocabulary/grammar game
+    #
+    # To re-enable: Uncomment the @function_tool decorators and method bodies
+    # =========================================================================
+
+    # @function_tool()
+    # async def load_lesson_slides(
+    #     self,
+    #     context: RunContext,
+    #     knowledge_content_id: str,
+    # ) -> dict:
+    #     """Load and display lesson slides on the student's screen."""
+    #     if not self._lesson_manager:
+    #         return {"success": False, "error": "Lesson manager not available"}
+    #     try:
+    #         slide_data = await self._lesson_manager.get_slides_for_loading(knowledge_content_id)
+    #         if not slide_data:
+    #             return {"success": False, "error": "No slides found"}
+    #         data = json.dumps(slide_data).encode('utf-8')
+    #         await self._room.local_participant.publish_data(data, reliable=True)
+    #         return {"success": True, "slideCount": slide_data.get("slideCount", 0)}
+    #     except Exception as e:
+    #         return {"success": False, "error": str(e)}
+
+    # @function_tool()
+    # async def get_session_timer(self, context: RunContext) -> dict:
+    #     """Get the current session timer status."""
+    #     global _session_timer
+    #     if not _session_timer:
+    #         return {"hasTimer": False}
+    #     status = _session_timer.get_status()
+    #     status["hasTimer"] = True
+    #     return status
+
+    # @function_tool()
+    # async def load_word_game(
+    #     self,
+    #     context: RunContext,
+    #     game_title: str,
+    # ) -> dict:
+    #     """Load and display a word game on the student's screen."""
+    #     global _material_context
+    #     if not _material_context:
+    #         return {"success": False, "error": "No games available"}
+    #     mat_ctx = _material_context.get("materialContext", {})
+    #     game = mat_ctx.get("game")
+    #     if not game:
+    #         return {"success": False, "error": "No game linked"}
+    #     try:
+    #         game_data = {
+    #             "type": "load_game",
+    #             "gameId": str(game.get("_id", "")),
+    #             "title": game.get("title", ""),
+    #             "gameType": game.get("type", ""),
+    #         }
+    #         data = json.dumps(game_data).encode('utf-8')
+    #         await self._room.local_participant.publish_data(data, reliable=True)
+    #         self._game_info = game
+    #         self._game_active = True
+    #         return {"success": True, "message": f"Game loaded: {game.get('title', '')}"}
+    #     except Exception as e:
+    #         return {"success": False, "error": str(e)}
 
     def _get_game_context(self) -> Optional[str]:
         """
@@ -420,12 +677,14 @@ class BeethovenTeacher(Agent):
                     if chunks:
                         # Format context and inject as system message
                         context = self._rag_retriever.format_context(chunks)
+                        rag_text = f"[RELEVANT KNOWLEDGE FROM YOUR MATERIALS]\n{context}\n[END KNOWLEDGE]\n\nUse this information naturally in your response if relevant to the student's question."
                         rag_system_msg = ChatMessage(
-                            role=ChatRole.SYSTEM,
-                            content=f"[RELEVANT KNOWLEDGE FROM YOUR MATERIALS]\n{context}\n[END KNOWLEDGE]\n\nUse this information naturally in your response if relevant to the student's question."
+                            role="system",
+                            content=[rag_text]  # content must be a list in livekit-agents v1.3+
                         )
                         # Insert before the user message in chat context
-                        turn_ctx.messages.insert(-1, rag_system_msg)
+                        # In livekit-agents v1.3+, use 'items' not 'messages'
+                        turn_ctx.items.insert(-1, rag_system_msg)
                         logger.info(f"📚 [RAG] Injected {len(chunks)} chunks ({elapsed:.3f}s)")
                     else:
                         logger.debug(f"📚 [RAG] No relevant chunks found ({elapsed:.3f}s)")
@@ -470,12 +729,14 @@ class BeethovenTeacher(Agent):
                             json_content = await self._lesson_manager.get_content(match.content_id)
                             if json_content:
                                 context = self._lesson_manager.format_for_context(json_content, focus)
+                                lesson_text = f"[RELEVANT LESSON MATERIAL]\n{context}\n[Use this content to guide your teaching response]"
                                 lesson_msg = ChatMessage(
-                                    role=ChatRole.SYSTEM,
-                                    content=f"[RELEVANT LESSON MATERIAL]\n{context}\n[Use this content to guide your teaching response]"
+                                    role="system",
+                                    content=[lesson_text]  # content must be a list in livekit-agents v1.3+
                                 )
                                 # Insert before the user message
-                                turn_ctx.messages.insert(-1, lesson_msg)
+                                # In livekit-agents v1.3+, use 'items' not 'messages'
+                                turn_ctx.items.insert(-1, lesson_msg)
                                 elapsed = time.time() - start_time
                                 logger.info(f"📖 [LESSON] Injected '{match.title}' ({focus}) in {elapsed:.3f}s")
                     else:
@@ -488,10 +749,11 @@ class BeethovenTeacher(Agent):
         game_context = self._get_game_context()
         if game_context:
             game_msg = ChatMessage(
-                role=ChatRole.SYSTEM,
-                content=game_context
+                role="system",
+                content=[game_context]  # content must be a list in livekit-agents v1.3+
             )
-            turn_ctx.messages.insert(-1, game_msg)
+            # In livekit-agents v1.3+, use 'items' not 'messages'
+            turn_ctx.items.insert(-1, game_msg)
             logger.info(f"🎮 [GAME] Injected game context into conversation")
 
         # === VISION PROCESSING ===
@@ -568,12 +830,16 @@ class BeethovenTeacher(Agent):
                 logger.error(f"[VISION] Failed to attach frames: {ve}")
 
 
-def build_system_prompt(avatar_config: Dict[str, Any]) -> str:
+def build_system_prompt(avatar_config: Dict[str, Any], memory_context: str = "") -> str:
     """
     Build a SIMPLE, focused system prompt.
 
     Key insight: Simpler prompts = better, more natural responses.
     Complex rule sets overwhelm the LLM and create robotic behavior.
+
+    Args:
+        avatar_config: Avatar configuration from Convex
+        memory_context: Formatted memory context about the student (optional)
     """
     avatar_name = avatar_config.get("name", "Emma")
     logger.info(f"🔨 Building simplified system prompt for: {avatar_name}")
@@ -608,6 +874,16 @@ IMPORTANT:
 - Never repeat yourself or rephrase what you just said
 - Listen carefully and respond to what was actually said""")
 
+    # Add memory context if available (student-specific knowledge)
+    if memory_context:
+        prompt_parts.append(f"""
+# What You Remember About This Student
+{memory_context}
+
+Use this knowledge naturally in conversation. Reference things you know about them when relevant, but don't be creepy about it.
+If they've struggled with something before, gently revisit it. If they have personal facts, you can mention them naturally.""")
+        logger.info(f"🧠 Added memory context to prompt ({len(memory_context)} chars)")
+
     full_prompt = "\n\n".join(prompt_parts)
     logger.info(f"📝 System prompt: {len(full_prompt)} chars (simplified)")
 
@@ -627,18 +903,273 @@ def get_time_of_day() -> str:
         return "night"
 
 
-def get_opening_greeting(avatar_config: Dict[str, Any], student_info: Optional[Dict[str, Any]] = None) -> Optional[str]:
+async def fetch_web_search_context(
+    session_data: Optional[Dict[str, Any]],
+    convex_url: str
+) -> str:
+    """
+    Fetch web search context for conversation practice sessions.
+
+    Checks if the session is a conversation practice with web search enabled,
+    and if so, performs initial search(es) based on the configuration.
+
+    Args:
+        session_data: Session data from Convex
+        convex_url: Convex API URL
+
+    Returns:
+        Formatted web search context string, or empty string if not applicable
+    """
+    if not session_data:
+        return ""
+
+    # Check if this is a conversation_practice session
+    session_type = session_data.get("type")
+    practice_id = session_data.get("conversationPracticeId")
+
+    if session_type != "conversation_practice" or not practice_id:
+        return ""
+
+    try:
+        convex = ConvexClient(convex_url)
+        room_name = session_data.get("roomName", "")
+
+        # Fetch conversation practice with web search config
+        practice_data = await convex.query(
+            "conversationPractice:getForAgent",
+            {"roomName": room_name}
+        )
+        await convex.close()
+
+        if not practice_data:
+            logger.info("🔍 No practice data found for web search")
+            return ""
+
+        practice = practice_data.get("practice", {})
+        web_search_enabled = practice.get("webSearchEnabled", False)
+        web_search_config_raw = practice.get("webSearchConfig")
+
+        if not web_search_enabled:
+            logger.info("🔍 Web search not enabled for this practice")
+            return ""
+
+        # Parse web search config
+        config = WebSearchConfig.from_dict(web_search_config_raw)
+        logger.info(f"🔍 Web search enabled - depth: {config.search_depth}, topic: {config.topic}, domains: {config.include_domains}")
+
+        # Build search queries based on practice subject/mode
+        queries = []
+        subject = practice.get("subject", "")
+        mode = practice.get("mode", "free_conversation")
+
+        # Add custom queries if configured
+        if config.custom_queries:
+            queries.extend(config.custom_queries)
+
+        # Auto-generate queries based on subject
+        if subject:
+            if config.topic == "news":
+                queries.append(f"latest news about {subject}")
+            elif config.topic == "finance":
+                queries.append(f"{subject} financial news today")
+            else:
+                queries.append(f"current information about {subject}")
+
+        # Default to general current events if no specific topic
+        if not queries:
+            if config.topic == "news":
+                queries.append("latest world news today")
+            elif config.topic == "finance":
+                queries.append("stock market news today")
+            else:
+                queries.append("today's top news stories")
+
+        # Perform searches
+        search_results = []
+        for query in queries[:3]:  # Limit to 3 queries
+            result = await search_web(query, config)
+            if result and result.results:
+                search_results.append(format_search_for_context(result))
+                logger.info(f"🔍 Search '{query}': {len(result.results)} results")
+
+        if not search_results:
+            logger.info("🔍 No search results found")
+            return ""
+
+        # Combine search results into context
+        combined_context = "\n".join(search_results)
+        web_prompt = f"""
+# Current Information from Web Search
+The following current information has been retrieved to help you discuss recent events:
+
+{combined_context}
+
+You can reference this information naturally in conversation when relevant to the topic. Help the student practice discussing current events in English."""
+
+        logger.info(f"🔍 Added web search context ({len(combined_context)} chars)")
+        return web_prompt
+
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to fetch web search context: {e}")
+        return ""
+
+
+async def fetch_conversation_practice_context(session_data: Optional[Dict[str, Any]], convex_url: str) -> tuple[str, Optional[str]]:
+    """
+    Fetch conversation practice materials (transcript, knowledge content) for the prompt.
+
+    Args:
+        session_data: Session data from Convex
+        convex_url: Convex deployment URL
+
+    Returns:
+        Tuple of (prompt_context, student_name) - context string for LLM prompt and guest name if available
+    """
+    if not session_data:
+        return "", None
+
+    session_type = session_data.get("type")
+    practice_id = session_data.get("conversationPracticeId")
+
+    if session_type != "conversation_practice" or not practice_id:
+        return "", None
+
+    try:
+        convex = ConvexClient(convex_url)
+        room_name = session_data.get("roomName", "")
+
+        # Fetch conversation practice with all materials
+        practice_data = await convex.query(
+            "conversationPractice:getForAgent",
+            {"roomName": room_name}
+        )
+        await convex.close()
+
+        if not practice_data:
+            logger.info("📝 No practice data found")
+            return "", None
+
+        practice = practice_data.get("practice", {})
+        session_info = practice_data.get("session", {})
+        knowledge_content = practice_data.get("knowledgeContent", [])
+
+        # Get student/guest name
+        student_name = session_info.get("guestName")
+        mode = practice.get("mode", "free_conversation")
+        subject = practice.get("subject", "")
+
+        prompt_parts = []
+
+        # Add practice mode context
+        mode_description = {
+            "free_conversation": "free-form English conversation practice",
+            "transcript_based": "discussion of transcript content",
+            "knowledge_based": "discussion using knowledge base materials",
+            "topic_guided": f"guided conversation about {subject}" if subject else "topic-guided conversation",
+        }.get(mode, "conversation practice")
+
+        prompt_parts.append(f"""
+# Conversation Practice Session
+This is a {mode_description} session.""")
+
+        # Add student name if available
+        if student_name:
+            prompt_parts.append(f"""
+## Student Information
+The student's name is **{student_name}**. Address them by name occasionally to create a personal connection.
+Use their name naturally in conversation - for greetings, encouragement, and when asking questions.""")
+
+        # Add subject/topic if specified
+        if subject:
+            prompt_parts.append(f"""
+## Conversation Topic
+Focus the conversation on: **{subject}**
+Guide the discussion around this topic while keeping it natural and engaging.""")
+
+        # Add transcript content if in transcript mode
+        transcript = practice.get("transcript")
+        if transcript and mode == "transcript_based":
+            transcript_content = transcript.get("content", "")
+            if transcript_content:
+                # Truncate if very long (max ~3000 chars for prompt)
+                if len(transcript_content) > 3000:
+                    transcript_content = transcript_content[:3000] + "\n\n[Transcript truncated for brevity...]"
+
+                prompt_parts.append(f"""
+## Transcript to Discuss
+The following transcript has been provided for discussion:
+
+---
+{transcript_content}
+---
+
+Use this transcript as the basis for conversation. Ask the student questions about it, discuss key points, explain difficult vocabulary, and help them express their thoughts about the content in English.""")
+
+        # Add knowledge base content if in knowledge mode
+        if knowledge_content and mode == "knowledge_based":
+            kb_section = """
+## Knowledge Base Materials
+The following reference materials are available for this conversation:
+"""
+            for idx, content in enumerate(knowledge_content[:5], 1):  # Limit to 5 items
+                title = content.get("title", f"Document {idx}")
+                text = content.get("content", "")
+                kb_name = content.get("knowledgeBaseName", "")
+
+                # Truncate long content
+                if len(text) > 1000:
+                    text = text[:1000] + "..."
+
+                kb_section += f"""
+### {idx}. {title}"""
+                if kb_name:
+                    kb_section += f" (from: {kb_name})"
+                kb_section += f"""
+{text}
+"""
+
+            kb_section += """
+Use these materials to guide the conversation. Help the student understand and discuss the content in English."""
+            prompt_parts.append(kb_section)
+
+        if len(prompt_parts) > 1:  # More than just the header
+            combined_context = "\n".join(prompt_parts)
+            logger.info(f"📝 Added conversation practice context ({len(combined_context)} chars, mode: {mode}, student: {student_name})")
+            return combined_context, student_name
+        else:
+            return "", student_name
+
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to fetch conversation practice context: {e}")
+        return "", None
+
+
+def get_opening_greeting(
+    avatar_config: Dict[str, Any],
+    student_info: Optional[Dict[str, Any]] = None,
+    memory_context: Optional[Dict[str, Any]] = None
+) -> tuple[Optional[str], list[str]]:
     """
     Build the avatar's opening greeting based on sessionStartConfig.
 
-    Returns None if behavior is not speak_first.
+    Uses memory context to personalize greetings for returning students.
+    Checks for past-due events (like completed holidays) to ask about.
+
+    Returns:
+        tuple of (greeting_text, list of memory IDs to mark as followed up)
     """
     session_config = avatar_config.get("sessionStartConfig", {})
+    memory_ids_to_followup = []
 
     # Check if avatar should speak first
     behavior = session_config.get("behavior", "speak_first")
     if behavior != "speak_first":
-        return None
+        return None, []
+
+    # Check if this is a returning student with history
+    has_history = memory_context and memory_context.get("has_history", False)
+    recent_sessions = memory_context.get("recent_sessions", []) if memory_context else []
+    past_due_events = memory_context.get("past_due_events", []) if memory_context else []
 
     # Get greeting template or variation
     greeting = session_config.get("openingGreeting")
@@ -649,9 +1180,34 @@ def get_opening_greeting(avatar_config: Dict[str, Any], student_info: Optional[D
         if variations:
             greeting = random.choice(variations)
         else:
-            # Default greeting
+            # Default greeting - personalize for returning students
             avatar_name = avatar_config.get("name", "Emma")
-            greeting = f"Hello! I'm {avatar_name}. Great to see you today. How are you doing?"
+
+            # Check for past-due events to ask about (e.g., "How was your holiday?")
+            if past_due_events and len(past_due_events) > 0:
+                event = past_due_events[0]
+                event_content = event.get("content", "")
+                memory_ids_to_followup.append(event.get("_id"))
+
+                # Generate contextual follow-up question based on the event type
+                event_lower = event_content.lower()
+                if any(word in event_lower for word in ["holiday", "vacation", "trip", "travel", "urlaub", "reise"]):
+                    greeting = f"Welcome back! I remember you mentioned {event_content}. How was it? I'd love to hear about your trip!"
+                elif any(word in event_lower for word in ["presentation", "meeting", "conference", "vortrag"]):
+                    greeting = f"Welcome back! You mentioned {event_content} last time. How did it go?"
+                elif any(word in event_lower for word in ["exam", "test", "prüfung"]):
+                    greeting = f"Welcome back! I hope your exam went well. How did {event_content} go?"
+                elif any(word in event_lower for word in ["birthday", "anniversary", "celebration", "geburtstag"]):
+                    greeting = f"Welcome back! How was {event_content}? I hope you had a wonderful celebration!"
+                else:
+                    # Generic follow-up
+                    greeting = f"Welcome back! Last time you mentioned {event_content}. How did that go?"
+            elif has_history:
+                # Personalized greeting for returning student (no specific event to ask about)
+                greeting = f"Welcome back! Great to see you again. How have you been since our last session?"
+            else:
+                # First-time student greeting
+                greeting = f"Hello! I'm {avatar_name}. Great to see you today. How are you doing?"
 
     # Replace variables
     student_name = ""
@@ -660,16 +1216,22 @@ def get_opening_greeting(avatar_config: Dict[str, Any], student_info: Optional[D
 
     time_of_day = get_time_of_day()
 
+    # Build previous lesson summary from memory
+    previous_lesson = ""
+    if recent_sessions and len(recent_sessions) > 0:
+        last_session = recent_sessions[0]
+        previous_lesson = last_session.get("content", "")[:100]  # Truncate if too long
+
     # Variable substitution
     greeting = greeting.replace("{studentName}", student_name)
     greeting = greeting.replace("{timeOfDay}", time_of_day)
     greeting = greeting.replace("{lessonTopic}", "")  # Can be filled from session context
-    greeting = greeting.replace("{previousLesson}", "")  # Can be filled from memory
+    greeting = greeting.replace("{previousLesson}", previous_lesson)
 
     # Clean up any empty variable remnants
     greeting = greeting.replace("  ", " ").strip()
 
-    return greeting
+    return greeting, memory_ids_to_followup
 
 
 def check_api_credentials_background():
@@ -765,9 +1327,10 @@ def prewarm(proc: JobProcess):
     # Load config once
     _config = Config()
 
-    # Note: Using Deepgram's server-side VAD instead of Silero for Python 3.14 compatibility
-    # Deepgram Nova-3 has excellent built-in voice activity detection
-    logger.info("🎤 Using Deepgram server-side VAD (no Silero required)")
+    # Pre-load Silero VAD model for faster first-response (v1.3+ with Python 3.13)
+    # This is now possible with Python 3.13 and onnxruntime support
+    proc.userdata["silero_vad"] = silero.VAD.load()
+    logger.info("🎤 Silero VAD loaded for accurate speech detection")
 
     # Pre-initialize STT with REDUCED endpointing for faster responses
     proc.userdata["deepgram_stt"] = deepgram.STT(
@@ -802,7 +1365,10 @@ def prewarm(proc: JobProcess):
     else:
         logger.info("⚠️ ZEP_API_KEY not set - RAG disabled")
 
-    logger.info("✅ Prewarm complete - VAD/STT/TTS ready")
+    # NOTE: MultilingualModel turn detector is created per-session (requires job context)
+    # It cannot be pre-loaded in prewarm like VAD/STT/TTS
+
+    logger.info("✅ Prewarm complete - Silero VAD/STT/TTS ready")
 
 
 async def analyze_with_vision_llm(
@@ -922,6 +1488,109 @@ async def capture_screen_frame(room: rtc.Room) -> Optional[rtc.VideoFrame]:
     return None
 
 
+async def run_entry_test_agent(ctx: JobContext, session_id: str, config: Config):
+    """Run the entry test agent for a test session."""
+    logger.info(f"📝 Starting entry test agent for session: {session_id}")
+
+    # Initialize Convex client
+    convex = ConvexClient(config.convex_url)
+
+    # Create entry test agent
+    agent = EntryTestAgent(
+        session_id=session_id,
+        convex_client=convex,
+        config=config,
+    )
+
+    # Initialize (load data from Convex)
+    if not await agent.initialize():
+        logger.error("❌ Failed to initialize entry test agent")
+        await convex.close()
+        return
+
+    # Set up STT
+    stt = deepgram.STT(
+        model="nova-2",
+        language="en",
+    )
+
+    # Set up TTS - use template's avatar voice if available
+    tts = cartesia.TTS(
+        model="sonic-english",
+        voice="a0e99841-438c-4a64-b679-ae501e7d6091",  # Professional female voice
+    )
+
+    # Wait for participant
+    await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
+
+    participant = await ctx.wait_for_participant()
+    logger.info(f"🎓 Student connected: {participant.identity}")
+
+    # Start with intro message
+    intro = await agent.generate_intro_message()
+
+    # Create a voice agent session
+    voice_session = AgentSession(
+        stt=stt,
+        tts=tts,
+        llm=None,  # We handle responses manually
+    )
+
+    # Main loop: ask questions and process answers
+    try:
+        # Wait for confirmation to start
+        logger.info("🎙️ Playing intro and waiting for student to be ready...")
+
+        # Synthesize and play intro
+        audio_stream = tts.synthesize(intro)
+        # In practice, you'd send this to the room via LiveKit
+
+        # Enter test loop
+        while agent.state != agent.__class__.TestState.TEST_COMPLETE:
+            # Generate the next prompt based on state
+            if agent.state == agent.__class__.TestState.SECTION_INTRO:
+                prompt = await agent.generate_section_intro()
+                agent.state = agent.__class__.TestState.ASKING_QUESTION
+            elif agent.state == agent.__class__.TestState.ASKING_QUESTION:
+                prompt = await agent.generate_question_prompt()
+                agent.question_start_time = time.time()
+                agent.state = agent.__class__.TestState.WAITING_RESPONSE
+            else:
+                prompt = ""
+
+            if prompt:
+                logger.info(f"🎙️ Speaking: {prompt[:100]}...")
+                # Synthesize and speak
+                # audio = await tts.synthesize(prompt)
+                # (In practice, send via LiveKit data channel)
+
+            # Wait for student response (simplified - in practice use STT stream)
+            # For now, this is a placeholder - you'd integrate with LiveKit's
+            # voice agent pipeline more fully
+
+            # Check if we need to advance
+            if agent.state == agent.__class__.TestState.TEST_COMPLETE:
+                break
+
+            # Simple delay for demo purposes
+            await asyncio.sleep(1)
+
+        # Complete the test
+        results = await agent.complete_test()
+        results_message = await agent.generate_results_message(results)
+        logger.info(f"📊 Test complete: {results_message}")
+
+        # Synthesize results
+        # audio = await tts.synthesize(results_message)
+
+    except Exception as e:
+        logger.error(f"Entry test error: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        await convex.close()
+
+
 async def entrypoint(ctx: JobContext):
     """Main entrypoint - with dual-LLM vision support."""
 
@@ -930,6 +1599,43 @@ async def entrypoint(ctx: JobContext):
 
     room_name = ctx.room.name
     logger.info(f"🚀 Agent starting for room: {room_name}")
+
+    # ==========================================================================
+    # ENTRY TEST DETECTION - Handle entry tests with specialized agent
+    # ==========================================================================
+    if room_name.startswith("entry-test-"):
+        logger.info("📝 Entry test session detected - using EntryTestAgent")
+
+        # Get session ID from room metadata
+        room_metadata_str = ctx.room.metadata
+        entry_test_session_id = None
+
+        if room_metadata_str:
+            try:
+                room_metadata = json.loads(room_metadata_str)
+                entry_test_session_id = room_metadata.get("sessionId")
+            except json.JSONDecodeError:
+                pass
+
+        if not entry_test_session_id:
+            # Try to find session by room name in Convex
+            convex = ConvexClient(config.convex_url)
+            try:
+                session = await convex.query(
+                    "entryTestSessions:getSessionByRoom",
+                    {"roomName": room_name}
+                )
+                if session:
+                    entry_test_session_id = str(session.get("_id"))
+            except Exception as e:
+                logger.error(f"Failed to find entry test session: {e}")
+            await convex.close()
+
+        if entry_test_session_id:
+            await run_entry_test_agent(ctx, entry_test_session_id, config)
+        else:
+            logger.error("❌ Entry test session ID not found!")
+        return
 
     # First try to get avatar config from room metadata (passed from token API)
     avatar_config = None
@@ -971,7 +1677,7 @@ async def entrypoint(ctx: JobContext):
             avatar_id = session_data["avatarId"]
             avatar_config = await convex.get_avatar_by_id(avatar_id)
         else:
-            avatar_config = await convex.get_default_avatar()
+            avatar_config = await convex.get_first_active_avatar()
 
         await convex.close()
     else:
@@ -988,11 +1694,73 @@ async def entrypoint(ctx: JobContext):
         if is_structured_lesson:
             logger.info("🎓 Structured lesson detected with pre-loaded presentation")
 
+    # ==========================================================================
+    # MATERIAL CONTEXT - Get slides and timer config for session
+    # ==========================================================================
+    material_context = None
+    timer_config = None
+    if session_data:
+        try:
+            context_convex = ConvexClient(config.convex_url)
+            material_context = await context_convex.query(
+                "sessions:getSessionWithMaterialContext",
+                {"roomName": room_name}
+            )
+            await context_convex.close()
+
+            if material_context:
+                global _material_context
+                _material_context = material_context  # Store for function tools
+
+                # Extract timer config and material info
+                timer_config = material_context.get("timerConfig")
+                mat_ctx = material_context.get("materialContext", {})
+                slide_count = mat_ctx.get("slideCount", 0)
+                has_game = mat_ctx.get("hasGame", False)
+                game = mat_ctx.get("game")
+                game_title = game.get("title", "") if game else ""
+                logger.info(f"📚 Material context: {slide_count} slides, game: {game_title or 'none'}, timer: {timer_config}")
+                logger.info(f"📚 Full material context: hasGame={has_game}, game={game}")
+            else:
+                logger.warning(f"📚 No material context returned for room: {room_name}")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to fetch material context: {e}")
+
     if not avatar_config:
         logger.error("❌ No avatar config found!")
         return
 
     logger.info(f"⚙️ Loaded avatar: {avatar_config.get('name', 'Unknown')}")
+
+    # ==========================================================================
+    # MEMORY RETRIEVAL - Fetch student context for personalization
+    # ==========================================================================
+    student_memory_context = None
+    formatted_memory = ""
+    if session_data and session_data.get("studentId"):
+        try:
+            student_id = str(session_data["studentId"])
+            # Get avatar slug for memory sync lookup
+            avatar_slug = avatar_config.get("slug") or avatar_config.get("name", "").lower().replace(" ", "-")
+
+            logger.info(f"🧠 Fetching memories for student: {student_id}, avatar: {avatar_slug}")
+
+            memory_convex = ConvexClient(config.convex_url)
+            student_memory_context = await memory_convex.get_student_context(student_id, avatar_slug)
+
+            if student_memory_context and student_memory_context.get("has_history"):
+                # Format memory for system prompt injection (do this before closing client)
+                formatted_memory = memory_convex.format_memory_context(student_memory_context)
+                logger.info(f"🧠 Retrieved student context: {len(student_memory_context.get('memories', []))} memories, {len(student_memory_context.get('error_patterns', []))} error patterns")
+            else:
+                logger.info(f"🧠 New student (no previous history)")
+
+            await memory_convex.close()
+
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to fetch student memories: {e}")
+            student_memory_context = None
+            formatted_memory = ""
 
     # Fetch available presentations from Convex for the load_presentation tool
     available_presentations = []
@@ -1025,19 +1793,22 @@ async def entrypoint(ctx: JobContext):
     else:
         logger.info("📖 No avatar ID - lesson manager skipped")
 
-    # Get LLM model - handle BOTH formats:
+    # Get LLM model and provider - handle BOTH formats:
     # 1. Room metadata: nested llmConfig object
     # 2. Convex client: flat llm_model key (after transformation)
     llm_config = avatar_config.get("llmConfig", {})
+    llm_provider = "openrouter"  # Default provider
     if llm_config and llm_config.get("model"):
         # Room metadata format (nested)
         llm_model = llm_config.get("model")
-        logger.info(f"🧠 LLM Config from avatar (nested): model={llm_model}, temp={llm_config.get('temperature')}")
+        llm_provider = llm_config.get("provider", "openrouter")
+        logger.info(f"🧠 LLM Config from avatar (nested): provider={llm_provider}, model={llm_model}, temp={llm_config.get('temperature')}")
     else:
         # Convex client format (flat)
         llm_model = avatar_config.get("llm_model", "anthropic/claude-3.5-sonnet")
         llm_temp = avatar_config.get("llm_temperature", 0.7)
-        logger.info(f"🧠 LLM Config from avatar (flat): model={llm_model}, temp={llm_temp}")
+        llm_provider = avatar_config.get("llm_provider", "openrouter")
+        logger.info(f"🧠 LLM Config from avatar (flat): provider={llm_provider}, model={llm_model}, temp={llm_temp}")
 
     # Get Vision config (nested object in schema)
     vision_config = avatar_config.get("visionConfig", {}) or avatar_config.get("vision_config", {})
@@ -1151,12 +1922,27 @@ async def entrypoint(ctx: JobContext):
     tts = base_tts
     logger.info("🔊 TTS initialized (slide nav via tool calls)")
     
-    # Initialize LLM (for conversation)
-    logger.info(f"🧠 Using LLM: {llm_model}")
-    llm_instance = OpenRouterLLM(
-        model=llm_model,
-        temperature=0.7,
-    )
+    # Initialize LLM (for conversation) - support multiple providers
+    # Latency comparison: Groq ~40ms, Cerebras ~35ms, OpenRouter ~200-400ms
+    logger.info(f"🧠 Using LLM: provider={llm_provider}, model={llm_model}")
+    if llm_provider == "groq":
+        logger.info(f"⚡ Using Groq for ultra-fast inference (~40ms TTFT)")
+        llm_instance = GroqLLM(
+            model=llm_model,
+            temperature=0.7,
+        )
+    elif llm_provider == "cerebras":
+        logger.info(f"⚡ Using Cerebras for ultra-fast inference (2,314 tok/s)")
+        llm_instance = CerebrasLLM(
+            model=llm_model,
+            temperature=0.7,
+        )
+    else:
+        # Default to OpenRouter for all other providers (Claude, GPT, etc.)
+        llm_instance = OpenRouterLLM(
+            model=llm_model,
+            temperature=0.7,
+        )
     
     # Track state for vision
     has_screen_share = False
@@ -1225,16 +2011,22 @@ async def entrypoint(ctx: JobContext):
             except Exception as e:
                 logger.error(f"Data packet error: {e}")
     
-    # Create agent session - OPTIMIZED for low latency
-    # Using STT endpointing for turn detection (Python 3.14 compatible, no Silero)
+    # Create agent session - OPTIMIZED for low latency with v1.3+ features
+    # Using prewarmed Silero VAD + MultilingualModel turn detector for best-in-class performance
+    vad = ctx.proc.userdata.get("silero_vad") or silero.VAD.load()
+    # MultilingualModel created per-session (supports German + English turn detection)
+    turn_detector = MultilingualModel()
+
     session = AgentSession(
         stt=stt,
         tts=tts,
         llm=llm_instance,
-        turn_detection="stt",          # Use STT endpointing for turn detection
-        min_endpointing_delay=0.3,     # REDUCED from 0.5 - faster turn completion
-        max_endpointing_delay=1.0,     # REDUCED from 1.5 - don't wait too long
-        allow_interruptions=True,      # Let user interrupt if needed
+        vad=vad,                         # Silero VAD for accurate speech detection
+        turn_detection=turn_detector,    # MultilingualModel for intelligent turn detection
+        min_endpointing_delay=0.15,      # FASTER - reduced from 0.2 for quicker response
+        max_endpointing_delay=0.6,       # FASTER - reduced from 0.8 for snappier turns
+        allow_interruptions=True,        # Let user interrupt if needed
+        preemptive_generation=True,      # Start TTS/LLM before turn ends (saves 150-300ms)
     )
     
     # Event logging with latency tracking
@@ -1249,6 +2041,22 @@ async def entrypoint(ctx: JobContext):
                 _latency_tracker.reset()
                 _latency_tracker.mark("user_speech_start")
 
+    # ==========================================================================
+    # SPEAKING STATE WATCHDOG - Recovery for stuck avatar/missing playback_finished
+    # ==========================================================================
+    speaking_state_start = {"time": None, "watchdog_task": None}
+    SPEAKING_TIMEOUT_SECONDS = 30  # Max time to wait for playback_finished
+
+    async def _speaking_watchdog():
+        """Monitor speaking state and recover if stuck too long (no playback_finished)."""
+        await asyncio.sleep(SPEAKING_TIMEOUT_SECONDS)
+        if speaking_state_start["time"] is not None:
+            elapsed = time.time() - speaking_state_start["time"]
+            logger.warning(f"⚠️ SPEAKING WATCHDOG: Agent stuck in speaking state for {elapsed:.1f}s - avatar may have disconnected")
+            logger.warning(f"⚠️ This usually means Beyond Presence didn't send playback_finished event")
+            # The watchdog doesn't forcibly transition state (which could cause issues),
+            # but logs warnings to help diagnose. The user can restart the session.
+
     @session.on("agent_state_changed")
     def on_state(event):
         logger.info(f"🤖 STATE: {event.old_state} → {event.new_state}")
@@ -1260,8 +2068,18 @@ async def entrypoint(ctx: JobContext):
             _latency_tracker.mark("tts_first_audio")
             # Log summary when avatar starts speaking (full pipeline complete)
             _latency_tracker.log_summary()
+            # Start speaking watchdog timer
+            speaking_state_start["time"] = time.time()
+            if speaking_state_start["watchdog_task"]:
+                speaking_state_start["watchdog_task"].cancel()
+            speaking_state_start["watchdog_task"] = asyncio.create_task(_speaking_watchdog())
         elif event.old_state == "speaking" and event.new_state == "listening":
             _latency_tracker.mark("tts_end")
+            # Clear watchdog - successful transition
+            speaking_state_start["time"] = None
+            if speaking_state_start["watchdog_task"]:
+                speaking_state_start["watchdog_task"].cancel()
+                speaking_state_start["watchdog_task"] = None
 
     @session.on("agent_started_speaking")
     def on_agent_speaking(event):
@@ -1272,7 +2090,96 @@ async def entrypoint(ctx: JobContext):
     def on_agent_stopped(event):
         _latency_tracker.mark("agent_speaking_end")
         logger.info(f"🤫 Agent stopped speaking")
-    
+
+    # ==========================================================================
+    # TRANSCRIPT COLLECTION - For memory extraction at session end
+    # ==========================================================================
+    session_transcript = []  # Collect messages for memory extraction
+
+    @session.on("user_input_transcribed")
+    def collect_user_message(event):
+        if event.is_final and event.transcript:
+            session_transcript.append({
+                "role": "user",
+                "content": event.transcript
+            })
+
+    @session.on("agent_speech_committed")
+    def collect_agent_message(event):
+        if hasattr(event, 'content') and event.content:
+            session_transcript.append({
+                "role": "assistant",
+                "content": event.content
+            })
+
+    # ==========================================================================
+    # SESSION CLOSE HANDLER - Memory extraction when session ends
+    # ==========================================================================
+    async def _handle_session_close_async(event):
+        """Async handler for session close - extract memories and generate summary."""
+        logger.info(f"🔚 Session closing (transcript: {len(session_transcript)} messages)")
+
+        # CRITICAL: End the session in Convex to prevent orphaned "active" sessions
+        try:
+            end_convex = ConvexClient(config.convex_url)
+            room_name = ctx.room.name
+            await end_convex.end_session(room_name, reason="session_closed")
+            await end_convex.close()
+            logger.info(f"✅ Session ended in Convex for room: {room_name}")
+        except Exception as e:
+            logger.error(f"❌ Failed to end session in Convex: {e}")
+
+        # Only process if we have enough conversation
+        if len(session_transcript) < 4:
+            logger.info("Session too short for memory extraction")
+            return
+
+        # Need student_id and config for memory storage
+        if not session_data or not session_data.get("studentId"):
+            logger.warning("No student ID - skipping memory extraction")
+            return
+
+        try:
+            student_id = str(session_data["studentId"])
+            session_id = str(session_data.get("_id", ""))
+            avatar_slug = avatar_config.get("slug") or avatar_config.get("name", "").lower().replace(" ", "-")
+
+            # Get API key for LLM calls
+            openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+            if not openrouter_key:
+                logger.warning("No OPENROUTER_API_KEY - skipping memory extraction")
+                return
+
+            # Create Convex client for storing memories
+            memory_convex = ConvexClient(config.convex_url)
+
+            # Process session end (extract facts + generate summary)
+            results = await process_session_end(
+                transcript=session_transcript,
+                student_id=student_id,
+                session_id=session_id,
+                avatar_slug=avatar_slug,
+                convex_client=memory_convex,
+                api_key=openrouter_key,
+            )
+
+            await memory_convex.close()
+
+            logger.info(f"🧠 Memory extraction complete: {results['extracted_facts']} facts, summary: {bool(results['summary'])}")
+
+            if results.get("errors"):
+                logger.warning(f"Memory extraction errors: {results['errors']}")
+
+        except Exception as e:
+            logger.error(f"❌ Memory extraction failed: {e}")
+            import traceback
+            traceback.print_exc()
+
+    @session.on("close")
+    def on_session_close(event):
+        """Sync callback that dispatches to async handler."""
+        asyncio.create_task(_handle_session_close_async(event))
+
     # Get Beyond Presence avatar settings
     avatar_provider = avatar_config.get("avatar_provider", {})
     avatar_id = avatar_provider.get("avatar_id")
@@ -1285,7 +2192,8 @@ async def entrypoint(ctx: JobContext):
     avatar_error_reason = None
 
     # Create agent with instructions - build rich prompt from personality/identity
-    system_prompt = build_system_prompt(avatar_config)
+    # Include memory context for returning students
+    system_prompt = build_system_prompt(avatar_config, memory_context=formatted_memory)
     logger.info(f"📝 Built system prompt ({len(system_prompt)} chars)")
 
     if vision_enabled:
@@ -1309,6 +2217,79 @@ async def entrypoint(ctx: JobContext):
         presentations_prompt += "\nTo show a presentation, call load_presentation(presentation_id=\"<ID>\"). Both you and the student will see the slides, and you can navigate with next_slide, prev_slide, and goto_slide tools.\n"
         final_prompt = final_prompt + presentations_prompt
         logger.info(f"📊 Added {len(available_presentations)} presentations to prompt")
+
+    # Add material context (predefined slides and games) if available
+    if material_context and material_context.get("materialContext"):
+        mat_ctx = material_context["materialContext"]
+        slides = mat_ctx.get("slides", [])
+        slide_count = len(slides)
+        game = mat_ctx.get("game")
+
+        material_parts = []
+
+        # Add slides info
+        if slide_count > 0:
+            slides_section = f"""
+## Lesson Slides ({slide_count} slides available)
+You can display these slides to the student using the load_lesson_slides tool.
+Just say the slide topic name naturally - for example: load_lesson_slides(knowledge_content_id="modal_verbs").
+
+Slides overview:"""
+            for slide in slides:
+                title = slide.get("title", f"Slide {slide.get('index', 0) + 1}")
+                slide_type = slide.get("type", "content")
+                teaching_prompt = slide.get("teachingPrompt", "")
+                slides_section += f"\n- Slide {slide.get('index', 0) + 1}: {title}"
+                if teaching_prompt:
+                    slides_section += f" - {teaching_prompt}"
+            material_parts.append(slides_section)
+
+        # Add game info
+        if game:
+            game_type_friendly = {
+                "sentence_builder": "Sentence Builder - drag and drop words to build sentences",
+                "fill_in_blank": "Fill in the Blank - complete sentences with missing words",
+                "word_ordering": "Word Ordering - arrange words in correct order",
+                "matching_pairs": "Matching Pairs - match related items together",
+                "word_scramble": "Word Scramble - unscramble letters to form words",
+                "multiple_choice": "Multiple Choice - select the correct answer",
+                "flashcards": "Flashcards - review vocabulary with flip cards",
+                "hangman": "Hangman - guess letters to reveal the word",
+                "crossword": "Crossword - fill in the puzzle with correct words",
+            }.get(game.get("type", ""), game.get("type", ""))
+
+            game_section = f"""
+## Interactive Game Available
+You have an interactive game to use with this lesson:
+
+- **"{game.get('title', 'Practice Game')}"** ({game_type_friendly})
+  Level: {game.get('level', 'Mixed')} | Category: {game.get('category', 'mixed').title()}
+
+To start the game, use: load_word_game(game_title="{game.get('title', '')}")
+The game will appear on the student's screen. Encourage them to try it and offer help as needed."""
+            material_parts.append(game_section)
+
+        if material_parts:
+            material_prompt = "\n\n# Pre-Loaded Lesson Materials\nThis lesson includes the following materials:\n" + "\n".join(material_parts)
+            material_prompt += "\n\nUse these materials naturally during your lesson. Don't read technical IDs aloud - refer to materials by their names."
+            final_prompt = final_prompt + material_prompt
+            logger.info(f"📚 Added material context to prompt ({slide_count} slides, game: {'yes' if game else 'no'})")
+
+    # ==========================================================================
+    # CONVERSATION PRACTICE CONTEXT - Transcript, KB content, student name
+    # ==========================================================================
+    practice_context, practice_student_name = await fetch_conversation_practice_context(session_data, config.convex_url)
+    if practice_context:
+        final_prompt = final_prompt + practice_context
+        logger.info(f"📝 Added conversation practice context to prompt")
+
+    # ==========================================================================
+    # WEB SEARCH CONTEXT - For conversation practice with Tavily
+    # ==========================================================================
+    web_search_context = await fetch_web_search_context(session_data, config.convex_url)
+    if web_search_context:
+        final_prompt = final_prompt + web_search_context
+        logger.info(f"🔍 Added web search context to prompt")
 
     # Add structured lesson teaching mode prompt if session has pre-loaded presentation
     if is_structured_lesson:
@@ -1390,9 +2371,15 @@ You are conducting a structured lesson from this presentation.
         agent = Agent(instructions=final_prompt)
     
     # Start the session FIRST (before avatar, so audio pipeline is ready)
+    # With noise cancellation and optimized room options
     await session.start(
         room=ctx.room,
-        agent=agent
+        agent=agent,
+        room_options=room_io.RoomOptions(
+            audio_input=room_io.AudioInputOptions(
+                noise_cancellation=noise_cancellation.BVC(),  # Background Voice Cancellation
+            ),
+        ),
     )
 
     logger.info(f"✨ Session started (Vision: {'ON' if vision_enabled else 'OFF'})")
@@ -1448,9 +2435,73 @@ You are conducting a structured lesson from this presentation.
 
     logger.info(f"✨ Agent '{avatar_name}' ready (Vision: {'ON' if vision_enabled else 'OFF'})")
 
+    # ==========================================================================
+    # SESSION TIMER - Start timer if configured
+    # ==========================================================================
+    global _session_timer
+    if timer_config and timer_config.get("targetDurationMinutes"):
+        target_minutes = timer_config["targetDurationMinutes"]
+        wrap_up_buffer = timer_config.get("wrapUpBufferMinutes", 2)
+        auto_end = timer_config.get("autoEnd", True)
+        session_id_str = str(session_data.get("_id", "")) if session_data else None
+
+        # Create wrap-up callback - avatar speaks summary
+        async def on_wrap_up():
+            """Called when wrap-up period starts."""
+            remaining = _session_timer.remaining_minutes if _session_timer else 0
+            wrap_up_message = f"We're approaching the end of our lesson - we have about {int(remaining)} minutes left. Let me quickly summarize what we've covered today and see if you have any final questions."
+            logger.info(f"⏱️ [TIMER] Speaking wrap-up message")
+            try:
+                await session.say(wrap_up_message, allow_interruptions=True)
+            except Exception as e:
+                logger.error(f"⏱️ [TIMER] Failed to speak wrap-up: {e}")
+
+        # Create expiry callback - avatar closes session
+        async def on_expired():
+            """Called when session time expires."""
+            closing_message = "That's our time for today! You did great work. Keep practicing and I'll see you next time. Goodbye!"
+            logger.info(f"⏱️ [TIMER] Speaking closing message")
+            try:
+                await session.say(closing_message, allow_interruptions=False)
+                # Give time for the closing message to be spoken
+                await asyncio.sleep(5)
+                # End the session
+                if auto_end:
+                    logger.info(f"⏱️ [TIMER] Auto-ending session")
+                    end_convex = ConvexClient(config.convex_url)
+                    await end_convex.end_session(room_name, reason="timer_expired")
+                    await end_convex.close()
+            except Exception as e:
+                logger.error(f"⏱️ [TIMER] Failed to close session: {e}")
+
+        # Create timer with Convex client for status updates
+        timer_convex = ConvexClient(config.convex_url)
+        _session_timer = SessionTimer(
+            target_duration_minutes=target_minutes,
+            wrap_up_buffer_minutes=wrap_up_buffer,
+            on_wrap_up=on_wrap_up,
+            on_expired=on_expired,
+            convex_client=timer_convex,
+            session_id=session_id_str,
+        )
+        await _session_timer.start()
+        logger.info(f"⏱️ [TIMER] Session timer active: {target_minutes}min (wrap-up at {target_minutes - wrap_up_buffer}min)")
+    else:
+        logger.info(f"⏱️ [TIMER] No session timer configured (unlimited duration)")
+
     # Deliver opening greeting immediately (if speak_first behavior)
-    opening_greeting = get_opening_greeting(avatar_config)
+    # Pass memory context for personalized greetings to returning students
+    # Pass student info for conversation practice sessions (guest name)
+    # Returns tuple of (greeting, memory_ids_to_mark_as_followed_up)
+    student_info_for_greeting = {"name": practice_student_name} if practice_student_name else None
+    opening_greeting, memory_ids_to_followup = get_opening_greeting(
+        avatar_config,
+        student_info=student_info_for_greeting,
+        memory_context=student_memory_context
+    )
     logger.info(f"🎤 Opening greeting: {opening_greeting[:80] if opening_greeting else 'None'}...")
+    if memory_ids_to_followup:
+        logger.info(f"📅 Following up on {len(memory_ids_to_followup)} past-due events")
 
     if opening_greeting:
         try:
@@ -1465,6 +2516,19 @@ You are conducting a structured lesson from this presentation.
                     timeout=10.0  # 10 second timeout for greeting
                 )
                 logger.info(f"👋 Delivered opening greeting: '{opening_greeting[:50]}...'")
+
+                # Mark events as followed up after successfully delivering the greeting
+                if memory_ids_to_followup:
+                    try:
+                        followup_convex = ConvexClient(config.convex_url)
+                        for memory_id in memory_ids_to_followup:
+                            if memory_id:
+                                await followup_convex.mark_event_followed_up(memory_id)
+                                logger.info(f"✅ Marked event {memory_id} as followed up")
+                        await followup_convex.close()
+                    except Exception as e:
+                        logger.warning(f"⚠️ Failed to mark events as followed up: {e}")
+
             except asyncio.TimeoutError:
                 logger.warning(f"⏱️ Opening greeting timed out after 10s - continuing without greeting")
         except Exception as e:
@@ -1483,6 +2547,6 @@ if __name__ == "__main__":
             entrypoint_fnc=entrypoint,
             prewarm_fnc=prewarm,
             agent_name="beethoven-teacher",
-            num_idle_processes=2,
+            num_idle_processes=1,  # CRITICAL: Only 1 to prevent duplicate job handling
         )
     )
