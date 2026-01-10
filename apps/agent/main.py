@@ -953,75 +953,90 @@ async def fetch_web_search_context(
         session_info = practice_data.get("session", {})
 
         # ============================================================
-        # PREFERRED: Use pre-fetched web search results from session
-        # These are fetched when user joins and stored in the session
+        # Use pre-fetched web search results from session
+        # Content is fetched by admin and stored in practice record
+        # Avatar does NOT fetch content itself - it only uses pre-fetched
         # ============================================================
         pre_fetched = session_info.get("webSearchResults")
-        if pre_fetched:
-            logger.info(f"🔍 Found pre-fetched web search results (fetched at join time)")
-            query = pre_fetched.get("query", "")
-            answer = pre_fetched.get("answer")
-            search_depth = pre_fetched.get("searchDepth", "basic")
-            llm_rewritten = pre_fetched.get("llmRewrittenContent")
-            results = pre_fetched.get("results", [])
+        if not pre_fetched:
+            # No pre-fetched content - check if web search is enabled
+            web_search_enabled = practice.get("webSearchEnabled", False)
+            if web_search_enabled:
+                logger.warning("🔍 Web search enabled but no pre-fetched content found!")
+                logger.warning("🔍 Admin should click 'Fetch Now' to load content for avatar")
+            return ""
 
-            if not results and not llm_rewritten:
-                logger.info("🔍 Pre-fetched results are empty")
-                return ""
+        # Check content age - warn if > 3 days old
+        fetched_at = pre_fetched.get("fetchedAt", 0)
+        age_days = (int(time.time() * 1000) - fetched_at) / (1000 * 60 * 60 * 24)
+        if age_days > 3:
+            logger.warning(f"🔍 Pre-fetched content is {age_days:.1f} days old (> 3 days)")
+            logger.warning("🔍 Consider refreshing content via admin 'Fetch Now' button")
 
-            # ================================================================
-            # BEST: Use LLM-rewritten content (clean journalist prose)
-            # This is available in detailed mode and provides clean text
-            # ================================================================
-            if llm_rewritten:
-                logger.info(f"🔍 Using LLM-rewritten content ({len(llm_rewritten)} chars)")
-                web_prompt = f"""
+        logger.info(f"🔍 Found pre-fetched web search results (age: {age_days:.1f} days)")
+        query = pre_fetched.get("query", "")
+        answer = pre_fetched.get("answer")
+        search_depth = pre_fetched.get("searchDepth", "basic")
+        llm_rewritten = pre_fetched.get("llmRewrittenContent")
+        results = pre_fetched.get("results", [])
+
+        if not results and not llm_rewritten:
+            logger.info("🔍 Pre-fetched results are empty")
+            return ""
+
+        # ================================================================
+        # BEST: Use LLM-rewritten content (clean journalist prose)
+        # This is available in detailed mode and provides clean text
+        # ================================================================
+        if llm_rewritten:
+            logger.info(f"🔍 Using LLM-rewritten content ({len(llm_rewritten)} chars)")
+            web_prompt = f"""
 # Current News from Today
 The following current news has been professionally summarized for discussion:
 
 {llm_rewritten}
 
 Use this information naturally in conversation to help the student practice discussing current events in English. The content has been cleaned and formatted for easy discussion."""
-                return web_prompt
+            return web_prompt
 
-            # ================================================================
-            # FALLBACK: Use raw results if no LLM-rewritten content
-            # ================================================================
-            # Check if we have detailed (full article) content
-            has_full_articles = any(r.get("rawContent") for r in results)
-            is_detailed = search_depth == "detailed" or has_full_articles
+        # ================================================================
+        # FALLBACK: Use raw results if no LLM-rewritten content
+        # ================================================================
+        # Check if we have detailed (full article) content
+        has_full_articles = any(r.get("rawContent") for r in results)
+        is_detailed = search_depth == "detailed" or has_full_articles
 
-            # Format the pre-fetched results into context string
-            context_parts = []
-            if answer:
-                context_parts.append(f"Summary: {answer}")
-                context_parts.append("")
+        # Format the pre-fetched results into context string
+        context_parts = []
+        if answer:
+            context_parts.append(f"Summary: {answer}")
+            context_parts.append("")
 
-            for i, result in enumerate(results[:5], 1):
-                result_text = f"{i}. {result.get('title', 'Untitled')}"
-                if result.get("publishedDate"):
-                    result_text += f" ({result.get('publishedDate')})"
-                result_text += f"\n   Source: {result.get('url', 'Unknown')}"
+        for i, result in enumerate(results[:5], 1):
+            result_text = f"{i}. {result.get('title', 'Untitled')}"
+            if result.get("publishedDate"):
+                result_text += f" ({result.get('publishedDate')})"
+            result_text += f"\n   Source: {result.get('url', 'Unknown')}"
 
-                # Use rawContent (full article) if available, otherwise use snippet
-                raw_content = result.get("rawContent")
-                if raw_content and is_detailed:
-                    # For detailed mode, include full article content (limit to 5000 chars per article)
-                    article_content = raw_content[:5000]
-                    if len(raw_content) > 5000:
-                        article_content += "... [article truncated]"
-                    result_text += f"\n\n   {article_content}"
-                else:
-                    # Standard mode: just use the snippet
-                    content = result.get("content", "")[:300]
-                    result_text += f"\n   {content}..."
+            # Use rawContent (full article) if available, otherwise use snippet
+            raw_content = result.get("rawContent")
+            if raw_content and is_detailed:
+                # For detailed mode, include full article content (limit to 5000 chars per article)
+                article_content = raw_content[:5000]
+                if len(raw_content) > 5000:
+                    article_content += "... [article truncated]"
+                result_text += f"\n\n   {article_content}"
+            else:
+                # Standard mode: just use the snippet
+                content = result.get("content", "")[:300]
+                result_text += f"\n   {content}..."
 
-                context_parts.append(result_text)
+            context_parts.append(result_text)
 
-            combined_context = "\n".join(context_parts)
+        combined_context = "\n".join(context_parts)
 
-            mode_desc = "detailed with full articles" if is_detailed else "basic snippets"
-            web_prompt = f"""
+        mode_desc = "detailed with full articles" if is_detailed else "basic snippets"
+        web_prompt = f"""
 # Current Information from Web Search
 The following current information has been retrieved to help you discuss recent events:
 
@@ -1030,89 +1045,12 @@ The following current information has been retrieved to help you discuss recent 
 
 You can reference this information naturally in conversation when relevant to the topic. Help the student practice discussing current events in English. You have {"detailed article content" if is_detailed else "brief snippets"} to draw from."""
 
-            logger.info(f"🔍 Using pre-fetched web search context ({len(combined_context)} chars, {len(results)} results, {mode_desc})")
-            return web_prompt
-
-        # ============================================================
-        # FALLBACK: Live Tavily search (if no pre-fetched results)
-        # ============================================================
-        logger.info("🔍 No pre-fetched results found, checking if live search is needed...")
-
-        web_search_enabled = practice.get("webSearchEnabled", False)
-        web_search_config_raw = practice.get("webSearchConfig")
-
-        logger.info(f"🔍 Practice data - webSearchEnabled: {web_search_enabled}, config: {web_search_config_raw}")
-
-        if not web_search_enabled:
-            logger.info("🔍 Web search not enabled for this practice - skipping Tavily")
-            return ""
-
-        # Parse web search config
-        config = WebSearchConfig.from_dict(web_search_config_raw)
-        logger.info(f"🔍 Web search enabled - depth: {config.search_depth}, topic: {config.topic}, domains: {config.include_domains}")
-
-        # Build search queries based on practice subject/mode
-        queries = []
-        subject = practice.get("subject", "")
-
-        # Add custom queries if configured
-        if config.custom_queries:
-            queries.extend(config.custom_queries)
-
-        # Auto-generate queries based on subject
-        if subject:
-            if config.topic == "news":
-                queries.append(f"latest news about {subject}")
-            elif config.topic == "finance":
-                queries.append(f"{subject} financial news today")
-            else:
-                queries.append(f"current information about {subject}")
-
-        # Default to general current events if no specific topic
-        if not queries:
-            if config.topic == "news":
-                queries.append("latest world news today")
-            elif config.topic == "finance":
-                queries.append("stock market news today")
-            else:
-                queries.append("today's top news stories")
-
-        # Check Tavily availability
-        from src.knowledge import get_tavily_provider
-        tavily = get_tavily_provider()
-        logger.info(f"🔍 Tavily available: {tavily.is_available}")
-
-        if not tavily.is_available:
-            logger.warning("🔍 Web search disabled - Tavily not configured (check TAVILY_API_KEY)")
-            return ""
-
-        # Perform searches
-        search_results = []
-        for query in queries[:3]:  # Limit to 3 queries
-            logger.info(f"🔍 Searching: '{query}'...")
-            result = await search_web(query, config)
-            if result and result.results:
-                search_results.append(format_search_for_context(result))
-                logger.info(f"🔍 Search '{query}': {len(result.results)} results")
-            else:
-                logger.warning(f"🔍 Search '{query}': No results returned")
-
-        if not search_results:
-            logger.info("🔍 No search results found")
-            return ""
-
-        # Combine search results into context
-        combined_context = "\n".join(search_results)
-        web_prompt = f"""
-# Current Information from Web Search
-The following current information has been retrieved to help you discuss recent events:
-
-{combined_context}
-
-You can reference this information naturally in conversation when relevant to the topic. Help the student practice discussing current events in English."""
-
-        logger.info(f"🔍 Added web search context ({len(combined_context)} chars)")
+        logger.info(f"🔍 Using pre-fetched web search context ({len(combined_context)} chars, {len(results)} results, {mode_desc})")
         return web_prompt
+
+        # NOTE: Live Tavily search has been removed
+        # Avatar only uses pre-fetched content that admin loads via "Fetch Now"
+        # This ensures consistent content across all sessions and reduces API costs
 
     except Exception as e:
         logger.warning(f"⚠️ Failed to fetch web search context: {e}")

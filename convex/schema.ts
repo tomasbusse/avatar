@@ -2121,6 +2121,27 @@ export default defineSchema({
       })
     ),
 
+    // Pre-fetched web search content (stored when admin clicks "Fetch Now")
+    // This is copied to session when user joins, avatar uses this content
+    prefetchedContent: v.optional(
+      v.object({
+        fetchedAt: v.number(), // When the content was fetched
+        query: v.string(), // The search query used
+        answer: v.optional(v.string()), // Tavily's synthesized answer
+        searchDepth: v.optional(v.string()), // "basic" | "advanced" | "detailed"
+        llmRewrittenContent: v.optional(v.string()), // Clean journalist prose (detailed mode)
+        results: v.array(
+          v.object({
+            title: v.string(),
+            url: v.string(),
+            content: v.string(),
+            rawContent: v.optional(v.string()),
+            publishedDate: v.optional(v.string()),
+          })
+        ),
+      })
+    ),
+
     // Entry Flow UI Configuration
     entryFlowConfig: v.optional(
       v.object({

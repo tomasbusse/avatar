@@ -147,6 +147,9 @@ export const getByShareToken = query({
         entryFlowConfig: practice.entryFlowConfig,
         guestSettings: practice.guestSettings,
         behaviorConfig: practice.behaviorConfig,
+        // Web search configuration
+        webSearchEnabled: practice.webSearchEnabled,
+        webSearchConfig: practice.webSearchConfig,
         // Include transcript summary/topics for landing page
         transcriptSummary: practice.transcript?.summary,
         transcriptTopics: practice.transcript?.topics,
@@ -250,6 +253,7 @@ export const getForAgent = query({
         guestName: session.guestName,
         isGuest: session.isGuest,
         studentId: session.studentId,
+        webSearchResults: session.webSearchResults,
       },
     };
   },
@@ -289,7 +293,7 @@ export const create = mutation({
     webSearchEnabled: v.optional(v.boolean()),
     webSearchConfig: v.optional(
       v.object({
-        searchDepth: v.optional(v.union(v.literal("basic"), v.literal("advanced"))),
+        searchDepth: v.optional(v.union(v.literal("basic"), v.literal("advanced"), v.literal("detailed"))),
         maxResults: v.optional(v.number()),
         includeDomains: v.optional(v.array(v.string())),
         excludeDomains: v.optional(v.array(v.string())),
@@ -531,7 +535,7 @@ export const update = mutation({
     webSearchEnabled: v.optional(v.boolean()),
     webSearchConfig: v.optional(
       v.object({
-        searchDepth: v.optional(v.union(v.literal("basic"), v.literal("advanced"))),
+        searchDepth: v.optional(v.union(v.literal("basic"), v.literal("advanced"), v.literal("detailed"))),
         maxResults: v.optional(v.number()),
         includeDomains: v.optional(v.array(v.string())),
         excludeDomains: v.optional(v.array(v.string())),
@@ -680,6 +684,24 @@ export const createSession = mutation({
         referrer: v.optional(v.string()),
       })
     ),
+    // Pre-fetched web search results (fetched at join time)
+    webSearchResults: v.optional(
+      v.object({
+        fetchedAt: v.number(),
+        query: v.string(),
+        answer: v.optional(v.string()),
+        searchDepth: v.optional(v.string()), // "basic" | "advanced" | "detailed"
+        results: v.array(
+          v.object({
+            title: v.string(),
+            url: v.string(),
+            content: v.string(),
+            rawContent: v.optional(v.string()), // Full article content (detailed mode)
+            publishedDate: v.optional(v.string()),
+          })
+        ),
+      })
+    ),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -759,6 +781,10 @@ export const createSession = mutation({
 
     const now = Date.now();
 
+    // Use prefetched content from practice if available, otherwise use passed webSearchResults
+    // This allows admin to pre-fetch content that all sessions will use
+    const webSearchContent = practice.prefetchedContent ?? args.webSearchResults;
+
     // Create session
     const sessionId = await ctx.db.insert("sessions", {
       studentId: studentId!,
@@ -768,6 +794,7 @@ export const createSession = mutation({
       guestName: args.guestName,
       isGuest,
       guestMetadata: args.guestMetadata,
+      webSearchResults: webSearchContent,
       startedAt: now,
       status: "waiting",
       type: "conversation_practice",
@@ -798,5 +825,99 @@ export const createSession = mutation({
       sessionId,
       roomName: args.roomName,
     };
+  },
+});
+
+// ============================================
+// PREFETCHED CONTENT MANAGEMENT
+// ============================================
+
+/**
+ * Store prefetched web search content for a practice
+ * Called when admin clicks "Fetch Now" to pre-load content
+ * This content is then copied to sessions when users join
+ */
+export const storePrefetchedContent = mutation({
+  args: {
+    practiceId: v.id("conversationPractice"),
+    prefetchedContent: v.object({
+      fetchedAt: v.number(),
+      query: v.string(),
+      answer: v.optional(v.string()),
+      searchDepth: v.optional(v.string()),
+      llmRewrittenContent: v.optional(v.string()),
+      results: v.array(
+        v.object({
+          title: v.string(),
+          url: v.string(),
+          content: v.string(),
+          rawContent: v.optional(v.string()),
+          publishedDate: v.optional(v.string()),
+        })
+      ),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const practice = await ctx.db.get(args.practiceId);
+    if (!practice) {
+      throw new Error("Practice not found");
+    }
+
+    await ctx.db.patch(args.practiceId, {
+      prefetchedContent: args.prefetchedContent,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Clear prefetched content from a practice
+ * Used when admin wants to reset/clear the pre-loaded content
+ */
+export const clearPrefetchedContent = mutation({
+  args: {
+    practiceId: v.id("conversationPractice"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const practice = await ctx.db.get(args.practiceId);
+    if (!practice) {
+      throw new Error("Practice not found");
+    }
+
+    await ctx.db.patch(args.practiceId, {
+      prefetchedContent: undefined,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Get prefetched content for a practice (used by agent to check if refresh needed)
+ */
+export const getPrefetchedContent = query({
+  args: {
+    practiceId: v.id("conversationPractice"),
+  },
+  handler: async (ctx, args) => {
+    const practice = await ctx.db.get(args.practiceId);
+    if (!practice) {
+      return null;
+    }
+
+    return practice.prefetchedContent ?? null;
   },
 });

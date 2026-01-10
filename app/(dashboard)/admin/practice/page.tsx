@@ -79,6 +79,7 @@ export default function AdminPracticePage() {
     fetchedAt: number;
   } | null>(null);
   const [previewPracticeTitle, setPreviewPracticeTitle] = useState("");
+  const [previewPracticeId, setPreviewPracticeId] = useState<Id<"conversationPractice"> | null>(null);
   const [expandedArticles, setExpandedArticles] = useState<Set<number>>(new Set());
 
   // Form state
@@ -121,6 +122,7 @@ export default function AdminPracticePage() {
   const deletePractice = useMutation(api.conversationPractice.remove);
   const regenerateToken = useMutation(api.conversationPractice.regenerateShareToken);
   const uploadTranscript = useMutation(api.conversationPractice.uploadTranscript);
+  const storePrefetchedContent = useMutation(api.conversationPractice.storePrefetchedContent);
 
   const resetForm = () => {
     setTitle("");
@@ -198,9 +200,10 @@ export default function AdminPracticePage() {
     setIsDialogOpen(true);
   };
 
-  // Test web search with Tavily and show results in preview dialog
+  // Fetch and store web search content for a practice
+  // This replaces any existing content and stores it permanently
   const testWebSearch = async (
-    practiceId: string,
+    practiceId: Id<"conversationPractice">,
     practiceTitle: string,
     searchConfig: {
       searchDepth?: string;
@@ -224,31 +227,46 @@ export default function AdminPracticePage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to test web search");
+        throw new Error(data.error || "Failed to fetch web search");
       }
 
       if (data.webSearchResults && data.webSearchResults.results.length > 0) {
-        // Store results and open preview dialog
+        // Store results in practice record (replaces any existing content)
+        await storePrefetchedContent({
+          practiceId,
+          prefetchedContent: data.webSearchResults,
+        });
+
+        // Also update preview dialog
         setPreviewResults(data.webSearchResults);
         setPreviewPracticeTitle(practiceTitle);
+        setPreviewPracticeId(practiceId);
         setPreviewDialogOpen(true);
-        toast.success(`Found ${data.webSearchResults.results.length} results`);
+        toast.success(`Stored ${data.webSearchResults.results.length} results for avatar`);
       } else if (data.results && data.results.length > 0) {
         // Legacy format fallback
-        setPreviewResults({
+        const legacyResults = {
           query: data.query,
           answer: data.answer,
           results: data.results,
           fetchedAt: Date.now(),
+        };
+
+        await storePrefetchedContent({
+          practiceId,
+          prefetchedContent: legacyResults,
         });
+
+        setPreviewResults(legacyResults);
         setPreviewPracticeTitle(practiceTitle);
+        setPreviewPracticeId(practiceId);
         setPreviewDialogOpen(true);
-        toast.success(`Found ${data.results.length} results`);
+        toast.success(`Stored ${data.results.length} results for avatar`);
       } else {
         toast.warning("No results found - try different search settings");
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to test web search");
+      toast.error(error instanceof Error ? error.message : "Failed to fetch web search");
     } finally {
       setIsTestingWebSearch(null);
     }
