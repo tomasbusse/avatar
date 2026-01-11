@@ -3,6 +3,9 @@ import { OnboardingGuard } from "@/components/auth/onboarding-guard";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 
+// Force dynamic rendering - Clerk requires runtime environment variables
+export const dynamic = "force-dynamic";
+
 export default async function DashboardLayout({
   children,
 }: {
