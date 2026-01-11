@@ -130,7 +130,13 @@ export function LessonRoom({
   // Error state
   if (error) {
     return (
-      <div className="fixed inset-0 bg-black flex items-center justify-center">
+      <div className="fixed inset-0 bg-[#4F5338] flex items-center justify-center">
+        {/* Background Logo */}
+        <img
+          src="/sls-logo-white.jpg"
+          alt=""
+          className="absolute top-8 left-1/2 -translate-x-1/2 h-12 md:h-16 object-contain opacity-80"
+        />
         <div className="text-center text-white">
           <p className="text-red-400 mb-4">{error}</p>
           <Button
@@ -148,7 +154,13 @@ export function LessonRoom({
   // Loading state
   if (isConnecting || !token) {
     return (
-      <div className="fixed inset-0 bg-black flex items-center justify-center">
+      <div className="fixed inset-0 bg-[#4F5338] flex items-center justify-center">
+        {/* Background Logo */}
+        <img
+          src="/sls-logo-white.jpg"
+          alt=""
+          className="absolute top-8 left-1/2 -translate-x-1/2 h-12 md:h-16 object-contain opacity-80"
+        />
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-white/60" />
           <p className="text-white/60">Connecting...</p>
@@ -349,10 +361,16 @@ function RoomContent({
   // Session Complete overlay
   if (showComplete) {
     return (
-      <div className="fixed inset-0 bg-black flex items-center justify-center animate-in fade-in duration-500">
+      <div className="fixed inset-0 bg-[#4F5338] flex items-center justify-center animate-in fade-in duration-500">
+        {/* Background Logo */}
+        <img
+          src="/sls-logo-white.jpg"
+          alt=""
+          className="absolute top-8 left-1/2 -translate-x-1/2 h-12 md:h-16 object-contain opacity-80"
+        />
         <div className="text-center text-white">
-          <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-6">
-            <svg className="w-10 h-10 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-6">
+            <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
@@ -364,10 +382,17 @@ function RoomContent({
   }
 
   return (
-    <div className="fixed inset-0 bg-black">
+    <div className="fixed inset-0 bg-[#4F5338]">
+      {/* Background Logo */}
+      <img
+        src="/sls-logo-white.jpg"
+        alt=""
+        className="absolute top-8 left-1/2 -translate-x-1/2 h-12 md:h-16 object-contain opacity-80 z-10"
+      />
+
       {/* Audio Blocked Overlay */}
       {audioContextBlocked && (
-        <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
+        <div className="absolute inset-0 z-50 bg-[#4F5338]/90 backdrop-blur-sm flex items-center justify-center p-6">
           <div className="text-center max-w-sm">
             <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-4">
               <Volume2 className="w-8 h-8 text-white" />
@@ -386,8 +411,8 @@ function RoomContent({
         </div>
       )}
 
-      {/* Timer - Top Center */}
-      <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20">
+      {/* Timer - Top Center (below logo) */}
+      <div className="absolute top-24 md:top-28 left-1/2 -translate-x-1/2 z-20">
         <div className="bg-white/10 backdrop-blur-xl rounded-full px-4 py-2 border border-white/20">
           <SessionTimer
             durationMinutes={durationMinutes}
@@ -398,7 +423,7 @@ function RoomContent({
       </div>
 
       {/* Avatar Video - Centered */}
-      <div className="absolute inset-0 flex items-center justify-center p-4 md:p-8">
+      <div className="absolute inset-0 flex items-center justify-center p-4 md:p-8 pt-36 md:pt-40">
         <div
           className={cn(
             "relative w-full max-w-3xl aspect-video rounded-3xl overflow-hidden",
@@ -414,7 +439,7 @@ function RoomContent({
             />
           ) : (
             // Loading placeholder
-            <div className="w-full h-full bg-gradient-to-br from-gray-900 to-black flex items-center justify-center">
+            <div className="w-full h-full bg-[#3a3f2a] flex items-center justify-center">
               <div className="text-center">
                 <div className="relative mx-auto mb-6">
                   <div className="w-24 h-24 rounded-full bg-white/10 flex items-center justify-center">
@@ -433,7 +458,7 @@ function RoomContent({
 
           {/* Connection status */}
           {room.state !== "connected" && (
-            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+            <div className="absolute inset-0 bg-[#4F5338]/60 flex items-center justify-center">
               <Loader2 className="w-8 h-8 animate-spin text-white/60" />
             </div>
           )}
