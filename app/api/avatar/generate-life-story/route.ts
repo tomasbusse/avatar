@@ -57,7 +57,7 @@ The tone should be warm and personal, as if they're telling their own story.`;
         "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
       },
       body: JSON.stringify({
-        model: "anthropic/claude-3.5-haiku",
+        model: "anthropic/claude-3-5-haiku-20241022",
         messages: [
           {
             role: "user",
