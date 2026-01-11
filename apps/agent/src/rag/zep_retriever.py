@@ -117,24 +117,42 @@ class ZepRetriever:
     ) -> List[RetrievedChunk]:
         """Search a single Zep collection."""
         try:
-            # Zep Cloud document search
-            results = await self._client.document.search(
-                collection_name=collection_id,
-                text=query,
-                limit=limit,
+            # Zep Cloud SDK v2+ API - document API is deprecated
+            # Try new graph-based API first, fall back to legacy document API
+
+            # Check if document attribute exists (legacy API)
+            if hasattr(self._client, 'document'):
+                results = await self._client.document.search(
+                    collection_name=collection_id,
+                    text=query,
+                    limit=limit,
+                )
+                chunks = []
+                for doc in results.results:
+                    chunks.append(RetrievedChunk(
+                        text=doc.content,
+                        score=doc.score or 0.0,
+                        metadata=doc.metadata or {},
+                        source=collection_id,
+                    ))
+                return chunks
+            else:
+                # Zep Cloud v2+ deprecates document collections in favor of graph search
+                # Log warning and skip - RAG will be disabled for this session
+                logger.warning(
+                    f"Zep document API not available (deprecated in v2+). "
+                    f"RAG disabled. Consider using Zep graph API or alternative vector store."
+                )
+                return []
+
+        except AttributeError as e:
+            # Handle case where 'document' attribute doesn't exist
+            logger.warning(
+                f"Zep document API not found: {e}. "
+                f"The document collection feature is deprecated in Zep Cloud v2+. "
+                f"RAG will be disabled for this session."
             )
-
-            chunks = []
-            for doc in results.results:
-                chunks.append(RetrievedChunk(
-                    text=doc.content,
-                    score=doc.score or 0.0,
-                    metadata=doc.metadata or {},
-                    source=collection_id,
-                ))
-
-            return chunks
-
+            return []
         except Exception as e:
             logger.error(f"Error searching collection {collection_id}: {e}")
             return []
@@ -158,6 +176,14 @@ class ZepRetriever:
             await self.initialize()
 
         if not self._client:
+            return False
+
+        # Check if document API is available (deprecated in v2+)
+        if not hasattr(self._client, 'document'):
+            logger.warning(
+                f"Zep document API not available (deprecated in v2+). "
+                f"Cannot add documents. Consider using Zep graph API."
+            )
             return False
 
         try:
@@ -193,6 +219,9 @@ class ZepRetriever:
             logger.info(f"Added {len(documents)} documents to {collection_id}")
             return True
 
+        except AttributeError as e:
+            logger.warning(f"Zep document API not found: {e}")
+            return False
         except Exception as e:
             logger.error(f"Error adding documents to {collection_id}: {e}")
             return False
@@ -205,10 +234,21 @@ class ZepRetriever:
         if not self._client:
             return False
 
+        # Check if document API is available (deprecated in v2+)
+        if not hasattr(self._client, 'document'):
+            logger.warning(
+                f"Zep document API not available (deprecated in v2+). "
+                f"Cannot delete collection."
+            )
+            return False
+
         try:
             await self._client.document.delete_collection(collection_id)
             logger.info(f"Deleted Zep collection: {collection_id}")
             return True
+        except AttributeError as e:
+            logger.warning(f"Zep document API not found: {e}")
+            return False
         except Exception as e:
             logger.error(f"Error deleting collection {collection_id}: {e}")
             return False
