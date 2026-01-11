@@ -6,6 +6,9 @@ import { ThemeProvider } from "@/components/providers/theme-provider";
 import { Toaster } from "sonner";
 import "./globals.css";
 
+// Force dynamic rendering - Convex requires runtime environment variables
+export const dynamic = "force-dynamic";
+
 const blinker = Blinker({
   subsets: ["latin"],
   weight: ["200", "300", "400", "600", "700", "800", "900"],
