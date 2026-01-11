@@ -1023,6 +1023,7 @@ function AvatarCreator({ onClose, allVoices, llmModels }: { onClose: () => void;
     name: "",
     slug: "",
     description: "",
+    profileImage: "",
     role: "English Teacher",
     personaDescription: "Warm, patient, encouraging",
     teachingStyle: "supportive" as const,
@@ -1082,6 +1083,7 @@ function AvatarCreator({ onClose, allVoices, llmModels }: { onClose: () => void;
         name: formData.name,
         slug: formData.slug || formData.name.toLowerCase().replace(/\s+/g, "-"),
         description: formData.description,
+        profileImage: formData.profileImage || undefined,
         avatarProvider: {
           type: "beyond_presence",
           avatarId: formData.beyAvatarId || "b9be11b8-89fb-4227-8f86-4a881393cbdb",
@@ -1250,6 +1252,20 @@ function AvatarCreator({ onClose, allVoices, llmModels }: { onClose: () => void;
                     placeholder="A friendly English teacher specializing in..."
                     required
                   />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Profile Image URL</label>
+                  <input
+                    type="url"
+                    value={formData.profileImage}
+                    onChange={(e) => setFormData({ ...formData, profileImage: e.target.value })}
+                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                    placeholder="https://example.com/avatar.jpg"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Image shown in the loading circle before avatar connects
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -1931,6 +1947,7 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
     name: string;
     slug: string;
     description: string;
+    profileImage: string;
     role: string;
     personaDescription: string;
     teachingStyle: "supportive" | "socratic" | "direct" | "challenging";
@@ -1985,6 +2002,7 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
         name: avatar.name,
         slug: avatar.slug,
         description: avatar.description,
+        profileImage: avatar.profileImage || "",
         role: avatar.persona.role,
         personaDescription: avatar.persona.personality,
         teachingStyle: avatar.persona.teachingStyle,
@@ -2052,6 +2070,7 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
           name: formData.name,
           slug: formData.slug,
           description: formData.description,
+          profileImage: formData.profileImage || undefined,
           avatarProvider: {
             type: "beyond_presence" as const,
             avatarId: formData.beyAvatarId,
@@ -2220,6 +2239,20 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
                     rows={2}
                     required
                   />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Profile Image URL</label>
+                  <input
+                    type="url"
+                    value={formData.profileImage}
+                    onChange={(e) => setFormData({ ...formData, profileImage: e.target.value })}
+                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                    placeholder="https://example.com/avatar.jpg"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Image shown in the loading circle before avatar connects
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

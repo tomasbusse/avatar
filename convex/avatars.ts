@@ -44,6 +44,7 @@ export const createAvatar = mutation({
     name: v.string(),
     slug: v.string(),
     description: v.string(),
+    profileImage: v.optional(v.string()),
     avatarProvider: v.object({
       type: v.union(
         v.literal("beyond_presence"),

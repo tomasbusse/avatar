@@ -442,10 +442,18 @@ function RoomContent({
             <div className="w-full h-full bg-[#3a3f2a] flex items-center justify-center">
               <div className="text-center">
                 <div className="relative mx-auto mb-6">
-                  <div className="w-24 h-24 rounded-full bg-white/10 flex items-center justify-center">
-                    <span className="text-4xl font-light text-white/80">
-                      {avatarName.charAt(0).toUpperCase()}
-                    </span>
+                  <div className="w-24 h-24 rounded-full bg-white/10 flex items-center justify-center overflow-hidden">
+                    {avatar?.profileImage ? (
+                      <img
+                        src={avatar.profileImage}
+                        alt={avatarName}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-4xl font-light text-white/80">
+                        {avatarName.charAt(0).toUpperCase()}
+                      </span>
+                    )}
                   </div>
                   <div className="absolute inset-0 rounded-full border-2 border-white/20 animate-ping" />
                 </div>

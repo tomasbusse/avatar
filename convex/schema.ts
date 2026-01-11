@@ -299,6 +299,7 @@ export default defineSchema({
     name: v.string(),
     slug: v.string(),
     description: v.string(),
+    profileImage: v.optional(v.string()), // URL to avatar profile image for loading placeholder
     avatarProvider: v.object({
       type: v.union(
         v.literal("beyond_presence"),
