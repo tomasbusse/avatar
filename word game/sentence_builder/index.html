@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Sentence Builder – Modals & Verb Chains</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app">
+  <h1>Sentence Builder – Modals, “be” & Verb Chains</h1>
+  <p class="subtitle">
+    Drag blocks from the palette into the sentence workspace.<br>
+    Double-click a block in the workspace to delete it.
+  </p>
+
+  <div class="panels">
+    <div class="panel">
+      <h2>Palette</h2>
+      <p class="hint">These blocks represent grammar building units.</p>
+
+      <div id="palette" class="palette">
+
+        <div class="group-label">Subjects</div>
+        <div class="block subject">I</div>
+        <div class="block subject">you</div>
+        <div class="block subject">we</div>
+        <div class="block subject">they</div>
+        <div class="block subject">my team</div>
+        <div class="block subject">the company</div>
+
+        <div class="group-label">Auxiliaries (finite verb 1)</div>
+        <div class="block aux">do</div>
+        <div class="block aux">does</div>
+        <div class="block aux">did</div>
+        <div class="block aux">am</div>
+        <div class="block aux">is</div>
+        <div class="block aux">are</div>
+        <div class="block aux">was</div>
+        <div class="block aux">were</div>
+        <div class="block aux">have</div>
+        <div class="block aux">has</div>
+        <div class="block aux">had</div>
+        <div class="block aux">be</div>
+        <div class="block aux">being</div>
+        <div class="block aux">been</div>
+
+        <div class="group-label">Modals</div>
+        <div class="block modal">can</div>
+        <div class="block modal">could</div>
+        <div class="block modal">may</div>
+        <div class="block modal">might</div>
+        <div class="block modal">will</div>
+        <div class="block modal">would</div>
+        <div class="block modal">must</div>
+        <div class="block modal">should</div>
+
+        <div class="group-label">Verb + “to” chunks</div>
+        <div class="block main">have to</div>
+        <div class="block main">has to</div>
+        <div class="block main">had to</div>
+        <div class="block main">want to</div>
+        <div class="block main">wants to</div>
+        <div class="block main">going to</div>
+        <div class="block main">able to</div>
+        <div class="block main">used to</div>
+
+        <div class="group-label">Main verbs (base form)</div>
+        <div class="block main">deliver</div>
+        <div class="block main">speed up</div>
+        <div class="block main">get up</div>
+        <div class="block main">live</div>
+        <div class="block main">smoke</div>
+        <div class="block main">email</div>
+        <div class="block main">finish</div>
+        <div class="block main">work</div>
+
+        <div class="group-label">Negation</div>
+        <div class="block negation">not</div>
+        <div class="block negation">never</div>
+
+        <div class="group-label">Objects</div>
+        <div class="block object">it</div>
+        <div class="block object">the delivery</div>
+        <div class="block object">the report</div>
+        <div class="block object">our target</div>
+
+        <div class="group-label">Time / Adverbials</div>
+        <div class="block time">today</div>
+        <div class="block time">this week</div>
+        <div class="block time">next week</div>
+        <div class="block time">by the end of the week</div>
+        <div class="block time">for three years</div>
+        <div class="block time">already</div>
+        <div class="block time">yet</div>
+        <div class="block time">usually</div>
+
+        <div class="group-label">Connectors</div>
+        <div class="block connector">but</div>
+        <div class="block connector">because</div>
+        <div class="block connector">so</div>
+
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Sentence Workspace</h2>
+      <p class="hint">
+        Build your verb chain here.<br>
+        Only the <strong>first verb block</strong> is conjugated.
+      </p>
+
+      <div id="workspace" class="workspace"></div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="legend-item"><span class="swatch subject"></span> Subject</span>
+    <span class="legend-item"><span class="swatch aux"></span> Auxiliary (incl. all forms of “be”)</span>
+    <span class="legend-item"><span class="swatch modal"></span> Modal</span>
+    <span class="legend-item"><span class="swatch main"></span> Verb or Chunk (“have to”, “able to”, main verb)</span>
+    <span class="legend-item"><span class="swatch negation"></span> Negation</span>
+    <span class="legend-item"><span class="swatch object"></span> Object</span>
+    <span class="legend-item"><span class="swatch time"></span> Time / Adverbial</span>
+    <span class="legend-item"><span class="swatch connector"></span> Connector</span>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

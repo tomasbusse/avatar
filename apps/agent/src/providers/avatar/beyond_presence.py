@@ -35,6 +35,10 @@ class BeyondPresenceAvatar:
         try:
             self._room = room
 
+            # Convert wss:// to https:// for LiveKit API endpoint
+            livekit_url = os.environ.get("LIVEKIT_URL", "").replace("wss://", "https://")
+            logger.info(f"Connecting Beyond Presence to LiveKit: {livekit_url} (room: {room.name})")
+
             # Start avatar session
             response = await self._client.post(
                 f"{self.base_url}/v1/avatars/{self.avatar_id}/sessions",
@@ -45,7 +49,7 @@ class BeyondPresenceAvatar:
                 json={
                     "livekit": {
                         "room_name": room.name,
-                        "server_url": os.environ.get("LIVEKIT_URL", ""),
+                        "server_url": livekit_url,
                     },
                     "settings": {
                         "resolution": "720p",

@@ -1,0 +1,105 @@
+* { box-sizing: border-box; }
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  margin: 0;
+  padding: 20px;
+  background: #f5f5f7;
+}
+
+.app {
+  max-width: 1120px;
+  margin: 0 auto;
+  background: #ffffff;
+  padding: 24px 24px 32px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+}
+
+h1 { margin-bottom: 4px; font-size: 1.6rem; }
+.subtitle { margin-bottom: 16px; color: #555; }
+
+.panels {
+  display: grid;
+  grid-template-columns: 1.2fr 1.3fr;
+  gap: 20px;
+}
+
+.panel h2 { margin: 0 0 4px; }
+.hint { font-size: 0.85rem; color: #777; margin-bottom: 8px; }
+
+.palette, .workspace {
+  min-height: 150px;
+  background: #fafafa;
+  border: 2px dashed #ddd;
+  padding: 10px;
+  border-radius: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.palette { max-height: 420px; overflow-y: auto; }
+
+.group-label {
+  flex-basis: 100%;
+  font-size: 0.78rem;
+  margin: 6px 0 2px;
+  text-transform: uppercase;
+  color: #888;
+}
+
+.block {
+  padding: 6px 12px;
+  margin: 4px;
+  border-radius: 999px;
+  font-size: 0.92rem;
+  cursor: grab;
+  user-select: none;
+  white-space: nowrap;
+  border: 1px solid rgba(0,0,0,0.05);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.block:active {
+  transform: scale(1.04);
+  cursor: grabbing;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+}
+
+.subject   { background: #e0f2ff; }
+.aux       { background: #e0f7ec; }
+.modal     { background: #fff3d9; }
+.main      { background: #ffe8e0; }
+.negation  { background: #ffd6de; }
+.object    { background: #e9e0ff; }
+.time      { background: #e5f2e0; }
+.connector { background: #f0f0f0; }
+
+.legend {
+  margin-top: 18px;
+  font-size: 0.85rem;
+  color: #555;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.legend-item { display: inline-flex; align-items: center; gap: 5px; }
+
+.swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,0.1);
+}
+.swatch.subject   { background: #e0f2ff; }
+.swatch.aux       { background: #e0f7ec; }
+.swatch.modal     { background: #fff3d9; }
+.swatch.main      { background: #ffe8e0; }
+.swatch.negation  { background: #ffd6de; }
+.swatch.object    { background: #e9e0ff; }
+.swatch.time      { background: #e5f2e0; }
+.swatch.connector { background: #f0f0f0; }
+
+@media (max-width: 800px) {
+  .panels { grid-template-columns: 1fr; }
+}

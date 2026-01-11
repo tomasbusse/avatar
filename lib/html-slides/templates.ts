@@ -3,9 +3,11 @@
  *
  * Self-contained HTML templates for each slide type.
  * All CSS is inline to ensure slides render without external dependencies.
+ * Uses SLS (Simmonds Language Services) brand colors.
  */
 
 import { SlideTheme, DEFAULT_THEME } from "./types";
+import { SLS_COLORS } from "@/lib/brand-colors";
 
 // Escape HTML special characters
 export function escapeHtml(str: string): string {
@@ -202,7 +204,7 @@ export function objectivesSlideTemplate(
     ${getBaseStyles(theme)}
 
     .objectives-slide {
-      background: linear-gradient(135deg, #f0fdf4 0%, ${theme.background} 100%);
+      background: linear-gradient(135deg, ${SLS_COLORS.beige}40 0%, ${theme.background} 100%);
     }
 
     .objectives-box {
@@ -357,13 +359,13 @@ export function grammarSlideTemplate(
     ${getBaseStyles(theme)}
 
     .grammar-slide h2 {
-      color: #92400e;
+      color: ${SLS_COLORS.orange};
     }
 
     .grammar-box {
       background: ${theme.grammar};
-      border: 2px solid ${theme.grammarBorder};
-      border-radius: 16px;
+      border-left: 4px solid ${theme.grammarBorder};
+      border-radius: 0 16px 16px 0;
       padding: 28px 36px;
       margin-bottom: 24px;
     }
@@ -386,13 +388,13 @@ export function grammarSlideTemplate(
     }
 
     .examples-section h3 {
-      color: #92400e;
+      color: ${SLS_COLORS.orange};
       font-size: 20px;
       margin-bottom: 16px;
     }
 
     .example-item {
-      background: #fffbeb;
+      background: ${SLS_COLORS.cream};
       border-radius: 8px;
       padding: 16px 20px;
       margin-bottom: 12px;
@@ -514,11 +516,11 @@ export function vocabularySlideTemplate(
     }
 
     .vocab-table tr:nth-child(even) {
-      background: #f9fafb;
+      background: ${SLS_COLORS.cream};
     }
 
     .vocab-table tr:hover {
-      background: #f0f9ff;
+      background: ${SLS_COLORS.beige};
     }
 
     .term-cell {
@@ -617,7 +619,7 @@ export function exerciseSlideTemplate(
     ${getBaseStyles(theme)}
 
     .exercise-slide {
-      background: linear-gradient(135deg, #f0f9ff 0%, ${theme.background} 100%);
+      background: linear-gradient(135deg, ${SLS_COLORS.cream}40 0%, ${theme.background} 100%);
     }
 
     .exercise-header {
@@ -754,7 +756,7 @@ export function summarySlideTemplate(
     ${getBaseStyles(theme)}
 
     .summary-slide {
-      background: linear-gradient(135deg, #f3f4f6 0%, ${theme.background} 100%);
+      background: linear-gradient(135deg, ${SLS_COLORS.beige}40 0%, ${theme.background} 100%);
     }
 
     .summary-box {
@@ -775,7 +777,7 @@ export function summarySlideTemplate(
     }
 
     .takeaways {
-      background: #f0fdf4;
+      background: ${SLS_COLORS.beige};
       border-radius: 12px;
       padding: 20px 28px;
       margin-top: auto;

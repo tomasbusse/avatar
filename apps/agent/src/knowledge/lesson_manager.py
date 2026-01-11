@@ -213,6 +213,91 @@ class LessonKnowledgeManager:
                 lines.append(f"  Contains: {', '.join(details)}")
         return "\n".join(lines)
 
+    async def get_slide_metadata(self, content_id: str) -> Optional[Dict]:
+        """
+        Get slide metadata for a knowledge content item.
+
+        Returns:
+            {
+                "contentId": str,
+                "title": str,
+                "slideCount": int,
+                "slides": [
+                    {
+                        "index": int,
+                        "title": str,
+                        "type": str,
+                        "teachingPrompt": str
+                    }
+                ]
+            }
+        """
+        try:
+            content = await self.convex.query(
+                "knowledgeBases:getContentById",
+                {"contentId": content_id}
+            )
+
+            if not content:
+                logger.warning(f"Content not found: {content_id}")
+                return None
+
+            html_slides = content.get("htmlSlides", [])
+            if not html_slides:
+                logger.info(f"No HTML slides in content: {content_id}")
+                return None
+
+            slides = []
+            for slide in html_slides:
+                slides.append({
+                    "index": slide.get("index", 0),
+                    "title": slide.get("title", f"Slide {slide.get('index', 0) + 1}"),
+                    "type": slide.get("type", "content"),
+                    "teachingPrompt": slide.get("teachingPrompt", ""),
+                })
+
+            return {
+                "contentId": content_id,
+                "title": content.get("title", "Untitled"),
+                "slideCount": len(slides),
+                "slides": slides,
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to get slide metadata: {e}")
+            return None
+
+    async def get_slides_for_loading(self, content_id: str) -> Optional[Dict]:
+        """
+        Get full slide data for loading into the whiteboard.
+
+        Returns data suitable for sending to frontend via data channel.
+        """
+        try:
+            content = await self.convex.query(
+                "knowledgeBases:getContentById",
+                {"contentId": content_id}
+            )
+
+            if not content:
+                return None
+
+            html_slides = content.get("htmlSlides", [])
+            if not html_slides:
+                return None
+
+            return {
+                "type": "load_slides",
+                "contentId": content_id,
+                "title": content.get("title", "Untitled"),
+                "slides": html_slides,
+                "slideCount": len(html_slides),
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to get slides for loading: {e}")
+            return None
+
     async def get_session_summary(self, session_id: str) -> Dict:
         """Get comprehensive progress summary for context."""
         try:

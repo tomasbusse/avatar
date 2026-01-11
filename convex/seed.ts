@@ -260,7 +260,6 @@ PERSONALITY:
         accentColor: "#3b82f6",
       },
       isActive: true,
-      isDefault: true,
       createdAt: now,
       updatedAt: now,
     });

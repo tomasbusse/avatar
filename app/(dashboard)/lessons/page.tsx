@@ -1,20 +1,26 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 import {
   BookOpen,
   Clock,
   Play,
-  Search,
-  Filter,
+  CheckCircle2,
+  Calendar,
+  Users,
+  Loader2,
   GraduationCap,
+  Plus,
 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { toast } from "sonner";
+import { formatDistanceToNow } from "date-fns";
 
 const levelColors: Record<string, string> = {
   A1: "bg-green-100 text-green-800 border-green-200",
@@ -25,121 +31,54 @@ const levelColors: Record<string, string> = {
   C2: "bg-violet-100 text-violet-800 border-violet-200",
 };
 
-const categories = [
-  { id: "all", label: "All Lessons" },
-  { id: "grammar", label: "Grammar" },
-  { id: "vocabulary", label: "Vocabulary" },
-  { id: "conversation", label: "Conversation" },
-  { id: "business", label: "Business English" },
-  { id: "pronunciation", label: "Pronunciation" },
-];
+const statusColors: Record<string, string> = {
+  enrolled: "bg-blue-100 text-blue-800",
+  in_progress: "bg-yellow-100 text-yellow-800",
+  completed: "bg-green-100 text-green-800",
+};
 
 export default function LessonsPage() {
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
   const student = useQuery(api.students.getStudent);
+  const enrollments = useQuery(api.lessonEnrollments.getStudentEnrollments, {});
+  const availableLessons = useQuery(api.lessonEnrollments.getAvailableLessons, {});
+  const selfEnroll = useMutation(api.lessonEnrollments.selfEnroll);
 
-  // Mock lessons data - in production this would come from Convex
-  const lessons = [
-    {
-      id: "1",
-      title: "Introduction to Present Perfect",
-      description: "Learn when and how to use the present perfect tense in everyday conversation.",
-      category: "grammar",
-      level: "A2",
-      duration: 25,
-      objectives: ["Understand present perfect structure", "Practice with common verbs"],
-    },
-    {
-      id: "2",
-      title: "Business Email Writing",
-      description: "Master professional email communication for the workplace.",
-      category: "business",
-      level: "B1",
-      duration: 30,
-      objectives: ["Write formal greetings", "Structure professional emails"],
-    },
-    {
-      id: "3",
-      title: "Restaurant Vocabulary",
-      description: "Essential words and phrases for dining out in English-speaking countries.",
-      category: "vocabulary",
-      level: "A1",
-      duration: 20,
-      objectives: ["Order food confidently", "Understand menu items"],
-    },
-    {
-      id: "4",
-      title: "Small Talk Mastery",
-      description: "Learn to make casual conversation with native speakers.",
-      category: "conversation",
-      level: "B1",
-      duration: 25,
-      objectives: ["Start conversations naturally", "Keep conversations flowing"],
-    },
-    {
-      id: "5",
-      title: "English Pronunciation: Vowel Sounds",
-      description: "Perfect your vowel pronunciation with targeted exercises.",
-      category: "pronunciation",
-      level: "A2",
-      duration: 20,
-      objectives: ["Distinguish similar vowel sounds", "Improve listening accuracy"],
-    },
-    {
-      id: "6",
-      title: "Job Interview Preparation",
-      description: "Prepare for English job interviews with common questions and answers.",
-      category: "business",
-      level: "B2",
-      duration: 35,
-      objectives: ["Answer common interview questions", "Present yourself professionally"],
-    },
-  ];
+  const isLoading = enrollments === undefined || availableLessons === undefined;
 
-  const filteredLessons = lessons.filter((lesson) => {
-    const matchesCategory = selectedCategory === "all" || lesson.category === selectedCategory;
-    const matchesSearch = lesson.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lesson.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  // Group enrollments by status
+  const assignedLessons = enrollments?.filter(
+    (e) => e.status === "enrolled" && (e.type === "admin_assigned" || e.type === "group_assigned")
+  ) ?? [];
+  const inProgressLessons = enrollments?.filter((e) => e.status === "in_progress") ?? [];
+  const completedLessons = enrollments?.filter((e) => e.status === "completed") ?? [];
+  const allEnrolled = enrollments?.filter((e) => e.status !== "dropped") ?? [];
+
+  const handleSelfEnroll = async (lessonId: string) => {
+    try {
+      await selfEnroll({ lessonId: lessonId as any });
+      toast.success("Successfully enrolled in lesson!");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to enroll";
+      toast.error(message);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="p-8 flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
       <div className="max-w-6xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Lessons</h1>
+          <h1 className="text-3xl font-bold mb-2">My Lessons</h1>
           <p className="text-muted-foreground">
-            Choose a lesson to practice with Ludwig
+            View your assigned lessons and track your progress
           </p>
-        </div>
-
-        {/* Search and Filter */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search lessons..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-        </div>
-
-        {/* Category Tabs */}
-        <div className="flex flex-wrap gap-2 mb-8">
-          {categories.map((category) => (
-            <Button
-              key={category.id}
-              variant={selectedCategory === category.id ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedCategory(category.id)}
-            >
-              {category.label}
-            </Button>
-          ))}
         </div>
 
         {/* Current Level Indicator */}
@@ -151,70 +90,328 @@ export default function LessonsPage() {
               <Badge className={levelColors[student.currentLevel] || "bg-gray-100"}>
                 {student.currentLevel}
               </Badge>
-              <span className="text-sm text-muted-foreground">
-                — Showing lessons appropriate for your level
-              </span>
             </div>
           </div>
         )}
 
-        {/* Lessons Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredLessons.map((lesson) => (
-            <Card key={lesson.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <Badge
-                    variant="outline"
-                    className={levelColors[lesson.level] || "bg-gray-100"}
-                  >
-                    {lesson.level}
-                  </Badge>
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <Clock className="w-4 h-4 mr-1" />
-                    {lesson.duration} min
-                  </div>
-                </div>
-                <CardTitle className="text-lg mt-2">{lesson.title}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                  {lesson.description}
-                </p>
-                <div className="space-y-2 mb-4">
-                  <p className="text-xs font-medium text-muted-foreground uppercase">
-                    You'll learn:
-                  </p>
-                  <ul className="text-sm space-y-1">
-                    {lesson.objectives.map((obj, idx) => (
-                      <li key={idx} className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                        {obj}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <Link href="/lesson/new">
-                  <Button className="w-full" size="sm">
-                    <Play className="w-4 h-4 mr-2" />
-                    Start Lesson
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          ))}
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <StatsCard
+            label="Total Enrolled"
+            value={allEnrolled.length}
+            icon={<BookOpen className="w-5 h-5" />}
+          />
+          <StatsCard
+            label="In Progress"
+            value={inProgressLessons.length}
+            icon={<Clock className="w-5 h-5" />}
+            highlight
+          />
+          <StatsCard
+            label="Completed"
+            value={completedLessons.length}
+            icon={<CheckCircle2 className="w-5 h-5" />}
+          />
+          <StatsCard
+            label="Available"
+            value={availableLessons?.length ?? 0}
+            icon={<Plus className="w-5 h-5" />}
+          />
         </div>
 
-        {filteredLessons.length === 0 && (
-          <div className="text-center py-12">
-            <BookOpen className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-            <h3 className="text-lg font-medium mb-2">No lessons found</h3>
-            <p className="text-muted-foreground">
-              Try adjusting your search or filter criteria
-            </p>
-          </div>
-        )}
+        {/* Tabs */}
+        <Tabs defaultValue="assigned" className="space-y-6">
+          <TabsList className="grid grid-cols-4 w-full max-w-lg">
+            <TabsTrigger value="assigned">
+              Assigned ({assignedLessons.length})
+            </TabsTrigger>
+            <TabsTrigger value="in_progress">
+              In Progress ({inProgressLessons.length})
+            </TabsTrigger>
+            <TabsTrigger value="completed">
+              Completed ({completedLessons.length})
+            </TabsTrigger>
+            <TabsTrigger value="available">
+              Available ({availableLessons?.length ?? 0})
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Assigned Lessons */}
+          <TabsContent value="assigned">
+            {assignedLessons.length === 0 ? (
+              <EmptyState
+                icon={<Calendar className="w-12 h-12" />}
+                title="No assigned lessons"
+                description="Your instructor hasn't assigned any lessons yet."
+              />
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {assignedLessons.map((enrollment) => (
+                  <EnrollmentCard
+                    key={enrollment._id}
+                    enrollment={enrollment}
+                    showDueDate
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* In Progress */}
+          <TabsContent value="in_progress">
+            {inProgressLessons.length === 0 ? (
+              <EmptyState
+                icon={<Clock className="w-12 h-12" />}
+                title="No lessons in progress"
+                description="Start a lesson to see it here."
+              />
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {inProgressLessons.map((enrollment) => (
+                  <EnrollmentCard
+                    key={enrollment._id}
+                    enrollment={enrollment}
+                    showProgress
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Completed */}
+          <TabsContent value="completed">
+            {completedLessons.length === 0 ? (
+              <EmptyState
+                icon={<CheckCircle2 className="w-12 h-12" />}
+                title="No completed lessons yet"
+                description="Complete lessons to see them here."
+              />
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {completedLessons.map((enrollment) => (
+                  <EnrollmentCard
+                    key={enrollment._id}
+                    enrollment={enrollment}
+                    showCompletedDate
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Available for Self-Enrollment */}
+          <TabsContent value="available">
+            {!availableLessons || availableLessons.length === 0 ? (
+              <EmptyState
+                icon={<BookOpen className="w-12 h-12" />}
+                title="No lessons available"
+                description="Check back later for new lessons."
+              />
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {availableLessons.map((lesson) => (
+                  <AvailableLessonCard
+                    key={lesson._id}
+                    lesson={lesson}
+                    onEnroll={() => handleSelfEnroll(lesson._id)}
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
+  );
+}
+
+function StatsCard({
+  label,
+  value,
+  icon,
+  highlight = false,
+}: {
+  label: string;
+  value: number;
+  icon: React.ReactNode;
+  highlight?: boolean;
+}) {
+  return (
+    <Card className={highlight ? "border-primary/50 bg-primary/5" : ""}>
+      <CardContent className="p-4">
+        <div className="flex items-center gap-3">
+          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+            highlight ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
+          }`}>
+            {icon}
+          </div>
+          <div>
+            <p className="text-2xl font-bold">{value}</p>
+            <p className="text-sm text-muted-foreground">{label}</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function EmptyState({
+  icon,
+  title,
+  description,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="text-center py-12">
+      <div className="text-muted-foreground opacity-50 mx-auto mb-4">
+        {icon}
+      </div>
+      <h3 className="text-lg font-medium mb-2">{title}</h3>
+      <p className="text-muted-foreground">{description}</p>
+    </div>
+  );
+}
+
+function EnrollmentCard({
+  enrollment,
+  showDueDate = false,
+  showProgress = false,
+  showCompletedDate = false,
+}: {
+  enrollment: any;
+  showDueDate?: boolean;
+  showProgress?: boolean;
+  showCompletedDate?: boolean;
+}) {
+  const lesson = enrollment.lesson;
+  const avatar = enrollment.avatar;
+
+  if (!lesson) return null;
+
+  return (
+    <Card className="hover:shadow-lg transition-shadow">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between">
+          <Badge
+            variant="outline"
+            className={statusColors[enrollment.status] || "bg-gray-100"}
+          >
+            {enrollment.status.replace("_", " ")}
+          </Badge>
+          {enrollment.type === "group_assigned" && (
+            <div className="flex items-center text-xs text-muted-foreground">
+              <Users className="w-3 h-3 mr-1" />
+              Group
+            </div>
+          )}
+        </div>
+        <CardTitle className="text-lg mt-2">{lesson.title}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {lesson.description && (
+          <p className="text-sm text-muted-foreground mb-4">
+            {lesson.description}
+          </p>
+        )}
+
+        {avatar && (
+          <div className="flex items-center gap-2 mb-4 text-sm text-muted-foreground">
+            <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+              <GraduationCap className="w-4 h-4 text-primary" />
+            </div>
+            <span>with {avatar.name}</span>
+          </div>
+        )}
+
+        {showDueDate && enrollment.dueDate && (
+          <div className="flex items-center gap-2 mb-4 text-sm">
+            <Calendar className="w-4 h-4 text-muted-foreground" />
+            <span>Due {formatDistanceToNow(enrollment.dueDate, { addSuffix: true })}</span>
+          </div>
+        )}
+
+        {showProgress && enrollment.progress !== undefined && (
+          <div className="mb-4">
+            <div className="flex justify-between text-sm mb-1">
+              <span>Progress</span>
+              <span>{enrollment.progress}%</span>
+            </div>
+            <Progress value={enrollment.progress} className="h-2" />
+          </div>
+        )}
+
+        {showCompletedDate && enrollment.completedAt && (
+          <div className="flex items-center gap-2 mb-4 text-sm text-green-600">
+            <CheckCircle2 className="w-4 h-4" />
+            <span>Completed {formatDistanceToNow(enrollment.completedAt, { addSuffix: true })}</span>
+          </div>
+        )}
+
+        <Link href={`/lesson/${lesson.shareToken}`}>
+          <Button className="w-full" size="sm">
+            <Play className="w-4 h-4 mr-2" />
+            {enrollment.status === "completed" ? "Review Lesson" :
+             enrollment.status === "in_progress" ? "Continue" : "Start Lesson"}
+          </Button>
+        </Link>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AvailableLessonCard({
+  lesson,
+  onEnroll,
+}: {
+  lesson: any;
+  onEnroll: () => void;
+}) {
+  const avatar = lesson.avatar;
+
+  return (
+    <Card className="hover:shadow-lg transition-shadow">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between">
+          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+            Open Enrollment
+          </Badge>
+          <div className="flex items-center text-xs text-muted-foreground">
+            <Users className="w-3 h-3 mr-1" />
+            {lesson.enrollmentCount} enrolled
+          </div>
+        </div>
+        <CardTitle className="text-lg mt-2">{lesson.title}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {lesson.description && (
+          <p className="text-sm text-muted-foreground mb-4">
+            {lesson.description}
+          </p>
+        )}
+
+        {avatar && (
+          <div className="flex items-center gap-2 mb-4 text-sm text-muted-foreground">
+            <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+              <GraduationCap className="w-4 h-4 text-primary" />
+            </div>
+            <span>with {avatar.name}</span>
+          </div>
+        )}
+
+        {lesson.enrollmentSettings?.maxEnrollments && (
+          <div className="text-sm text-muted-foreground mb-4">
+            {lesson.enrollmentSettings.maxEnrollments - lesson.enrollmentCount} spots remaining
+          </div>
+        )}
+
+        <Button className="w-full" size="sm" onClick={onEnroll}>
+          <Plus className="w-4 h-4 mr-2" />
+          Enroll Now
+        </Button>
+      </CardContent>
+    </Card>
   );
 }

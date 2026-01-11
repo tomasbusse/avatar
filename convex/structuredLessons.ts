@@ -118,7 +118,7 @@ export const listPublicLessons = query({
   },
 });
 
-// Get a single lesson by ID (for editing)
+// Get a single lesson by ID (for editing - requires ownership)
 export const getById = query({
   args: { lessonId: v.id("structuredLessons") },
   handler: async (ctx, args) => {
@@ -165,6 +165,53 @@ export const getById = query({
   },
 });
 
+// Get a lesson for session participants (no ownership check)
+// Validates that the session is linked to this lesson
+export const getForSession = query({
+  args: {
+    lessonId: v.id("structuredLessons"),
+    sessionId: v.id("sessions"),
+  },
+  handler: async (ctx, args) => {
+    // Verify the session exists and is linked to this lesson
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || session.structuredLessonId !== args.lessonId) {
+      return null;
+    }
+
+    const lesson = await ctx.db.get(args.lessonId);
+    if (!lesson) {
+      return null;
+    }
+
+    // Get related data
+    const avatar = await ctx.db.get(lesson.avatarId);
+    let knowledgeContent = null;
+    let presentation = null;
+    let wordGame = null;
+
+    if (lesson.knowledgeContentId) {
+      knowledgeContent = await ctx.db.get(lesson.knowledgeContentId);
+    }
+
+    if (lesson.presentationId) {
+      presentation = await ctx.db.get(lesson.presentationId);
+    }
+
+    if (lesson.wordGameId) {
+      wordGame = await ctx.db.get(lesson.wordGameId);
+    }
+
+    return {
+      ...lesson,
+      avatar,
+      knowledgeContent,
+      presentation,
+      wordGame,
+    };
+  },
+});
+
 // ============================================
 // MUTATIONS
 // ============================================
@@ -176,6 +223,7 @@ export const create = mutation({
     description: v.optional(v.string()),
     knowledgeContentId: v.optional(v.id("knowledgeContent")),
     presentationId: v.optional(v.id("presentations")),
+    wordGameId: v.optional(v.id("wordGames")),
     avatarId: v.id("avatars"),
     sessionType: v.union(
       v.literal("structured_lesson"),
@@ -184,6 +232,16 @@ export const create = mutation({
     isPublic: v.boolean(),
     requiresAuth: v.boolean(),
     welcomeMessage: v.optional(v.string()),
+    // Session duration override
+    durationMinutes: v.optional(v.number()),
+    wrapUpBufferMinutes: v.optional(v.number()),
+    enrollmentSettings: v.optional(
+      v.object({
+        allowSelfEnrollment: v.optional(v.boolean()),
+        maxEnrollments: v.optional(v.number()),
+        enrollmentDeadline: v.optional(v.number()),
+      })
+    ),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -223,12 +281,17 @@ export const create = mutation({
       description: args.description,
       knowledgeContentId: args.knowledgeContentId,
       presentationId: args.presentationId,
+      wordGameId: args.wordGameId,
       avatarId: args.avatarId,
       sessionType: args.sessionType,
       shareToken,
       isPublic: args.isPublic,
       requiresAuth: args.requiresAuth,
       welcomeMessage: args.welcomeMessage,
+      // Session duration override
+      durationMinutes: args.durationMinutes,
+      wrapUpBufferMinutes: args.wrapUpBufferMinutes,
+      enrollmentSettings: args.enrollmentSettings,
       totalSessions: 0,
       createdBy: user._id,
       createdAt: now,
@@ -247,6 +310,7 @@ export const update = mutation({
     description: v.optional(v.string()),
     knowledgeContentId: v.optional(v.id("knowledgeContent")),
     presentationId: v.optional(v.id("presentations")),
+    wordGameId: v.optional(v.id("wordGames")),
     avatarId: v.optional(v.id("avatars")),
     sessionType: v.optional(
       v.union(v.literal("structured_lesson"), v.literal("presentation"))
@@ -254,6 +318,13 @@ export const update = mutation({
     isPublic: v.optional(v.boolean()),
     requiresAuth: v.optional(v.boolean()),
     welcomeMessage: v.optional(v.string()),
+    // Session duration override
+    durationMinutes: v.optional(v.number()),
+    wrapUpBufferMinutes: v.optional(v.number()),
+    // Allow explicitly clearing content sources
+    clearKnowledgeContent: v.optional(v.boolean()),
+    clearPresentation: v.optional(v.boolean()),
+    clearWordGame: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -287,6 +358,8 @@ export const update = mutation({
       updates.knowledgeContentId = args.knowledgeContentId;
     if (args.presentationId !== undefined)
       updates.presentationId = args.presentationId;
+    if (args.wordGameId !== undefined)
+      updates.wordGameId = args.wordGameId;
     if (args.avatarId !== undefined) updates.avatarId = args.avatarId;
     if (args.sessionType !== undefined) updates.sessionType = args.sessionType;
     if (args.isPublic !== undefined) updates.isPublic = args.isPublic;
@@ -294,6 +367,15 @@ export const update = mutation({
       updates.requiresAuth = args.requiresAuth;
     if (args.welcomeMessage !== undefined)
       updates.welcomeMessage = args.welcomeMessage;
+    if (args.durationMinutes !== undefined)
+      updates.durationMinutes = args.durationMinutes;
+    if (args.wrapUpBufferMinutes !== undefined)
+      updates.wrapUpBufferMinutes = args.wrapUpBufferMinutes;
+
+    // Handle clearing content sources
+    if (args.clearKnowledgeContent) updates.knowledgeContentId = undefined;
+    if (args.clearPresentation) updates.presentationId = undefined;
+    if (args.clearWordGame) updates.wordGameId = undefined;
 
     await ctx.db.patch(args.lessonId, updates);
 

@@ -247,6 +247,25 @@ export default function PublicLessonPage() {
     );
   }
 
+  // Guard: Ensure lesson exists before rendering structured content
+  if (!lesson) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Card className="max-w-md">
+          <CardContent className="pt-6 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-yellow-100 flex items-center justify-center">
+              <BookOpen className="w-8 h-8 text-yellow-500" />
+            </div>
+            <h2 className="text-xl font-bold mb-2">Content Unavailable</h2>
+            <p className="text-muted-foreground">
+              This lesson content could not be loaded. Please try again later.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-gray-50">
       {/* Header */}

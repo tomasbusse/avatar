@@ -922,12 +922,14 @@ async def fetch_web_search_context(
     """
     if not session_data:
         logger.info("🔍 Web search: No session data available")
+        print("🔍 [DEBUG] Web search: No session data available", flush=True)
         return ""
 
     # Check if this is a conversation_practice session
     session_type = session_data.get("type")
     practice_id = session_data.get("conversationPracticeId")
 
+    print(f"🔍 [DEBUG] Web search check - session_type: {session_type}, practice_id: {practice_id}", flush=True)
     logger.info(f"🔍 Web search check - session_type: {session_type}, practice_id: {practice_id}")
 
     if session_type != "conversation_practice" or not practice_id:
@@ -989,6 +991,7 @@ async def fetch_web_search_context(
         # This is available in detailed mode and provides clean text
         # ================================================================
         if llm_rewritten:
+            print(f"🔍 [DEBUG] Using LLM-rewritten content ({len(llm_rewritten)} chars)", flush=True)
             logger.info(f"🔍 Using LLM-rewritten content ({len(llm_rewritten)} chars)")
             web_prompt = f"""
 # Current News from Today
@@ -2329,10 +2332,14 @@ The game will appear on the student's screen. Encourage them to try it and offer
     # ==========================================================================
     # WEB SEARCH CONTEXT - For conversation practice with Tavily
     # ==========================================================================
+    print(f"🔍 [DEBUG] About to fetch web search context. Session data type: {session_data.get('type') if session_data else 'None'}", flush=True)
     web_search_context = await fetch_web_search_context(session_data, config.convex_url)
     if web_search_context:
         final_prompt = final_prompt + web_search_context
+        print(f"🔍 [DEBUG] ✅ Added {len(web_search_context)} chars of web search context to prompt", flush=True)
         logger.info(f"🔍 Added web search context to prompt")
+    else:
+        print(f"🔍 [DEBUG] ❌ No web search context returned", flush=True)
 
     # Add structured lesson teaching mode prompt if session has pre-loaded presentation
     if is_structured_lesson:

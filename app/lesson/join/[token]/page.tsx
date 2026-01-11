@@ -27,6 +27,7 @@ export default function JoinLessonPage() {
 
   const lesson = useQuery(api.structuredLessons.getByShareToken, { shareToken: token });
   const createSession = useMutation(api.sessions.createFromStructuredLesson);
+  const startLessonEnrollment = useMutation(api.lessonEnrollments.startLesson);
 
   const [isStarting, setIsStarting] = useState(false);
   const [guestName, setGuestName] = useState("");
@@ -105,6 +106,16 @@ export default function JoinLessonPage() {
 
     setIsStarting(true);
     try {
+      // Track enrollment if user is signed in
+      if (isSignedIn) {
+        try {
+          await startLessonEnrollment({ lessonId: lesson._id });
+        } catch (enrollError) {
+          // Continue even if enrollment tracking fails (e.g., not enrolled)
+          console.log("[JOIN PAGE] Enrollment tracking skipped:", enrollError);
+        }
+      }
+
       // Generate a unique room name
       const roomName = `lesson-${token}-${Date.now()}`;
 

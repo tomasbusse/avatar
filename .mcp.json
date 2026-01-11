@@ -1,0 +1,39 @@
+{
+  "mcpServers": {
+    "Sentry": {
+      "type": "http",
+      "url": "https://mcp.sentry.dev/mcp/sprachdienste-simmonds/beethoven-web"
+    },
+    "rlm": {
+      "command": "uv",
+      "args": ["run", "--directory", "/Users/tomas/apps/beethoven/packages/rlm", "python", "rlm_mcp_server.py"],
+      "env": {
+        "OPENROUTER_API_KEY": "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"
+      }
+    },
+    "magic": {
+      "command": "npx",
+      "args": ["-y", "@21st-dev/magic@latest"]
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"]
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"]
+    },
+    "convex": {
+      "command": "npx",
+      "args": ["-y", "convex@latest", "mcp", "start"]
+    },
+    "livekit": {
+      "type": "http",
+      "url": "https://docs.livekit.io/mcp"
+    },
+    "clerk": {
+      "command": "npx",
+      "args": ["-y", "@clerk/clerk-mcp@latest"]
+    }
+  }
+}

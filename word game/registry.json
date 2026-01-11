@@ -1,0 +1,63 @@
+{
+  "version": "1.0.0",
+  "modules": {
+    "cms-frontend": {
+      "path": "modules/CMS-frontend",
+      "version": "1.0.0",
+      "description": "Full-stack CMS with Next.js 14, Convex, AI page generation, and learning features",
+      "type": "fullstack",
+      "provides": [
+        "pages",
+        "blog",
+        "navigation",
+        "forms",
+        "templates",
+        "content-elements",
+        "quiz",
+        "flashcards",
+        "vocab",
+        "knowledge-base",
+        "ai-creator",
+        "design-system",
+        "seo",
+        "media"
+      ],
+      "stack": ["next", "convex", "typescript", "tailwindcss"],
+      "updated": "2024-12-09"
+    },
+    "auth-clerk": {
+      "path": "modules/auth-clerk",
+      "version": "1.0.0",
+      "description": "Clerk authentication with Convex - Google OAuth, email/password, protected routes, user sync, admin roles",
+      "type": "module",
+      "provides": [
+        "authentication",
+        "google-oauth",
+        "email-auth",
+        "protected-routes",
+        "user-sync",
+        "admin-roles",
+        "middleware"
+      ],
+      "stack": ["next", "clerk", "convex", "typescript"],
+      "updated": "2024-12-09"
+    },
+    "backend-users": {
+      "path": "modules/backend-users",
+      "version": "1.0.0",
+      "description": "Scalable user management backend - Clerk + Convex, handles millions of users with pagination, webhooks, rate limiting",
+      "type": "backend",
+      "provides": [
+        "user-management",
+        "clerk-webhooks",
+        "role-management",
+        "user-crud",
+        "pagination",
+        "rate-limiting",
+        "audit-log"
+      ],
+      "stack": ["convex", "clerk", "typescript"],
+      "updated": "2024-12-09"
+    }
+  }
+}

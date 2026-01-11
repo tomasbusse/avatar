@@ -4,58 +4,68 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
+    /* Simmonds Language Services Color Palette */
+    --background: 32 100% 90%;           /* #FFE8CD - Cream */
+    --foreground: 172 100% 12%;          /* #003F37 - Teal */
+    --card: 0 0% 100%;                   /* White cards */
+    --card-foreground: 172 100% 12%;     /* #003F37 - Teal */
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 217 91% 60%;
+    --popover-foreground: 172 100% 12%;  /* #003F37 - Teal */
+    --primary: 172 100% 12%;             /* #003F37 - Teal */
+    --primary-foreground: 32 100% 90%;   /* #FFE8CD - Cream */
+    --secondary: 72 23% 27%;             /* #4F5338 - Olive */
+    --secondary-foreground: 32 100% 90%; /* #FFE8CD - Cream */
+    --muted: 29 47% 78%;                 /* #E3C6AB - Beige */
+    --muted-foreground: 72 23% 27%;      /* #4F5338 - Olive */
+    --accent: 59 51% 42%;                /* #9F9D38 - Chartreuse */
+    --accent-foreground: 0 0% 100%;      /* White */
+    --destructive: 20 63% 43%;           /* #B25627 - Orange */
+    --destructive-foreground: 0 0% 100%; /* White */
+    --border: 29 47% 78%;                /* #E3C6AB - Beige */
+    --input: 29 47% 78%;                 /* #E3C6AB - Beige */
+    --ring: 172 100% 12%;                /* #003F37 - Teal */
     --radius: 0.5rem;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    --chart-1: 172 100% 12%;             /* Teal */
+    --chart-2: 72 23% 27%;               /* Olive */
+    --chart-3: 59 51% 42%;               /* Chartreuse */
+    --chart-4: 20 63% 43%;               /* Orange */
+    --chart-5: 29 47% 78%;               /* Beige */
+
+    /* Brand colors direct access */
+    --sls-teal: #003F37;
+    --sls-olive: #4F5338;
+    --sls-chartreuse: #9F9D38;
+    --sls-orange: #B25627;
+    --sls-beige: #E3C6AB;
+    --sls-cream: #FFE8CD;
   }
 
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 217 91% 60%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    /* Dark mode - SLS brand adapted */
+    --background: 172 80% 8%;             /* Darker teal */
+    --foreground: 32 100% 90%;            /* Cream text */
+    --card: 172 60% 12%;                  /* Card bg */
+    --card-foreground: 32 100% 90%;       /* Cream */
+    --popover: 172 60% 12%;
+    --popover-foreground: 32 100% 90%;
+    --primary: 59 51% 42%;                /* Chartreuse accent */
+    --primary-foreground: 172 100% 8%;    /* Dark teal */
+    --secondary: 72 23% 27%;              /* Olive */
+    --secondary-foreground: 32 100% 90%;  /* Cream */
+    --muted: 172 40% 18%;                 /* Muted teal */
+    --muted-foreground: 29 47% 68%;       /* Lighter beige */
+    --accent: 59 51% 42%;                 /* Chartreuse */
+    --accent-foreground: 172 100% 8%;     /* Dark teal */
+    --destructive: 20 63% 43%;            /* Orange */
+    --destructive-foreground: 0 0% 100%;  /* White */
+    --border: 172 40% 18%;                /* Muted teal */
+    --input: 172 40% 18%;                 /* Muted teal */
+    --ring: 59 51% 42%;                   /* Chartreuse */
+    --chart-1: 172 100% 12%;              /* Teal */
+    --chart-2: 72 23% 27%;                /* Olive */
+    --chart-3: 59 51% 42%;                /* Chartreuse */
+    --chart-4: 20 63% 43%;                /* Orange */
+    --chart-5: 29 47% 78%;                /* Beige */
   }
 }
 
@@ -146,4 +156,153 @@
 
 .slide-vocabulary-item {
   @apply flex justify-between items-center py-2 border-b border-border last:border-0;
+}
+
+/* Game animations */
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(400px) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+@keyframes fade-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+
+.animate-confetti-fall {
+  animation: confetti-fall 2s ease-out forwards;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.4s ease-out forwards;
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+/* ============================================
+   CONVERSATION PRACTICE ANIMATIONS
+   ============================================ */
+
+/* Start button animations */
+@keyframes start-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@keyframes start-breathe {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-start-pulse {
+  animation: start-pulse 2s ease-in-out infinite;
+}
+
+.animate-start-breathe {
+  animation: start-breathe 3s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  animation: shimmer 2s linear infinite;
+}
+
+/* Waiting screen animations */
+@keyframes waiting-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(0, 63, 55, 0.4);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 20px rgba(0, 63, 55, 0);
+  }
+}
+
+@keyframes waiting-rings {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+@keyframes waiting-dots {
+  0%, 80%, 100% {
+    transform: scale(0.6);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes waiting-wave {
+  0%, 100% {
+    height: 12px;
+  }
+  50% {
+    height: 24px;
+  }
+}
+
+.animate-waiting-pulse {
+  animation: waiting-pulse 2s ease-in-out infinite;
+}
+
+.animate-waiting-rings {
+  animation: waiting-rings 1.5s ease-out infinite;
+}
+
+.animate-waiting-dots {
+  animation: waiting-dots 1.4s ease-in-out infinite;
+}
+
+.animate-waiting-wave {
+  animation: waiting-wave 1s ease-in-out infinite;
+}
+
+.animation-delay-500 {
+  animation-delay: 0.5s;
+}
+
+.animation-delay-1000 {
+  animation-delay: 1s;
 }

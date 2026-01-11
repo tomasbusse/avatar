@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   ChevronLeft,
   ChevronRight,
+  ClipboardCheck,
 } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
 import { useState, useEffect } from "react";
@@ -29,6 +30,11 @@ const navItems = [
     title: "Lessons",
     href: "/lessons",
     icon: BookOpen,
+  },
+  {
+    title: "Entry Test",
+    href: "/entry-test",
+    icon: ClipboardCheck,
   },
   {
     title: "Practice",

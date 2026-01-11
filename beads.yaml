@@ -1,0 +1,390 @@
+# BEADS Configuration for Beethoven Project
+# Behavior, Environment, Actions, Data, Signals
+
+version: "1.0"
+project: "beethoven-teacher"
+
+# ============================================
+# BEHAVIOR - Agent Persona & Reasoning
+# ============================================
+behavior:
+  persona:
+    name: "BeethovenTeacher"
+    description: "AI language and music instructor with adaptive teaching style"
+    voice_id: "cartesia:1463a4e1-56a1-4b41-b257-728d56e93605"
+    language:
+      primary: "en-US"
+      secondary: "de-DE"
+    
+  reasoning:
+    model: "anthropic/claude-sonnet-4"
+    mode: "chain_of_thought"
+    budget_tokens: 2048
+    fallback_model: "anthropic/claude-3.5-sonnet"
+    
+  traits:
+    patience_level: 0.9
+    encouragement_frequency: "high"
+    explanation_depth: "adaptive"
+    error_correction_style: "gentle"
+
+# ============================================
+# ENVIRONMENT - Runtime Configuration
+# ============================================
+environment:
+  runtime:
+    framework: "livekit-agents"
+    python_version: ">=3.11"
+    
+  providers:
+    llm:
+      provider: "openrouter"
+      model: "anthropic/claude-sonnet-4"
+      temperature: 0.7
+      max_tokens: 4096
+      
+    stt:
+      provider: "deepgram"
+      model: "nova-3"
+      language: "multi"
+      smart_format: true
+      punctuate: true
+      diarize: false
+      endpointing_ms: 600
+      
+    tts:
+      provider: "cartesia"
+      model: "sonic-2"
+      voice: "1463a4e1-56a1-4b41-b257-728d56e93605"
+      speed: 1.0
+      sample_rate: 24000
+      
+    avatar:
+      provider: "beyond-presence"
+      resolution: "1080p"
+      lip_sync: true
+      emotion_mapping: true
+      
+    vision:
+      provider: "google"
+      model: "gemini-2.5-flash-lite"
+      use_for: 
+        - "document_analysis"
+        - "game_feedback"
+        - "slide_reading"
+
+  secrets:
+    - OPENROUTER_API_KEY
+    - DEEPGRAM_API_KEY
+    - CARTESIA_API_KEY
+    - BEY_API_KEY
+    - CONVEX_URL
+    - SENTRY_DSN
+    - ZEP_API_KEY
+    - LIVEKIT_API_KEY
+    - LIVEKIT_API_SECRET
+    - LIVEKIT_URL
+
+# ============================================
+# ACTIONS - Tool Definitions
+# ============================================
+actions:
+  - name: retrieve_lesson
+    description: "Retrieve lesson content from knowledge base"
+    rlm_reasoning: true
+    sentry_span: true
+    parameters:
+      - name: lesson_id
+        type: string
+        required: true
+      - name: section
+        type: string
+        required: false
+    returns:
+      type: object
+      schema:
+        content: string
+        exercises: array
+        difficulty: number
+
+  - name: assess_understanding
+    description: "Evaluate student's grasp of current concept"
+    rlm_reasoning: true
+    sentry_span: true
+    parameters:
+      - name: student_response
+        type: string
+        required: true
+      - name: expected_concept
+        type: string
+        required: true
+    returns:
+      type: object
+      schema:
+        score: number
+        gaps: array
+        next_steps: array
+
+  - name: generate_exercise
+    description: "Create personalized practice exercise"
+    rlm_reasoning: true
+    sentry_span: true
+    parameters:
+      - name: skill_focus
+        type: string
+        required: true
+      - name: difficulty
+        type: number
+        required: true
+    returns:
+      type: object
+      schema:
+        exercise: object
+        instructions: string
+        success_criteria: array
+
+  - name: analyze_performance
+    description: "Analyze student's playing via vision/audio"
+    rlm_reasoning: true
+    sentry_span: true
+    uses_vision: true
+    parameters:
+      - name: media_type
+        type: string
+        enum: ["video", "audio", "image"]
+        required: true
+    returns:
+      type: object
+      schema:
+        feedback: string
+        corrections: array
+        encouragement: string
+
+  - name: update_progress
+    description: "Update student progress in database"
+    rlm_reasoning: false
+    sentry_span: true
+    database: convex
+    parameters:
+      - name: student_id
+        type: string
+        required: true
+      - name: metrics
+        type: object
+        required: true
+
+  - name: load_presentation
+    description: "Load a presentation for structured lesson"
+    rlm_reasoning: false
+    sentry_span: true
+    parameters:
+      - name: presentation_id
+        type: string
+        required: true
+
+  - name: navigate_slide
+    description: "Navigate to specific slide"
+    rlm_reasoning: false
+    sentry_span: true
+    parameters:
+      - name: slide_index
+        type: number
+        required: true
+      - name: direction
+        type: string
+        enum: ["next", "prev", "goto"]
+        required: false
+
+  - name: game_command
+    description: "Send command to active game"
+    rlm_reasoning: false
+    sentry_span: true
+    parameters:
+      - name: command
+        type: string
+        enum: ["hint", "next", "prev", "goto", "highlight"]
+        required: true
+# ============================================
+# DATA - Knowledge & State Management
+# ============================================
+data:
+  knowledge_bases:
+    lessons:
+      retriever: zep
+      collection: "beethoven-lessons"
+      embedding_model: "text-embedding-3-small"
+      chunk_size: 512
+      overlap: 50
+      rerank: true
+      top_k: 5
+      
+    exercises:
+      retriever: local
+      path: "./data/exercises"
+      format: "json"
+      cache_ttl: 3600
+      
+    music_theory:
+      retriever: zep
+      collection: "music-theory"
+      embedding_model: "text-embedding-3-small"
+      top_k: 3
+
+  state:
+    database: convex
+    tables:
+      sessions:
+        schema:
+          id: string
+          user_id: string
+          room_name: string
+          avatar_id: string
+          started_at: datetime
+          ended_at: datetime?
+          transcript: array
+          
+      progress:
+        schema:
+          user_id: string
+          lesson_id: string
+          completion: number
+          scores: array
+          last_activity: datetime
+          
+      preferences:
+        schema:
+          user_id: string
+          pace: string
+          language: string
+          avatar_enabled: boolean
+          
+  cache:
+    provider: memory
+    ttl_default: 300
+    patterns:
+      lesson_content: 7200
+      exercise_data: 3600
+      rag_results: 300
+
+# ============================================
+# SIGNALS - Observability & Monitoring
+# ============================================
+signals:
+  sentry:
+    enabled: true
+    dsn: "${SENTRY_DSN}"
+    environment: "${ENVIRONMENT:development}"
+    release: "${GIT_SHA:local}"
+    
+    error_tracking:
+      enabled: true
+      sample_rate: 1.0
+      ignore_errors:
+        - "CancelledError"
+        - "ConnectionResetError"
+        - "asyncio.TimeoutError"
+      
+    performance:
+      enabled: true
+      traces_sample_rate: 1.0
+      profiles_sample_rate: 0.5
+      
+    integrations:
+      - asyncio
+      - httpx
+      - logging
+      - aiohttp
+      
+    tags:
+      - agent_type
+      - session_id
+      - user_id
+      - room_name
+      - avatar_name
+
+  metrics:
+    latency:
+      - name: stt_latency_ms
+        type: histogram
+        description: "Speech-to-text processing time"
+        buckets: [50, 100, 200, 500, 1000]
+      - name: llm_latency_ms
+        type: histogram
+        description: "LLM inference time"
+        buckets: [100, 500, 1000, 2000, 5000]
+      - name: llm_first_token_ms
+        type: histogram
+        description: "Time to first LLM token"
+        buckets: [50, 100, 200, 500, 1000]
+      - name: tts_latency_ms
+        type: histogram
+        description: "Text-to-speech synthesis time"
+        buckets: [50, 100, 200, 500]
+      - name: e2e_latency_ms
+        type: histogram
+        description: "End-to-end response latency"
+        buckets: [500, 1000, 1500, 2000, 3000]
+      - name: rag_latency_ms
+        type: histogram
+        description: "RAG retrieval time"
+        buckets: [50, 100, 200, 500, 1000]
+        
+    quality:
+      - name: rag_relevance_score
+        type: gauge
+        description: "RAG retrieval relevance (0-1)"
+      - name: turn_detection_accuracy
+        type: gauge
+        description: "Turn detection accuracy"
+      - name: vision_confidence
+        type: gauge
+        description: "Vision model confidence"
+
+    counters:
+      - name: turns_total
+        type: counter
+        description: "Total conversation turns"
+      - name: errors_total
+        type: counter
+        description: "Total errors by type"
+      - name: rag_hits
+        type: counter
+        description: "RAG cache hits"
+      - name: rag_misses
+        type: counter
+        description: "RAG cache misses"
+
+  alerts:
+    - name: high_latency
+      condition: "e2e_latency_ms_p99 > 2000"
+      severity: warning
+      channels: [slack]
+      
+    - name: error_spike
+      condition: "error_rate > 0.05"
+      severity: critical
+      channels: [slack, pagerduty]
+      
+    - name: rag_degradation
+      condition: "rag_relevance_score < 0.7"
+      severity: warning
+      channels: [slack]
+      
+    - name: stt_failures
+      condition: "stt_error_rate > 0.01"
+      severity: warning
+      channels: [slack]
+
+  logging:
+    level: INFO
+    format: json
+    structured: true
+    fields:
+      - timestamp
+      - level
+      - message
+      - session_id
+      - user_id
+      - room_name
+      - trace_id
+      - span_id

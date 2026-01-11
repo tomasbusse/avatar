@@ -50,12 +50,21 @@ const config: Config = {
           "4": "hsl(var(--chart-4))",
           "5": "hsl(var(--chart-5))",
         },
+        // Simmonds Language Services brand colors
+        sls: {
+          teal: "#003F37",       // Primary - dark teal/forest green
+          olive: "#4F5338",      // Secondary - olive/army green
+          chartreuse: "#9F9D38", // Accent - yellow-green
+          orange: "#B25627",     // Action - burnt orange/terracotta
+          beige: "#E3C6AB",      // Background - warm beige
+          cream: "#FFE8CD",      // Light background - cream
+        },
         beethoven: {
-          primary: "#3b82f6",
-          secondary: "#8b5cf6",
-          success: "#22c55e",
-          warning: "#f59e0b",
-          error: "#ef4444",
+          primary: "#003F37",    // Updated to teal
+          secondary: "#4F5338",  // Updated to olive
+          success: "#9F9D38",    // Updated to chartreuse
+          warning: "#B25627",    // Updated to orange
+          error: "#B25627",      // Using orange for errors too
         },
       },
       borderRadius: {
@@ -64,7 +73,7 @@ const config: Config = {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
+        sans: ["var(--font-blinker)", "var(--font-inter)", "system-ui", "sans-serif"],
         mono: ["JetBrains Mono", "monospace"],
       },
       keyframes: {

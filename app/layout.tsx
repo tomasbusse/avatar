@@ -1,16 +1,27 @@
+import * as Sentry from "@sentry/nextjs";
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Blinker, Inter } from "next/font/google";
 import { ConvexClientProvider } from "@/components/providers/convex-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const blinker = Blinker({
+  subsets: ["latin"],
+  weight: ["200", "300", "400", "600", "700", "800", "900"],
+  variable: "--font-blinker",
+});
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
-export const metadata: Metadata = {
-  title: "Beethoven - AI Language Learning",
-  description: "Learn languages with AI-powered video avatars",
-};
+export function generateMetadata(): Metadata {
+  return {
+    title: "Beethoven - AI Language Learning",
+    description: "Learn languages with AI-powered video avatars",
+    other: {
+      ...Sentry.getTraceData(),
+    },
+  };
+}
 
 export default function RootLayout({
   children,
@@ -19,7 +30,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={`${blinker.variable} ${inter.variable} font-sans`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="light"

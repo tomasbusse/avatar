@@ -78,16 +78,26 @@ export function SlideViewer({
       }
     : slideContent?.find(s => s.index === currentIndex);
 
-  // Trigger screenshot when slide changes (for avatar vision)
+  // Trigger screenshot when slide changes OR on initial load (for avatar vision)
+  const initialCaptureRef = useRef(false);
   useEffect(() => {
-    if (prevIndexRef.current !== currentIndex && onSlideScreenshot && isHtmlMode) {
-      // Request screenshot capture when slide changes
-      setCaptureScreenshot(true);
-      const timer = setTimeout(() => setCaptureScreenshot(false), 200);
+    if (!onSlideScreenshot || !isHtmlMode) return;
+
+    // Capture on initial load OR when slide changes
+    const shouldCapture = !initialCaptureRef.current || prevIndexRef.current !== currentIndex;
+
+    if (shouldCapture) {
+      console.log(`[SlideViewer] Triggering screenshot capture for slide ${currentIndex} (initial: ${!initialCaptureRef.current})`);
+      initialCaptureRef.current = true;
       prevIndexRef.current = currentIndex;
+
+      // Small delay to ensure slide is rendered
+      const timer = setTimeout(() => {
+        setCaptureScreenshot(true);
+        setTimeout(() => setCaptureScreenshot(false), 200);
+      }, 300);
       return () => clearTimeout(timer);
     }
-    prevIndexRef.current = currentIndex;
   }, [currentIndex, onSlideScreenshot, isHtmlMode]);
 
   // Handle screenshot capture

@@ -1,0 +1,1435 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Cambridge English Entry Test Creator Specification",
+  "version": "1.0.0",
+  "generatedAt": "2026-01-06",
+  "generatedBy": "deep-requirements-orchestrator",
+  "interviewRounds": 3,
+
+  "overview": {
+    "summary": "AI-powered Cambridge English entry test system for CEFR level assessment (A1-C2) with multiple delivery modes (web-only, audio avatar, video avatar), automatic + AI scoring, and hierarchical test template management.",
+    "primaryGoal": "Accurately assess German-speaking students' English proficiency level to place them in appropriate learning paths",
+    "targetUsers": ["Platform Admins", "Company Admins", "Group Leads/Teachers", "Students"],
+    "keyFeatures": [
+      "AI-powered test generation with admin curation",
+      "6 question types: Reading, Grammar, Vocabulary, Listening, Writing, Speaking",
+      "3 delivery modes: Web-only, Audio Avatar, Video Avatar",
+      "Full test session resume on disconnection",
+      "CEFR-aligned scoring with section breakdown",
+      "Hierarchical template system (platform -> company -> group)",
+      "Level-adaptive bilingual instructions (German for A1-A2, English for B1+)"
+    ]
+  },
+
+  "decisions": {
+    "testResume": {
+      "choice": "full_resume",
+      "description": "Students continue exactly where they left off after disconnection",
+      "rationale": "Best UX - preserves all progress and answers"
+    },
+    "deliveryMode": {
+      "choice": "hybrid",
+      "description": "Admin sets minimum required mode, student can upgrade",
+      "rationale": "Flexibility while ensuring test integrity requirements"
+    },
+    "audioReplay": {
+      "choice": "limited_replay",
+      "description": "Configurable N replays per test (default: 2)",
+      "rationale": "Balance between test integrity and user experience"
+    },
+    "timeLimits": {
+      "choice": "no_time_limit",
+      "description": "Self-paced tests, time recorded for analytics only",
+      "rationale": "Entry assessment focuses on accuracy over speed"
+    },
+    "speakingEvaluation": {
+      "choice": "ai_only",
+      "description": "Deepgram transcription + LLM evaluation (no pronunciation scoring)",
+      "rationale": "Content and grammar focus for entry placement"
+    },
+    "writingEvaluation": {
+      "choice": "cefr_aligned_rubric",
+      "description": "Multi-criteria scoring: grammar, vocabulary, coherence, task achievement",
+      "rationale": "Comprehensive CEFR-aligned assessment"
+    },
+    "cefrCalculation": {
+      "choice": "hybrid_with_breakdown",
+      "description": "Single overall recommendation + per-section breakdown",
+      "rationale": "Actionable insights for learning path"
+    },
+    "testGeneration": {
+      "choice": "template_plus_generation",
+      "description": "Admin creates template structure, AI fills content, admin reviews/edits",
+      "rationale": "Quality control with AI efficiency"
+    },
+    "studentProfileIntegration": {
+      "choice": "recommendation_plus_confirmation",
+      "description": "Test suggests level, admin/student confirms before applying to profile",
+      "rationale": "Prevents automated misplacement"
+    },
+    "templateOwnership": {
+      "choice": "hierarchical",
+      "description": "Platform templates -> Company variants -> Group customization",
+      "rationale": "Scalable management with local control"
+    },
+    "questionBank": {
+      "choice": "hybrid",
+      "description": "AI generates -> questions enter bank -> admin curates -> tests draw from curated bank",
+      "rationale": "Quality + variety + consistency"
+    },
+    "avatarFeedback": {
+      "choice": "configurable_per_test",
+      "description": "Admin decides feedback level for each test template",
+      "rationale": "Different contexts need different feedback depth"
+    },
+    "bilingualInstructions": {
+      "choice": "level_adaptive",
+      "description": "A1-A2 tests show German instructions, B1+ shows English",
+      "rationale": "Appropriate scaffolding per level"
+    }
+  },
+
+  "dataModels": {
+    "entryTestTemplates": {
+      "description": "Test template definitions with hierarchical ownership",
+      "tableName": "entryTestTemplates",
+      "fields": {
+        "_id": { "type": "Id<'entryTestTemplates'>", "description": "Auto-generated Convex ID" },
+        "title": { "type": "string", "required": true, "description": "Test title (e.g., 'Cambridge Placement Test A2-B2')" },
+        "slug": { "type": "string", "required": true, "indexed": true, "description": "URL-friendly identifier" },
+        "description": { "type": "string", "required": false, "description": "Test description" },
+        "targetLevelRange": {
+          "type": "object",
+          "required": true,
+          "fields": {
+            "min": { "type": "CEFRLevel", "description": "Minimum detectable level" },
+            "max": { "type": "CEFRLevel", "description": "Maximum detectable level" }
+          }
+        },
+        "ownership": {
+          "type": "object",
+          "required": true,
+          "fields": {
+            "type": { "type": "union", "values": ["platform", "company", "group"], "description": "Ownership scope" },
+            "companyId": { "type": "Id<'companies'>", "required": false, "description": "For company-owned templates" },
+            "groupId": { "type": "Id<'groups'>", "required": false, "description": "For group-owned templates" },
+            "parentTemplateId": { "type": "Id<'entryTestTemplates'>", "required": false, "description": "Template this was derived from" }
+          }
+        },
+        "sections": {
+          "type": "array",
+          "required": true,
+          "items": {
+            "type": "object",
+            "fields": {
+              "id": { "type": "string", "description": "Section identifier (e.g., 'reading-1')" },
+              "type": { "type": "SectionType", "description": "reading | grammar | vocabulary | listening | writing | speaking" },
+              "title": { "type": "string", "description": "Section title" },
+              "instructions_en": { "type": "string", "description": "English instructions" },
+              "instructions_de": { "type": "string", "description": "German instructions (for A1-A2)" },
+              "questionCount": { "type": "number", "description": "Number of questions in section" },
+              "questionBankFilter": {
+                "type": "object",
+                "fields": {
+                  "types": { "type": "array", "items": "QuestionType", "description": "Allowed question types" },
+                  "levels": { "type": "array", "items": "CEFRLevel", "description": "Allowed CEFR levels" },
+                  "tags": { "type": "array", "items": "string", "description": "Required tags" }
+                }
+              },
+              "weight": { "type": "number", "description": "Weight for overall CEFR calculation (0-1)" },
+              "order": { "type": "number", "description": "Display order" }
+            }
+          }
+        },
+        "deliveryConfig": {
+          "type": "object",
+          "required": true,
+          "fields": {
+            "minimumMode": { "type": "DeliveryMode", "description": "web_only | audio_avatar | video_avatar" },
+            "allowUpgrade": { "type": "boolean", "description": "Can student choose higher mode?" },
+            "avatarId": { "type": "Id<'avatars'>", "required": false, "description": "Avatar for audio/video modes" }
+          }
+        },
+        "audioConfig": {
+          "type": "object",
+          "required": false,
+          "fields": {
+            "maxReplays": { "type": "number", "default": 2, "description": "Max audio replays for listening questions" },
+            "voiceId": { "type": "string", "description": "Cartesia voice ID for TTS" },
+            "speed": { "type": "number", "default": 1.0, "description": "TTS speed multiplier" }
+          }
+        },
+        "feedbackConfig": {
+          "type": "object",
+          "required": true,
+          "fields": {
+            "showScoreImmediately": { "type": "boolean", "description": "Show score right after completion?" },
+            "avatarFeedbackLevel": { "type": "union", "values": ["none", "score_only", "personalized", "learning_path", "full_debrief"], "description": "Depth of avatar feedback" },
+            "showSectionBreakdown": { "type": "boolean", "description": "Show per-section scores?" },
+            "showCorrectAnswers": { "type": "boolean", "description": "Reveal correct answers after test?" }
+          }
+        },
+        "status": { "type": "union", "values": ["draft", "published", "archived"], "required": true },
+        "version": { "type": "number", "default": 1, "description": "Template version number" },
+        "createdBy": { "type": "Id<'users'>", "required": true },
+        "createdAt": { "type": "number", "required": true },
+        "updatedAt": { "type": "number", "required": true }
+      },
+      "indexes": [
+        { "name": "by_slug", "fields": ["slug"] },
+        { "name": "by_status", "fields": ["status"] },
+        { "name": "by_ownership_type", "fields": ["ownership.type"] },
+        { "name": "by_company", "fields": ["ownership.companyId"] },
+        { "name": "by_group", "fields": ["ownership.groupId"] }
+      ]
+    },
+
+    "entryTestQuestionBank": {
+      "description": "Curated question bank for test generation",
+      "tableName": "entryTestQuestionBank",
+      "fields": {
+        "_id": { "type": "Id<'entryTestQuestionBank'>", "description": "Auto-generated Convex ID" },
+        "type": {
+          "type": "union",
+          "values": ["reading_comprehension", "grammar_mcq", "grammar_fill_blank", "vocabulary_mcq", "vocabulary_matching", "listening_mcq", "listening_fill_blank", "writing_prompt", "speaking_prompt"],
+          "required": true
+        },
+        "cefrLevel": { "type": "CEFRLevel", "required": true },
+        "tags": { "type": "array", "items": "string", "description": "Categorization tags (e.g., 'present_perfect', 'business_vocabulary')" },
+        "content": {
+          "type": "object",
+          "description": "Question content varies by type",
+          "variants": {
+            "reading_comprehension": {
+              "passage": { "type": "string", "description": "Reading passage text" },
+              "passageTitle": { "type": "string", "required": false },
+              "questions": {
+                "type": "array",
+                "items": {
+                  "question": "string",
+                  "options": "array<string>",
+                  "correctIndex": "number",
+                  "explanation": "string"
+                }
+              }
+            },
+            "grammar_mcq": {
+              "question": { "type": "string" },
+              "options": { "type": "array", "items": "string" },
+              "correctIndex": { "type": "number" },
+              "explanation": { "type": "string" },
+              "grammarPoint": { "type": "string" }
+            },
+            "grammar_fill_blank": {
+              "sentence": { "type": "string", "description": "Sentence with {{blank}} placeholder" },
+              "correctAnswers": { "type": "array", "items": "string", "description": "Acceptable answers" },
+              "explanation": { "type": "string" },
+              "grammarPoint": { "type": "string" }
+            },
+            "vocabulary_mcq": {
+              "term": { "type": "string" },
+              "context": { "type": "string", "required": false, "description": "Sentence using the term" },
+              "question": { "type": "string", "description": "What does X mean?" },
+              "options": { "type": "array", "items": "string" },
+              "correctIndex": { "type": "number" }
+            },
+            "vocabulary_matching": {
+              "pairs": {
+                "type": "array",
+                "items": {
+                  "term": "string",
+                  "definition": "string"
+                }
+              }
+            },
+            "listening_mcq": {
+              "audioText": { "type": "string", "description": "Text to be converted to audio via TTS" },
+              "audioStorageId": { "type": "Id<'_storage'>", "required": false, "description": "Pre-generated audio file" },
+              "question": { "type": "string" },
+              "options": { "type": "array", "items": "string" },
+              "correctIndex": { "type": "number" }
+            },
+            "listening_fill_blank": {
+              "audioText": { "type": "string" },
+              "audioStorageId": { "type": "Id<'_storage'>", "required": false },
+              "transcript": { "type": "string", "description": "Transcript with {{blank}} placeholders" },
+              "correctAnswers": { "type": "array", "items": "string" }
+            },
+            "writing_prompt": {
+              "prompt_en": { "type": "string" },
+              "prompt_de": { "type": "string" },
+              "minimumWords": { "type": "number" },
+              "maximumWords": { "type": "number", "required": false },
+              "rubric": {
+                "type": "object",
+                "fields": {
+                  "taskAchievement": { "type": "string", "description": "What constitutes task completion" },
+                  "grammarExpectations": { "type": "string" },
+                  "vocabularyExpectations": { "type": "string" },
+                  "coherenceExpectations": { "type": "string" }
+                }
+              },
+              "sampleResponse": { "type": "string", "required": false, "description": "Reference response for scoring" }
+            },
+            "speaking_prompt": {
+              "prompt_en": { "type": "string" },
+              "prompt_de": { "type": "string" },
+              "preparationTimeSeconds": { "type": "number", "default": 30 },
+              "responseTimeSeconds": { "type": "number", "default": 60 },
+              "rubric": {
+                "type": "object",
+                "fields": {
+                  "contentExpectations": { "type": "string" },
+                  "grammarExpectations": { "type": "string" },
+                  "fluencyExpectations": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "generatedBy": { "type": "union", "values": ["ai", "manual"], "required": true },
+        "generationModel": { "type": "string", "required": false, "description": "LLM model used for generation" },
+        "curationStatus": { "type": "union", "values": ["pending", "approved", "rejected"], "required": true },
+        "curatedBy": { "type": "Id<'users'>", "required": false },
+        "curatedAt": { "type": "number", "required": false },
+        "usageCount": { "type": "number", "default": 0, "description": "Times used in tests" },
+        "averageScore": { "type": "number", "required": false, "description": "Average student score (0-100)" },
+        "discriminationIndex": { "type": "number", "required": false, "description": "How well question differentiates skill levels" },
+        "createdBy": { "type": "Id<'users'>", "required": true },
+        "createdAt": { "type": "number", "required": true },
+        "updatedAt": { "type": "number", "required": true }
+      },
+      "indexes": [
+        { "name": "by_type", "fields": ["type"] },
+        { "name": "by_level", "fields": ["cefrLevel"] },
+        { "name": "by_type_level", "fields": ["type", "cefrLevel"] },
+        { "name": "by_curation_status", "fields": ["curationStatus"] },
+        { "name": "by_tags", "fields": ["tags"] }
+      ]
+    },
+
+    "entryTestSessions": {
+      "description": "Individual student test sessions with full state for resume",
+      "tableName": "entryTestSessions",
+      "fields": {
+        "_id": { "type": "Id<'entryTestSessions'>", "description": "Auto-generated Convex ID" },
+        "templateId": { "type": "Id<'entryTestTemplates'>", "required": true },
+        "studentId": { "type": "Id<'students'>", "required": true },
+        "userId": { "type": "Id<'users'>", "required": true },
+        "status": {
+          "type": "union",
+          "values": ["not_started", "in_progress", "paused", "completed", "abandoned"],
+          "required": true
+        },
+        "deliveryMode": { "type": "DeliveryMode", "required": true, "description": "Actual mode used for this session" },
+        "liveKitRoomName": { "type": "string", "required": false, "description": "For avatar modes" },
+        "currentState": {
+          "type": "object",
+          "required": true,
+          "description": "Full state for resume capability",
+          "fields": {
+            "currentSectionIndex": { "type": "number" },
+            "currentQuestionIndex": { "type": "number" },
+            "sectionOrder": { "type": "array", "items": "string", "description": "Section IDs in order" },
+            "questionOrder": {
+              "type": "object",
+              "description": "Map of sectionId -> array of questionIds in order"
+            }
+          }
+        },
+        "questionInstances": {
+          "type": "array",
+          "description": "Snapshot of questions for this test instance (ensures consistency on resume)",
+          "items": {
+            "type": "object",
+            "fields": {
+              "instanceId": { "type": "string", "description": "Unique ID for this question instance" },
+              "sectionId": { "type": "string" },
+              "questionBankId": { "type": "Id<'entryTestQuestionBank'>" },
+              "order": { "type": "number" }
+            }
+          }
+        },
+        "answers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "fields": {
+              "instanceId": { "type": "string" },
+              "answer": { "type": "any", "description": "Answer value (varies by question type)" },
+              "audioRecordingStorageId": { "type": "Id<'_storage'>", "required": false, "description": "For speaking questions" },
+              "transcript": { "type": "string", "required": false, "description": "Deepgram transcript for speaking" },
+              "answeredAt": { "type": "number" },
+              "timeSpentSeconds": { "type": "number" }
+            }
+          }
+        },
+        "sectionScores": {
+          "type": "array",
+          "required": false,
+          "description": "Populated after completion",
+          "items": {
+            "type": "object",
+            "fields": {
+              "sectionId": { "type": "string" },
+              "sectionType": { "type": "SectionType" },
+              "rawScore": { "type": "number" },
+              "maxScore": { "type": "number" },
+              "percentScore": { "type": "number" },
+              "cefrLevel": { "type": "CEFRLevel" },
+              "aiEvaluation": { "type": "object", "required": false, "description": "LLM evaluation details for writing/speaking" }
+            }
+          }
+        },
+        "overallResult": {
+          "type": "object",
+          "required": false,
+          "description": "Populated after completion",
+          "fields": {
+            "recommendedLevel": { "type": "CEFRLevel" },
+            "confidenceScore": { "type": "number", "description": "0-1 confidence in recommendation" },
+            "totalScore": { "type": "number" },
+            "maxPossibleScore": { "type": "number" },
+            "percentScore": { "type": "number" },
+            "strengths": { "type": "array", "items": "string" },
+            "weaknesses": { "type": "array", "items": "string" },
+            "levelApplied": { "type": "boolean", "default": false, "description": "Whether level was confirmed and applied to student profile" },
+            "levelAppliedAt": { "type": "number", "required": false },
+            "levelAppliedBy": { "type": "Id<'users'>", "required": false }
+          }
+        },
+        "analytics": {
+          "type": "object",
+          "required": false,
+          "fields": {
+            "totalTimeSeconds": { "type": "number" },
+            "averageTimePerQuestion": { "type": "number" },
+            "audioReplaysUsed": { "type": "number" },
+            "pauseCount": { "type": "number" },
+            "resumeCount": { "type": "number" },
+            "browserInfo": { "type": "string" },
+            "deviceType": { "type": "string" }
+          }
+        },
+        "avatarFeedbackDelivered": { "type": "boolean", "default": false },
+        "startedAt": { "type": "number", "required": false },
+        "completedAt": { "type": "number", "required": false },
+        "lastActivityAt": { "type": "number", "required": true },
+        "createdAt": { "type": "number", "required": true },
+        "updatedAt": { "type": "number", "required": true }
+      },
+      "indexes": [
+        { "name": "by_student", "fields": ["studentId"] },
+        { "name": "by_template", "fields": ["templateId"] },
+        { "name": "by_status", "fields": ["status"] },
+        { "name": "by_student_status", "fields": ["studentId", "status"] },
+        { "name": "by_last_activity", "fields": ["lastActivityAt"] }
+      ]
+    },
+
+    "entryTestGenerationJobs": {
+      "description": "Track AI generation jobs for test content",
+      "tableName": "entryTestGenerationJobs",
+      "fields": {
+        "_id": { "type": "Id<'entryTestGenerationJobs'>" },
+        "type": { "type": "union", "values": ["question_batch", "section", "full_template"], "required": true },
+        "targetTemplateId": { "type": "Id<'entryTestTemplates'>", "required": false },
+        "parameters": {
+          "type": "object",
+          "fields": {
+            "questionType": { "type": "QuestionType", "required": false },
+            "cefrLevel": { "type": "CEFRLevel", "required": false },
+            "count": { "type": "number" },
+            "topic": { "type": "string", "required": false },
+            "customPrompt": { "type": "string", "required": false }
+          }
+        },
+        "model": { "type": "string", "required": true, "description": "OpenRouter model ID" },
+        "status": { "type": "union", "values": ["pending", "processing", "completed", "failed"], "required": true },
+        "progress": { "type": "number", "description": "0-100 progress percentage" },
+        "generatedQuestionIds": { "type": "array", "items": "Id<'entryTestQuestionBank'>", "description": "Questions created by this job" },
+        "error": { "type": "string", "required": false },
+        "tokenUsage": {
+          "type": "object",
+          "required": false,
+          "fields": {
+            "promptTokens": { "type": "number" },
+            "completionTokens": { "type": "number" },
+            "totalCost": { "type": "number" }
+          }
+        },
+        "createdBy": { "type": "Id<'users'>", "required": true },
+        "createdAt": { "type": "number", "required": true },
+        "completedAt": { "type": "number", "required": false }
+      },
+      "indexes": [
+        { "name": "by_status", "fields": ["status"] },
+        { "name": "by_template", "fields": ["targetTemplateId"] },
+        { "name": "by_created", "fields": ["createdAt"] }
+      ]
+    }
+  },
+
+  "enums": {
+    "CEFRLevel": ["A1", "A2", "B1", "B2", "C1", "C2"],
+    "SectionType": ["reading", "grammar", "vocabulary", "listening", "writing", "speaking"],
+    "QuestionType": [
+      "reading_comprehension",
+      "grammar_mcq",
+      "grammar_fill_blank",
+      "vocabulary_mcq",
+      "vocabulary_matching",
+      "listening_mcq",
+      "listening_fill_blank",
+      "writing_prompt",
+      "speaking_prompt"
+    ],
+    "DeliveryMode": ["web_only", "audio_avatar", "video_avatar"],
+    "TestSessionStatus": ["not_started", "in_progress", "paused", "completed", "abandoned"],
+    "CurationStatus": ["pending", "approved", "rejected"],
+    "AvatarFeedbackLevel": ["none", "score_only", "personalized", "learning_path", "full_debrief"]
+  },
+
+  "apiEndpoints": {
+    "convexMutations": {
+      "entryTests": {
+        "createTemplate": {
+          "description": "Create a new test template",
+          "args": {
+            "title": "string",
+            "description": "string?",
+            "targetLevelRange": "{ min: CEFRLevel, max: CEFRLevel }",
+            "ownershipType": "'platform' | 'company' | 'group'",
+            "companyId": "Id<'companies'>?",
+            "groupId": "Id<'groups'>?",
+            "parentTemplateId": "Id<'entryTestTemplates'>?"
+          },
+          "returns": "Id<'entryTestTemplates'>",
+          "authorization": "Admin or company admin or group lead"
+        },
+        "updateTemplate": {
+          "description": "Update template configuration",
+          "args": {
+            "templateId": "Id<'entryTestTemplates'>",
+            "updates": "Partial<EntryTestTemplate>"
+          },
+          "returns": "void",
+          "authorization": "Owner or higher"
+        },
+        "addSectionToTemplate": {
+          "description": "Add a section to template",
+          "args": {
+            "templateId": "Id<'entryTestTemplates'>",
+            "section": "SectionConfig"
+          },
+          "returns": "void"
+        },
+        "publishTemplate": {
+          "description": "Change template status to published",
+          "args": { "templateId": "Id<'entryTestTemplates'>" },
+          "returns": "void"
+        },
+        "archiveTemplate": {
+          "description": "Archive a template",
+          "args": { "templateId": "Id<'entryTestTemplates'>" },
+          "returns": "void"
+        },
+        "deriveTemplate": {
+          "description": "Create a company/group variant from platform template",
+          "args": {
+            "sourceTemplateId": "Id<'entryTestTemplates'>",
+            "ownershipType": "'company' | 'group'",
+            "ownerId": "string"
+          },
+          "returns": "Id<'entryTestTemplates'>"
+        }
+      },
+      "questionBank": {
+        "createQuestion": {
+          "description": "Manually create a question",
+          "args": {
+            "type": "QuestionType",
+            "cefrLevel": "CEFRLevel",
+            "tags": "string[]",
+            "content": "QuestionContent"
+          },
+          "returns": "Id<'entryTestQuestionBank'>"
+        },
+        "updateQuestion": {
+          "description": "Update question content",
+          "args": {
+            "questionId": "Id<'entryTestQuestionBank'>",
+            "updates": "Partial<Question>"
+          },
+          "returns": "void"
+        },
+        "approveQuestion": {
+          "description": "Approve a generated question for use",
+          "args": { "questionId": "Id<'entryTestQuestionBank'>" },
+          "returns": "void"
+        },
+        "rejectQuestion": {
+          "description": "Reject a generated question",
+          "args": {
+            "questionId": "Id<'entryTestQuestionBank'>",
+            "reason": "string?"
+          },
+          "returns": "void"
+        },
+        "bulkApprove": {
+          "description": "Approve multiple questions",
+          "args": { "questionIds": "Id<'entryTestQuestionBank'>[]" },
+          "returns": "void"
+        }
+      },
+      "testSessions": {
+        "startTest": {
+          "description": "Start a new test session for student",
+          "args": {
+            "templateId": "Id<'entryTestTemplates'>",
+            "deliveryMode": "DeliveryMode"
+          },
+          "returns": "{ sessionId: Id<'entryTestSessions'>, roomName?: string }",
+          "logic": [
+            "Validate student can take this test",
+            "Check for existing in_progress session (resume instead)",
+            "Select questions from bank based on template sections",
+            "Create session with question instances",
+            "If avatar mode, create LiveKit room",
+            "Return session ID and room name"
+          ]
+        },
+        "resumeTest": {
+          "description": "Resume an existing test session",
+          "args": { "sessionId": "Id<'entryTestSessions'>" },
+          "returns": "{ currentState: TestState, roomName?: string }"
+        },
+        "submitAnswer": {
+          "description": "Submit answer for current question",
+          "args": {
+            "sessionId": "Id<'entryTestSessions'>",
+            "instanceId": "string",
+            "answer": "any",
+            "timeSpentSeconds": "number"
+          },
+          "returns": "{ nextQuestion: QuestionInstance | null, sectionComplete: boolean }"
+        },
+        "submitSpeakingResponse": {
+          "description": "Submit audio recording for speaking question",
+          "args": {
+            "sessionId": "Id<'entryTestSessions'>",
+            "instanceId": "string",
+            "audioStorageId": "Id<'_storage'>",
+            "timeSpentSeconds": "number"
+          },
+          "returns": "void",
+          "sideEffects": ["Triggers async Deepgram transcription"]
+        },
+        "pauseTest": {
+          "description": "Pause test session",
+          "args": { "sessionId": "Id<'entryTestSessions'>" },
+          "returns": "void"
+        },
+        "completeTest": {
+          "description": "Mark test as complete and trigger scoring",
+          "args": { "sessionId": "Id<'entryTestSessions'>" },
+          "returns": "void",
+          "sideEffects": ["Triggers async scoring pipeline"]
+        },
+        "abandonTest": {
+          "description": "Mark test as abandoned",
+          "args": {
+            "sessionId": "Id<'entryTestSessions'>",
+            "reason": "string?"
+          },
+          "returns": "void"
+        },
+        "applyRecommendedLevel": {
+          "description": "Apply test result to student profile",
+          "args": { "sessionId": "Id<'entryTestSessions'>" },
+          "returns": "void",
+          "logic": [
+            "Verify test is completed",
+            "Update student.currentLevel",
+            "Mark levelApplied = true in session",
+            "Create audit log entry"
+          ]
+        }
+      },
+      "generation": {
+        "generateQuestions": {
+          "description": "Start AI question generation job",
+          "args": {
+            "type": "QuestionType",
+            "cefrLevel": "CEFRLevel",
+            "count": "number",
+            "topic": "string?",
+            "model": "string",
+            "customPrompt": "string?"
+          },
+          "returns": "Id<'entryTestGenerationJobs'>"
+        },
+        "generateSectionContent": {
+          "description": "Generate all content for a template section",
+          "args": {
+            "templateId": "Id<'entryTestTemplates'>",
+            "sectionId": "string",
+            "model": "string"
+          },
+          "returns": "Id<'entryTestGenerationJobs'>"
+        }
+      },
+      "scoring": {
+        "scoreWritingResponse": {
+          "description": "AI-score a writing response",
+          "args": {
+            "sessionId": "Id<'entryTestSessions'>",
+            "instanceId": "string"
+          },
+          "returns": "WritingScore",
+          "internal": true
+        },
+        "scoreSpeakingResponse": {
+          "description": "AI-score a speaking response transcript",
+          "args": {
+            "sessionId": "Id<'entryTestSessions'>",
+            "instanceId": "string"
+          },
+          "returns": "SpeakingScore",
+          "internal": true
+        },
+        "calculateOverallResult": {
+          "description": "Calculate final CEFR recommendation",
+          "args": { "sessionId": "Id<'entryTestSessions'>" },
+          "returns": "OverallResult",
+          "internal": true
+        }
+      }
+    },
+    "convexQueries": {
+      "templates": {
+        "listTemplates": {
+          "description": "List templates accessible to current user",
+          "args": {
+            "status": "TemplateStatus?",
+            "ownershipType": "OwnershipType?"
+          },
+          "returns": "EntryTestTemplate[]"
+        },
+        "getTemplate": {
+          "args": { "templateId": "Id<'entryTestTemplates'>" },
+          "returns": "EntryTestTemplate | null"
+        },
+        "getTemplateWithQuestionCounts": {
+          "description": "Template with count of available questions per section",
+          "args": { "templateId": "Id<'entryTestTemplates'>" },
+          "returns": "TemplateWithCounts"
+        }
+      },
+      "questionBank": {
+        "listQuestions": {
+          "args": {
+            "type": "QuestionType?",
+            "level": "CEFRLevel?",
+            "curationStatus": "CurationStatus?",
+            "tags": "string[]?"
+          },
+          "returns": "Question[]"
+        },
+        "getQuestion": {
+          "args": { "questionId": "Id<'entryTestQuestionBank'>" },
+          "returns": "Question | null"
+        },
+        "getQuestionStats": {
+          "description": "Usage and performance statistics for questions",
+          "args": { "questionId": "Id<'entryTestQuestionBank'>" },
+          "returns": "QuestionStats"
+        }
+      },
+      "sessions": {
+        "getSession": {
+          "args": { "sessionId": "Id<'entryTestSessions'>" },
+          "returns": "EntryTestSession | null"
+        },
+        "getSessionWithQuestions": {
+          "description": "Session with full question content for test-taking UI",
+          "args": { "sessionId": "Id<'entryTestSessions'>" },
+          "returns": "SessionWithQuestions"
+        },
+        "getActiveSessionForStudent": {
+          "description": "Check if student has an in-progress test",
+          "args": { "studentId": "Id<'students'>" },
+          "returns": "EntryTestSession | null"
+        },
+        "listStudentSessions": {
+          "args": { "studentId": "Id<'students'>" },
+          "returns": "EntryTestSession[]"
+        },
+        "getSessionResults": {
+          "description": "Get completed session with full results",
+          "args": { "sessionId": "Id<'entryTestSessions'>" },
+          "returns": "SessionResults"
+        }
+      },
+      "generation": {
+        "getGenerationJob": {
+          "args": { "jobId": "Id<'entryTestGenerationJobs'>" },
+          "returns": "GenerationJob | null"
+        },
+        "listActiveJobs": {
+          "returns": "GenerationJob[]"
+        }
+      },
+      "analytics": {
+        "getTemplateAnalytics": {
+          "description": "Aggregate statistics for a template",
+          "args": { "templateId": "Id<'entryTestTemplates'>" },
+          "returns": "TemplateAnalytics"
+        },
+        "getQuestionAnalytics": {
+          "description": "Performance data for a question",
+          "args": { "questionId": "Id<'entryTestQuestionBank'>" },
+          "returns": "QuestionAnalytics"
+        }
+      }
+    },
+    "httpActions": {
+      "generateAudio": {
+        "path": "/api/entry-test/generate-audio",
+        "method": "POST",
+        "description": "Generate TTS audio for listening questions",
+        "body": {
+          "text": "string",
+          "voiceId": "string?",
+          "speed": "number?"
+        },
+        "returns": "{ storageId: Id<'_storage'>, url: string }"
+      },
+      "transcribeSpeaking": {
+        "path": "/api/entry-test/transcribe-speaking",
+        "method": "POST",
+        "description": "Transcribe speaking response audio",
+        "body": {
+          "sessionId": "string",
+          "instanceId": "string",
+          "audioStorageId": "string"
+        },
+        "returns": "{ transcript: string }"
+      }
+    }
+  },
+
+  "stateMachines": {
+    "testSessionStateMachine": {
+      "description": "State machine for test session lifecycle",
+      "states": {
+        "not_started": {
+          "description": "Session created but student hasn't begun",
+          "transitions": {
+            "START": "in_progress",
+            "ABANDON": "abandoned"
+          }
+        },
+        "in_progress": {
+          "description": "Student actively taking test",
+          "transitions": {
+            "PAUSE": "paused",
+            "COMPLETE": "completed",
+            "ABANDON": "abandoned",
+            "DISCONNECT": "paused"
+          }
+        },
+        "paused": {
+          "description": "Test paused (manual or disconnect)",
+          "transitions": {
+            "RESUME": "in_progress",
+            "ABANDON": "abandoned"
+          },
+          "autoTransitions": {
+            "after_7_days": "abandoned"
+          }
+        },
+        "completed": {
+          "description": "Test finished, results calculated",
+          "terminal": true
+        },
+        "abandoned": {
+          "description": "Test abandoned without completion",
+          "terminal": true
+        }
+      }
+    },
+    "questionFlowStateMachine": {
+      "description": "Navigation through test questions",
+      "states": {
+        "showing_section_intro": {
+          "description": "Displaying section instructions",
+          "transitions": {
+            "START_SECTION": "showing_question"
+          }
+        },
+        "showing_question": {
+          "description": "Displaying current question",
+          "transitions": {
+            "SUBMIT_ANSWER": "processing_answer",
+            "PLAY_AUDIO": "playing_audio"
+          }
+        },
+        "playing_audio": {
+          "description": "Playing listening audio (for listening questions)",
+          "transitions": {
+            "AUDIO_COMPLETE": "showing_question",
+            "REPLAY_AUDIO": "playing_audio"
+          },
+          "guards": {
+            "REPLAY_AUDIO": "replaysRemaining > 0"
+          }
+        },
+        "recording_speaking": {
+          "description": "Recording student speaking response",
+          "transitions": {
+            "STOP_RECORDING": "processing_answer",
+            "TIME_EXPIRED": "processing_answer"
+          }
+        },
+        "processing_answer": {
+          "description": "Saving answer and determining next step",
+          "transitions": {
+            "NEXT_QUESTION": "showing_question",
+            "NEXT_SECTION": "showing_section_intro",
+            "TEST_COMPLETE": "showing_results"
+          }
+        },
+        "showing_results": {
+          "description": "Displaying test results",
+          "terminal": true
+        }
+      }
+    }
+  },
+
+  "scoringAlgorithms": {
+    "objectiveQuestionScoring": {
+      "description": "Scoring for MCQ and fill-in-blank questions",
+      "types": ["reading_comprehension", "grammar_mcq", "grammar_fill_blank", "vocabulary_mcq", "vocabulary_matching", "listening_mcq", "listening_fill_blank"],
+      "algorithm": {
+        "correctAnswer": 1.0,
+        "incorrectAnswer": 0.0,
+        "noAnswer": 0.0,
+        "partialCredit": {
+          "applies_to": ["vocabulary_matching"],
+          "formula": "correctPairs / totalPairs"
+        }
+      }
+    },
+    "writingScoring": {
+      "description": "AI-based writing evaluation using CEFR-aligned rubric",
+      "criteria": [
+        {
+          "name": "taskAchievement",
+          "weight": 0.25,
+          "levels": {
+            "0": "Does not address the task",
+            "1": "Partially addresses task with significant omissions",
+            "2": "Addresses task but misses some requirements",
+            "3": "Fully addresses all task requirements",
+            "4": "Exceeds task requirements with relevant elaboration"
+          }
+        },
+        {
+          "name": "grammarAccuracy",
+          "weight": 0.25,
+          "levels": {
+            "0": "Errors impede communication",
+            "1": "Frequent errors, meaning sometimes unclear",
+            "2": "Some errors but meaning is clear",
+            "3": "Few errors, good control of grammar",
+            "4": "Excellent grammar with complex structures"
+          }
+        },
+        {
+          "name": "vocabularyRange",
+          "weight": 0.25,
+          "levels": {
+            "0": "Very limited vocabulary",
+            "1": "Basic vocabulary, frequent repetition",
+            "2": "Adequate vocabulary for task",
+            "3": "Good range of vocabulary",
+            "4": "Sophisticated vocabulary with precision"
+          }
+        },
+        {
+          "name": "coherence",
+          "weight": 0.25,
+          "levels": {
+            "0": "No logical organization",
+            "1": "Limited organization, unclear progression",
+            "2": "Basic organization with some cohesive devices",
+            "3": "Clear organization with effective linking",
+            "4": "Sophisticated organization and cohesion"
+          }
+        }
+      ],
+      "cefrMapping": {
+        "0-0.5": "A1",
+        "0.5-1.5": "A2",
+        "1.5-2.5": "B1",
+        "2.5-3.5": "B2",
+        "3.5-4.0": "C1"
+      },
+      "llmPromptTemplate": "You are evaluating an English writing response for CEFR level assessment.\n\nPrompt given to student: {prompt}\n\nStudent response: {response}\n\nEvaluate on these criteria (0-4 scale):\n1. Task Achievement: {taskAchievementRubric}\n2. Grammar Accuracy: {grammarRubric}\n3. Vocabulary Range: {vocabularyRubric}\n4. Coherence: {coherenceRubric}\n\nRespond in JSON format:\n{\n  \"taskAchievement\": { \"score\": 0-4, \"feedback\": \"...\" },\n  \"grammarAccuracy\": { \"score\": 0-4, \"feedback\": \"...\", \"errors\": [...] },\n  \"vocabularyRange\": { \"score\": 0-4, \"feedback\": \"...\" },\n  \"coherence\": { \"score\": 0-4, \"feedback\": \"...\" },\n  \"overallFeedback\": \"...\",\n  \"suggestedCEFRLevel\": \"A1-C2\"\n}"
+    },
+    "speakingScoring": {
+      "description": "AI-based speaking evaluation (from transcript)",
+      "criteria": [
+        {
+          "name": "contentRelevance",
+          "weight": 0.35,
+          "description": "How well response addresses the prompt"
+        },
+        {
+          "name": "grammarAccuracy",
+          "weight": 0.35,
+          "description": "Grammatical correctness in transcript"
+        },
+        {
+          "name": "fluencyIndicators",
+          "weight": 0.30,
+          "description": "Inferred from transcript (filler words, incomplete sentences, restarts)"
+        }
+      ],
+      "llmPromptTemplate": "You are evaluating an English speaking response transcript for CEFR level assessment.\n\nPrompt given to student: {prompt}\n\nTranscript of student's spoken response: {transcript}\n\nNote: This is a transcript, so evaluate the CONTENT and GRAMMAR, not pronunciation.\nLook for fluency indicators like filler words (um, uh), restarts, incomplete thoughts.\n\nEvaluate on these criteria (0-4 scale):\n1. Content Relevance (35%): Does the response address the prompt fully?\n2. Grammar Accuracy (35%): Grammatical correctness\n3. Fluency Indicators (30%): Based on transcript patterns\n\nRespond in JSON format:\n{\n  \"contentRelevance\": { \"score\": 0-4, \"feedback\": \"...\" },\n  \"grammarAccuracy\": { \"score\": 0-4, \"feedback\": \"...\", \"errors\": [...] },\n  \"fluencyIndicators\": { \"score\": 0-4, \"feedback\": \"...\" },\n  \"overallFeedback\": \"...\",\n  \"suggestedCEFRLevel\": \"A1-C2\"\n}"
+    },
+    "overallCEFRCalculation": {
+      "description": "Calculate final CEFR recommendation from section scores",
+      "algorithm": {
+        "step1": "Calculate weighted average of section percent scores using section weights",
+        "step2": "Map weighted average to CEFR level",
+        "step3": "Check for outlier sections (>1 level difference)",
+        "step4": "If outliers exist, adjust confidence score",
+        "step5": "Generate strengths/weaknesses from section breakdown"
+      },
+      "percentToLevel": {
+        "0-30": "A1",
+        "31-50": "A2",
+        "51-65": "B1",
+        "66-80": "B2",
+        "81-92": "C1",
+        "93-100": "C2"
+      },
+      "confidenceCalculation": {
+        "allSectionsAgree": 0.95,
+        "oneOutlier": 0.80,
+        "twoOutliers": 0.65,
+        "threeOrMoreOutliers": 0.50
+      }
+    }
+  },
+
+  "uiComponents": {
+    "adminPages": {
+      "testTemplateList": {
+        "path": "/admin/tools/entry-tests",
+        "description": "List and manage test templates",
+        "features": [
+          "Filter by status (draft/published/archived)",
+          "Filter by ownership (platform/company/group)",
+          "Search by title",
+          "Quick actions: Edit, Duplicate, Archive, Publish",
+          "Show question count per section"
+        ]
+      },
+      "testTemplateEditor": {
+        "path": "/admin/tools/entry-tests/[templateId]/edit",
+        "description": "Edit test template configuration",
+        "tabs": [
+          "General (title, description, level range, delivery config)",
+          "Sections (add/edit/reorder sections)",
+          "Questions (view/assign questions from bank per section)",
+          "Feedback (configure avatar feedback settings)",
+          "Preview (preview test as student would see it)"
+        ]
+      },
+      "questionBankManager": {
+        "path": "/admin/tools/entry-tests/question-bank",
+        "description": "Manage the question bank",
+        "features": [
+          "Filter by type, level, curation status, tags",
+          "Bulk approve/reject pending questions",
+          "View question performance stats",
+          "Create question manually",
+          "AI generate questions dialog"
+        ]
+      },
+      "questionEditor": {
+        "path": "/admin/tools/entry-tests/question-bank/[questionId]/edit",
+        "description": "Edit individual question",
+        "features": [
+          "Type-specific editor (MCQ, fill-blank, writing prompt, etc.)",
+          "Preview question",
+          "Set tags and level",
+          "View usage statistics"
+        ]
+      },
+      "aiGenerationDialog": {
+        "description": "Dialog for AI question generation",
+        "fields": [
+          "Question type selector",
+          "CEFR level selector",
+          "Topic/grammar point input",
+          "Number of questions slider (1-20)",
+          "Model selector (OpenRouter models)",
+          "Custom instructions textarea"
+        ],
+        "preview": "Show generated questions for approval before adding to bank"
+      },
+      "testResultsView": {
+        "path": "/admin/tools/entry-tests/sessions/[sessionId]",
+        "description": "View detailed test results for a session",
+        "features": [
+          "Overall score and recommended level",
+          "Section-by-section breakdown",
+          "Individual question responses with correct answers",
+          "Writing/speaking AI evaluations",
+          "Apply level to student profile button"
+        ]
+      }
+    },
+    "studentPages": {
+      "availableTestsList": {
+        "path": "/tests",
+        "description": "List of available entry tests for student",
+        "features": [
+          "Show test title, description, estimated time",
+          "Show level range being assessed",
+          "Resume in-progress test if exists",
+          "Delivery mode selector (if allowed)"
+        ]
+      },
+      "testTakingInterface": {
+        "path": "/tests/[sessionId]",
+        "description": "Main test-taking UI",
+        "layouts": {
+          "web_only": {
+            "components": [
+              "Progress bar (sections and questions)",
+              "Section instructions panel",
+              "Question display area",
+              "Answer input area (varies by type)",
+              "Navigation controls (Next, Pause)"
+            ]
+          },
+          "audio_avatar": {
+            "components": [
+              "Static avatar image with audio indicator",
+              "Same question UI as web_only",
+              "Avatar reads instructions and questions aloud"
+            ]
+          },
+          "video_avatar": {
+            "components": [
+              "LiveKit room with Beyond Presence avatar",
+              "Slide-style question display",
+              "Avatar presents questions conversationally"
+            ]
+          }
+        },
+        "questionTypeUIs": {
+          "reading_comprehension": "Passage on left, MCQ questions on right",
+          "grammar_mcq": "Question stem + 4 radio options",
+          "grammar_fill_blank": "Sentence with text input for blank",
+          "vocabulary_mcq": "Term/context + 4 radio options",
+          "vocabulary_matching": "Drag-and-drop or dropdowns for matching",
+          "listening_mcq": "Audio player + MCQ after listening",
+          "listening_fill_blank": "Audio player + transcript with blanks",
+          "writing_prompt": "Prompt display + large textarea + word counter",
+          "speaking_prompt": "Prompt display + preparation timer + record button + recording timer"
+        }
+      },
+      "testResultsPage": {
+        "path": "/tests/[sessionId]/results",
+        "description": "Student view of test results",
+        "sections": [
+          "Overall recommended level (prominent display)",
+          "Section breakdown with visual chart",
+          "Strengths and areas for improvement",
+          "Next steps recommendation",
+          "Option to apply level to profile"
+        ]
+      }
+    },
+    "sharedComponents": {
+      "CEFRLevelBadge": {
+        "description": "Colored badge showing CEFR level",
+        "props": ["level: CEFRLevel", "size: 'sm' | 'md' | 'lg'"]
+      },
+      "SectionProgressBar": {
+        "description": "Visual progress through test sections",
+        "props": ["sections: Section[]", "currentSectionIndex: number", "currentQuestionIndex: number"]
+      },
+      "AudioPlayer": {
+        "description": "Audio player with replay tracking",
+        "props": ["audioUrl: string", "maxReplays: number", "onReplayUsed: () => void"]
+      },
+      "SpeakingRecorder": {
+        "description": "Audio recorder for speaking responses",
+        "props": ["maxDurationSeconds: number", "onRecordingComplete: (blob: Blob) => void"]
+      },
+      "QuestionTypeIcon": {
+        "description": "Icon representing question type",
+        "props": ["type: QuestionType"]
+      },
+      "ScoreRadarChart": {
+        "description": "Radar chart showing section scores",
+        "props": ["sectionScores: SectionScore[]"]
+      }
+    }
+  },
+
+  "integrationPoints": {
+    "existingSystems": {
+      "students": {
+        "table": "students",
+        "integration": "Test results update currentLevel field upon confirmation",
+        "fields_affected": ["currentLevel", "assessmentCompleted"]
+      },
+      "avatars": {
+        "table": "avatars",
+        "integration": "Entry test uses avatar configuration for audio/video delivery modes",
+        "fields_used": ["voiceProvider", "avatarProvider", "llmConfig"]
+      },
+      "sessions": {
+        "table": "sessions",
+        "integration": "Entry test creates sessions for LiveKit room tracking in avatar modes",
+        "new_type": "entry_test"
+      },
+      "analyticsEvents": {
+        "table": "analyticsEvents",
+        "integration": "Log test events: test_started, test_completed, level_applied",
+        "events": [
+          "entry_test_started",
+          "entry_test_completed",
+          "entry_test_abandoned",
+          "entry_test_level_applied"
+        ]
+      },
+      "auditLog": {
+        "table": "auditLog",
+        "integration": "Log admin actions: template_created, question_approved, level_applied",
+        "actions": [
+          "entry_test_template_created",
+          "entry_test_template_published",
+          "entry_test_question_approved",
+          "entry_test_level_applied"
+        ]
+      }
+    },
+    "externalServices": {
+      "openRouter": {
+        "usage": "Question generation and writing/speaking evaluation",
+        "defaultModel": "anthropic/claude-sonnet-4",
+        "fallbackModel": "anthropic/claude-3.5-sonnet",
+        "endpoints": [
+          "Question generation (batch)",
+          "Writing response scoring",
+          "Speaking transcript scoring"
+        ]
+      },
+      "cartesia": {
+        "usage": "TTS for listening questions and avatar audio",
+        "model": "sonic-3",
+        "integration": "Generate audio files stored in Convex storage"
+      },
+      "deepgram": {
+        "usage": "STT for speaking question transcription",
+        "model": "nova-3",
+        "integration": "Transcribe uploaded audio recordings"
+      },
+      "beyondPresence": {
+        "usage": "Video avatar delivery mode",
+        "integration": "Same as existing avatar lessons via LiveKit"
+      },
+      "liveKit": {
+        "usage": "Real-time audio/video for avatar modes",
+        "integration": "Room creation via existing /api/livekit/token endpoint"
+      }
+    }
+  },
+
+  "implementationPhases": {
+    "phase1_foundation": {
+      "name": "Foundation & Data Models",
+      "duration": "1 week",
+      "tasks": [
+        "Add Convex schema for entryTestTemplates, entryTestQuestionBank, entryTestSessions, entryTestGenerationJobs",
+        "Create basic CRUD mutations for templates and questions",
+        "Create basic queries for listing and fetching",
+        "Set up TypeScript types for all enums and data structures"
+      ],
+      "deliverables": [
+        "convex/entryTests.ts - Template mutations/queries",
+        "convex/entryTestQuestionBank.ts - Question bank mutations/queries",
+        "convex/entryTestSessions.ts - Session mutations/queries",
+        "types/entry-tests.ts - TypeScript types"
+      ]
+    },
+    "phase2_admin_ui": {
+      "name": "Admin UI - Templates & Question Bank",
+      "duration": "1.5 weeks",
+      "tasks": [
+        "Create admin template list page with filters",
+        "Create template editor with section management",
+        "Create question bank manager with filters and bulk actions",
+        "Create manual question editor for all question types",
+        "Integrate with existing admin layout/navigation"
+      ],
+      "deliverables": [
+        "app/(dashboard)/admin/tools/entry-tests/page.tsx",
+        "app/(dashboard)/admin/tools/entry-tests/[templateId]/edit/page.tsx",
+        "app/(dashboard)/admin/tools/entry-tests/question-bank/page.tsx",
+        "components/entry-tests/admin/*.tsx"
+      ]
+    },
+    "phase3_ai_generation": {
+      "name": "AI Question Generation",
+      "duration": "1 week",
+      "tasks": [
+        "Create generation job system with progress tracking",
+        "Implement question generation prompts for each type",
+        "Create AI model selector component (reuse from games)",
+        "Create generation preview/approval workflow",
+        "Add generation dialog to question bank page"
+      ],
+      "deliverables": [
+        "app/api/entry-test/generate/route.ts",
+        "lib/entry-test-generation/*.ts",
+        "components/entry-tests/admin/AIGenerationDialog.tsx"
+      ]
+    },
+    "phase4_student_ui_web": {
+      "name": "Student Test-Taking UI (Web Only)",
+      "duration": "1.5 weeks",
+      "tasks": [
+        "Create test list page for students",
+        "Create main test-taking interface with question navigation",
+        "Implement UI for each question type",
+        "Implement session state management and auto-save",
+        "Create results page with score breakdown"
+      ],
+      "deliverables": [
+        "app/tests/page.tsx",
+        "app/tests/[sessionId]/page.tsx",
+        "app/tests/[sessionId]/results/page.tsx",
+        "components/entry-tests/student/*.tsx"
+      ]
+    },
+    "phase5_scoring": {
+      "name": "Scoring Pipeline",
+      "duration": "1 week",
+      "tasks": [
+        "Implement objective question scoring",
+        "Implement AI writing evaluation with CEFR rubric",
+        "Implement AI speaking evaluation from transcript",
+        "Implement overall CEFR calculation algorithm",
+        "Create scoring summary and breakdown generation"
+      ],
+      "deliverables": [
+        "lib/entry-test-scoring/*.ts",
+        "app/api/entry-test/score-writing/route.ts",
+        "app/api/entry-test/score-speaking/route.ts",
+        "convex/entryTestScoring.ts"
+      ]
+    },
+    "phase6_audio_speaking": {
+      "name": "Audio Features (Listening & Speaking)",
+      "duration": "1 week",
+      "tasks": [
+        "Create Cartesia TTS integration for listening questions",
+        "Create audio player component with replay tracking",
+        "Create speaking recorder component",
+        "Create Deepgram transcription integration",
+        "Pre-generate audio for listening questions in templates"
+      ],
+      "deliverables": [
+        "app/api/entry-test/generate-audio/route.ts",
+        "app/api/entry-test/transcribe-speaking/route.ts",
+        "components/entry-tests/student/AudioPlayer.tsx",
+        "components/entry-tests/student/SpeakingRecorder.tsx"
+      ]
+    },
+    "phase7_avatar_modes": {
+      "name": "Avatar Delivery Modes",
+      "duration": "1.5 weeks",
+      "tasks": [
+        "Create audio avatar mode (static image + TTS)",
+        "Create video avatar mode (Beyond Presence integration)",
+        "Create avatar feedback delivery system",
+        "Integrate with existing LiveKit room infrastructure",
+        "Create delivery mode selector with fallback logic"
+      ],
+      "deliverables": [
+        "components/entry-tests/student/AudioAvatarMode.tsx",
+        "components/entry-tests/student/VideoAvatarMode.tsx",
+        "components/entry-tests/student/AvatarFeedback.tsx"
+      ]
+    },
+    "phase8_integration": {
+      "name": "Integration & Polish",
+      "duration": "1 week",
+      "tasks": [
+        "Integrate level recommendation with student profile",
+        "Add bilingual instruction support (German for A1-A2)",
+        "Add hierarchical template inheritance",
+        "Add analytics events and audit logging",
+        "Add test session resume functionality",
+        "Performance optimization and error handling"
+      ],
+      "deliverables": [
+        "Updated convex/students.ts",
+        "Analytics integration",
+        "Error boundary components",
+        "Documentation"
+      ]
+    }
+  },
+
+  "outOfScope": [
+    "Pronunciation scoring for speaking questions (would require additional API like Speechace)",
+    "Adaptive testing (adjusting question difficulty based on responses) - future enhancement",
+    "Certificate generation",
+    "Time-limited tests (decided: self-paced only)",
+    "Proctoring features (camera monitoring, tab switching detection)",
+    "Multi-language support beyond German/English",
+    "Offline test-taking capability"
+  ],
+
+  "openQuestions": [
+    {
+      "question": "Should we support audio-only delivery without visual avatar image?",
+      "context": "Some students might prefer pure audio instructions without any avatar presence",
+      "suggestedDefault": "No - audio avatar mode includes static image for presence"
+    },
+    {
+      "question": "How long should paused tests be resumable before auto-abandoning?",
+      "context": "Prevent indefinitely paused tests from cluttering the system",
+      "suggestedDefault": "7 days"
+    },
+    {
+      "question": "Should question bank questions be editable after being used in completed tests?",
+      "context": "Editing could affect historical score validity",
+      "suggestedDefault": "Allow edit but create new version; original preserved for historical tests"
+    }
+  ],
+
+  "technicalNotes": {
+    "convexSchemaAdditions": "Add to existing convex/schema.ts - new tables: entryTestTemplates, entryTestQuestionBank, entryTestSessions, entryTestGenerationJobs",
+    "sessionTypeAddition": "Add 'entry_test' to sessions.type union for LiveKit room tracking",
+    "fileStorageUsage": "Use Convex _storage for: audio files (listening questions), speaking recordings",
+    "realtimeUpdates": "Use Convex real-time queries for: test session state, generation job progress",
+    "existingPatterns": {
+      "aiGeneration": "Follow pattern from /app/api/games/generate/route.ts",
+      "adminUI": "Follow pattern from /app/(dashboard)/admin/tools/games/page.tsx",
+      "slideRendering": "Reuse /components/lesson/slide-viewer.tsx for question display in avatar modes"
+    }
+  }
+}

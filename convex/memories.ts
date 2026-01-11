@@ -1,6 +1,85 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 
+// ==========================================
+// USER MEMORY SYNC - Cached profile data
+// ==========================================
+
+/**
+ * Get cached memory sync data for a user-avatar pair.
+ * This provides fast access to student profile without expensive queries.
+ */
+export const getUserMemorySync = query({
+  args: {
+    userId: v.string(),
+    avatarSlug: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const sync = await ctx.db
+      .query("userMemorySync")
+      .withIndex("by_user_avatar", (q) =>
+        q.eq("userId", args.userId).eq("avatarSlug", args.avatarSlug)
+      )
+      .first();
+
+    return sync;
+  },
+});
+
+/**
+ * Update or create user memory sync data.
+ * Called after sessions to cache profile summaries.
+ */
+export const upsertUserMemorySync = mutation({
+  args: {
+    userId: v.string(),
+    avatarSlug: v.string(),
+    profileSummary: v.optional(
+      v.object({
+        level: v.optional(v.string()),
+        goals: v.optional(v.array(v.string())),
+        preferences: v.optional(v.array(v.string())),
+        strongAreas: v.optional(v.array(v.string())),
+        weakAreas: v.optional(v.array(v.string())),
+        personalFacts: v.optional(v.array(v.string())),
+        recentTopics: v.optional(v.array(v.string())),
+        lastSessionSummary: v.optional(v.string()),
+      })
+    ),
+    sessionCount: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("userMemorySync")
+      .withIndex("by_user_avatar", (q) =>
+        q.eq("userId", args.userId).eq("avatarSlug", args.avatarSlug)
+      )
+      .first();
+
+    const now = Date.now();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        profileSummary: args.profileSummary ?? existing.profileSummary,
+        sessionCount: args.sessionCount ?? (existing.sessionCount ?? 0) + 1,
+        lastSyncedAt: now,
+      });
+      return existing._id;
+    } else {
+      const id = await ctx.db.insert("userMemorySync", {
+        userId: args.userId,
+        avatarSlug: args.avatarSlug,
+        zepUserId: `student:${args.userId}:${args.avatarSlug}`,
+        profileSummary: args.profileSummary,
+        sessionCount: args.sessionCount ?? 1,
+        lastSyncedAt: now,
+        createdAt: now,
+      });
+      return id;
+    }
+  },
+});
+
 /**
  * Memory Management Functions
  *
@@ -103,6 +182,9 @@ export const create = mutation({
     tags: v.optional(v.array(v.string())),
     importance: v.optional(v.string()),
     sessionId: v.optional(v.string()),
+    avatarSlug: v.optional(v.string()),
+    source: v.optional(v.string()), // "auto_extracted", "manual", "session_summary"
+    eventDate: v.optional(v.number()), // For "upcoming" type - when the event occurs
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -115,6 +197,10 @@ export const create = mutation({
       tags: args.tags ?? [],
       importance: args.importance ?? "medium",
       sessionId: args.sessionId,
+      avatarSlug: args.avatarSlug,
+      source: args.source ?? "manual",
+      eventDate: args.eventDate,
+      followedUp: args.type === "upcoming" ? false : undefined,
       createdAt: now,
       updatedAt: now,
     });
@@ -226,5 +312,64 @@ export const addManualMemory = mutation({
     });
 
     return { success: true, memoryId };
+  },
+});
+
+// ==========================================
+// UPCOMING EVENTS - For personalized greetings
+// ==========================================
+
+/**
+ * Get upcoming events that have passed but haven't been followed up on.
+ * Used to generate personalized greetings like "How was your holiday?"
+ */
+export const getUpcomingEventsPastDue = query({
+  args: {
+    studentId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+
+    // Get all upcoming type memories for this student
+    const upcomingMemories = await ctx.db
+      .query("memories")
+      .withIndex("by_student_type", (q) =>
+        q.eq("studentId", args.studentId).eq("type", "upcoming")
+      )
+      .filter((q) =>
+        q.and(
+          // Has an event date
+          q.neq(q.field("eventDate"), undefined),
+          // Event date is in the past
+          q.lt(q.field("eventDate"), now),
+          // Hasn't been followed up on yet
+          q.or(
+            q.eq(q.field("followedUp"), false),
+            q.eq(q.field("followedUp"), undefined)
+          )
+        )
+      )
+      .order("desc")
+      .take(args.limit ?? 3);
+
+    return upcomingMemories;
+  },
+});
+
+/**
+ * Mark an upcoming event memory as followed up.
+ * Called after the avatar asks about the event.
+ */
+export const markFollowedUp = mutation({
+  args: {
+    memoryId: v.id("memories"),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.memoryId, {
+      followedUp: true,
+      updatedAt: Date.now(),
+    });
+    return { success: true };
   },
 });

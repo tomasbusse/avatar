@@ -8,10 +8,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Bot,
   Plus,
   Settings,
-  Star,
   Loader2,
   Volume2,
   Brain,
@@ -27,6 +36,9 @@ import {
   User,
   BookOpen,
   Database,
+  AlertTriangle,
+  Clock,
+  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRef } from "react";
@@ -72,6 +84,27 @@ function saveCustomVoices(voices: Voice[]) {
 
 const CARTESIA_EMOTIONS = ["neutral", "cheerful", "sad", "angry", "fearful", "surprised"];
 
+// TTS Model options
+const CARTESIA_TTS_MODELS = [
+  { id: "sonic-2", name: "Sonic 2 (Stable)" },
+  { id: "sonic-3", name: "Sonic 3 (Latest)" },
+];
+
+// STT Model options
+const DEEPGRAM_STT_MODELS = [
+  { id: "nova-3", name: "Nova 3 (Latest)" },
+  { id: "nova-2", name: "Nova 2 (Stable)" },
+];
+
+// Cartesia emotion presets with proper API format
+const CARTESIA_EMOTION_PRESETS = [
+  { id: "neutral", label: "Neutral", value: [] as string[] },
+  { id: "positive", label: "Positive (Warm)", value: ["positivity:medium"] },
+  { id: "very_positive", label: "Enthusiastic", value: ["positivity:high"] },
+  { id: "curious", label: "Curious", value: ["curiosity:medium"] },
+  { id: "calm", label: "Calm", value: ["positivity:low"] },
+];
+
 interface LLMModel {
   id: string;
   name: string;
@@ -87,12 +120,25 @@ const DEFAULT_LLM_MODELS: LLMModel[] = [
   { id: "google/gemini-pro-1.5", name: "🔭 Gemini 1.5 Pro (Vision)" },
 ];
 
+// Cerebras models - ultra-fast inference (2,314 tokens/sec)
+const CEREBRAS_MODELS: LLMModel[] = [
+  { id: "llama-3.3-70b", name: "⚡ Llama 3.3 70B (Fastest - 2314 tok/s)" },
+  { id: "llama-3.1-70b", name: "⚡ Llama 3.1 70B" },
+  { id: "llama-3.1-8b", name: "⚡ Llama 3.1 8B (Ultra Fast)" },
+];
+
+type LLMProvider = "openrouter" | "cerebras";
+
 export default function AvatarsPage() {
   const [selectedAvatar, setSelectedAvatar] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [editingAvatar, setEditingAvatar] = useState<Id<"avatars"> | null>(null);
   const [showVoiceManager, setShowVoiceManager] = useState(false);
   const [customVoices, setCustomVoices] = useState<Voice[]>([]);
+  const [deletingAvatar, setDeletingAvatar] = useState<Id<"avatars"> | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [forceDelete, setForceDelete] = useState(false);
+  const [isEndingSessions, setIsEndingSessions] = useState(false);
 
   const [dynamicModels, setDynamicModels] = useState<LLMModel[]>(DEFAULT_LLM_MODELS);
 
@@ -123,8 +169,16 @@ export default function AvatarsPage() {
   const allVoices = [...DEFAULT_VOICES, ...customVoices.map(v => ({ ...v, isCustom: true }))];
 
   const avatars = useQuery(api.avatars.listActiveAvatars);
-  const seedAvatar = useMutation(api.seed.seedDefaultAvatar);
-  const setDefault = useMutation(api.avatars.setDefaultAvatar);
+  const deleteAvatarMutation = useMutation(api.avatars.deleteAvatar);
+  const deletionInfo = useQuery(
+    api.avatars.getAvatarDeletionInfo,
+    deletingAvatar ? { avatarId: deletingAvatar } : "skip"
+  );
+  const activeSessions = useQuery(
+    api.sessions.getActiveSessionsByAvatar,
+    deletingAvatar ? { avatarId: deletingAvatar } : "skip"
+  );
+  const endSessionsForAvatar = useMutation(api.sessions.endSessionsForAvatar);
 
   const handleAddVoice = (voice: Voice) => {
     const updated = [...customVoices, { ...voice, isCustom: true }];
@@ -140,21 +194,60 @@ export default function AvatarsPage() {
     toast.success("Voice removed");
   };
 
-  const handleSeedAvatar = async () => {
+  const handleDeleteAvatar = async () => {
+    if (!deletingAvatar) return;
+
+    setIsDeleting(true);
     try {
-      const result = await seedAvatar();
+      const result = await deleteAvatarMutation({
+        avatarId: deletingAvatar,
+        confirmDelete: true,
+        forceDelete: forceDelete,
+      });
+
       toast.success(result.message);
+
+      // Show deletion summary
+      const { deletionCounts } = result;
+      const summaryParts = [];
+      if (deletionCounts.sessions > 0) {
+        summaryParts.push(`${deletionCounts.sessions} session(s)`);
+      }
+      if (deletionCounts.structuredLessons > 0) {
+        summaryParts.push(`${deletionCounts.structuredLessons} lesson(s)`);
+      }
+      if (summaryParts.length > 0) {
+        toast.info(`Deleted: ${summaryParts.join(", ")}`, { duration: 4000 });
+      }
     } catch (error) {
-      toast.error("Failed to seed avatar");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to delete avatar"
+      );
+    } finally {
+      setIsDeleting(false);
+      setDeletingAvatar(null);
+      setForceDelete(false);
     }
   };
 
-  const handleSetDefault = async (avatarId: Id<"avatars">) => {
+  const handleEndActiveSessions = async () => {
+    if (!deletingAvatar) return;
+
+    setIsEndingSessions(true);
     try {
-      await setDefault({ avatarId });
-      toast.success("Default avatar updated");
+      const result = await endSessionsForAvatar({
+        avatarId: deletingAvatar,
+        reason: "admin_cleanup",
+      });
+
+      toast.success(`Ended ${result.endedCount} active session(s)`);
+      // The deletionInfo query will automatically refetch
     } catch (error) {
-      toast.error("Failed to set default avatar");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to end sessions"
+      );
+    } finally {
+      setIsEndingSessions(false);
     }
   };
 
@@ -172,10 +265,6 @@ export default function AvatarsPage() {
             <Button variant="outline" onClick={() => setShowVoiceManager(true)}>
               <Mic className="w-4 h-4 mr-2" />
               Manage Voices
-            </Button>
-            <Button variant="outline" onClick={handleSeedAvatar}>
-              <Plus className="w-4 h-4 mr-2" />
-              Seed Default Avatar
             </Button>
             <Button onClick={() => setIsCreating(true)}>
               <Plus className="w-4 h-4 mr-2" />
@@ -196,9 +285,9 @@ export default function AvatarsPage() {
               <p className="text-muted-foreground mb-4">
                 Create your first AI teaching avatar to get started
               </p>
-              <Button onClick={handleSeedAvatar}>
+              <Button onClick={() => setIsCreating(true)}>
                 <Plus className="w-4 h-4 mr-2" />
-                Create Default Avatar (Ludwig)
+                Create Avatar
               </Button>
             </CardContent>
           </Card>
@@ -213,15 +302,7 @@ export default function AvatarsPage() {
                         <Bot className="w-6 h-6 text-primary" />
                       </div>
                       <div>
-                        <CardTitle className="flex items-center gap-2">
-                          {avatar.name}
-                          {avatar.isDefault && (
-                            <Badge variant="secondary" className="text-xs">
-                              <Star className="w-3 h-3 mr-1" />
-                              Default
-                            </Badge>
-                          )}
-                        </CardTitle>
+                        <CardTitle>{avatar.name}</CardTitle>
                         <p className="text-sm text-muted-foreground">
                           {avatar.persona.role}
                         </p>
@@ -277,6 +358,11 @@ export default function AvatarsPage() {
                         {skill}
                       </Badge>
                     ))}
+                  </div>
+
+                  {/* Session Monitor - Shows active sessions with cleanup options */}
+                  <div className="mb-4">
+                    <SessionMonitor avatarId={avatar._id} />
                   </div>
 
                   {selectedAvatar === avatar._id && (
@@ -350,16 +436,6 @@ export default function AvatarsPage() {
                   )}
 
                   <div className="flex gap-2 mt-4">
-                    {!avatar.isDefault && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleSetDefault(avatar._id)}
-                      >
-                        <Star className="w-4 h-4 mr-1" />
-                        Set as Default
-                      </Button>
-                    )}
                     <Button
                       variant="outline"
                       size="sm"
@@ -375,6 +451,15 @@ export default function AvatarsPage() {
                     >
                       <Play className="w-4 h-4 mr-1" />
                       Test Avatar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => setDeletingAvatar(avatar._id)}
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" />
+                      Delete
                     </Button>
                   </div>
                 </CardContent>
@@ -404,13 +489,534 @@ export default function AvatarsPage() {
             onClose={() => setShowVoiceManager(false)}
           />
         )}
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog
+          open={deletingAvatar !== null}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDeletingAvatar(null);
+              setForceDelete(false);
+            }
+          }}
+        >
+          <AlertDialogContent className="max-w-md">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                <AlertTriangle className="w-5 h-5" />
+                Delete Avatar
+              </AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-4">
+                  {deletionInfo === undefined ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="w-6 h-6 animate-spin" />
+                    </div>
+                  ) : deletionInfo === null ? (
+                    <p>Avatar not found.</p>
+                  ) : (
+                    <>
+                      <p>
+                        Are you sure you want to delete{" "}
+                        <strong>{deletionInfo.avatar.name}</strong>? This action
+                        cannot be undone.
+                      </p>
+
+                      {!deletionInfo.canDelete && (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg text-sm">
+                            <AlertTriangle className="w-4 h-4 text-red-600" />
+                            <span className="text-red-800 dark:text-red-200">
+                              {deletionInfo.blockingReason}
+                            </span>
+                          </div>
+
+                          {/* Active sessions list and cleanup button */}
+                          {activeSessions && activeSessions.length > 0 && (
+                            <div className="border border-blue-200 dark:border-blue-800 rounded-lg overflow-hidden">
+                              <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-950">
+                                <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                                  Active Sessions ({activeSessions.length})
+                                </span>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={handleEndActiveSessions}
+                                  disabled={isEndingSessions}
+                                  className="h-7 text-xs border-blue-300 text-blue-700 hover:bg-blue-100"
+                                >
+                                  {isEndingSessions ? (
+                                    <>
+                                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                      Ending...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <XCircle className="w-3 h-3 mr-1" />
+                                      End All Sessions
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+                              <div className="max-h-32 overflow-y-auto">
+                                {activeSessions.map((session) => (
+                                  <div
+                                    key={session._id}
+                                    className="flex items-center justify-between px-3 py-2 text-xs border-t border-blue-100 dark:border-blue-900"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <Badge
+                                        variant={session.status === "active" ? "default" : "secondary"}
+                                        className="text-[10px] px-1.5 py-0"
+                                      >
+                                        {session.status}
+                                      </Badge>
+                                      <span className="text-muted-foreground">
+                                        {session.studentName}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-1 text-muted-foreground">
+                                      <Clock className="w-3 h-3" />
+                                      {session.durationMinutes}m
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg">
+                            <input
+                              type="checkbox"
+                              id="forceDelete"
+                              checked={forceDelete}
+                              onChange={(e) => setForceDelete(e.target.checked)}
+                              className="w-4 h-4 rounded border-amber-400 text-amber-600 focus:ring-amber-500"
+                            />
+                            <label htmlFor="forceDelete" className="text-sm text-amber-800 dark:text-amber-200 cursor-pointer">
+                              <strong>Force Delete:</strong> Mark all active sessions as &ldquo;abandoned&rdquo; and delete anyway.
+                              These are likely orphaned sessions that weren&apos;t properly closed.
+                            </label>
+                          </div>
+                        </div>
+                      )}
+
+                      {deletionInfo.canDelete && (
+                        <div className="bg-muted/50 p-3 rounded-lg space-y-2 text-sm">
+                          <p className="font-medium">
+                            The following data will be affected:
+                          </p>
+                          <ul className="space-y-1 text-muted-foreground">
+                            {deletionInfo.counts.totalSessions > 0 && (
+                              <li className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-red-500" />
+                                {deletionInfo.counts.totalSessions} session(s)
+                                will be deleted
+                              </li>
+                            )}
+                            {deletionInfo.counts.structuredLessons > 0 && (
+                              <li className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-red-500" />
+                                {deletionInfo.counts.structuredLessons}{" "}
+                                structured lesson(s) will be deleted
+                              </li>
+                            )}
+                            {deletionInfo.counts.studentsWithPreference > 0 && (
+                              <li className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-yellow-500" />
+                                {deletionInfo.counts.studentsWithPreference}{" "}
+                                student preference(s) will be cleared
+                              </li>
+                            )}
+                            {deletionInfo.counts.groupsWithDefault > 0 && (
+                              <li className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-yellow-500" />
+                                {deletionInfo.counts.groupsWithDefault} group
+                                default(s) will be cleared
+                              </li>
+                            )}
+                            {deletionInfo.counts.entryTestTemplates > 0 && (
+                              <li className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-yellow-500" />
+                                {deletionInfo.counts.entryTestTemplates} entry
+                                test template(s) will be updated
+                              </li>
+                            )}
+                            {deletionInfo.counts.totalSessions === 0 &&
+                              deletionInfo.counts.structuredLessons === 0 &&
+                              deletionInfo.counts.studentsWithPreference === 0 &&
+                              deletionInfo.counts.groupsWithDefault === 0 &&
+                              deletionInfo.counts.entryTestTemplates === 0 && (
+                                <li className="flex items-center gap-2 text-green-600">
+                                  <span className="w-2 h-2 rounded-full bg-green-500" />
+                                  No related data will be affected
+                                </li>
+                              )}
+                          </ul>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteAvatar}
+                disabled={
+                  isDeleting ||
+                  deletionInfo === undefined ||
+                  deletionInfo === null ||
+                  (!deletionInfo.canDelete && !forceDelete)
+                }
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete Avatar
+                  </>
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
 }
 
+// Session Monitor Component - Shows active sessions for an avatar with cleanup button
+function SessionMonitor({ avatarId }: { avatarId: Id<"avatars"> }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isEnding, setIsEnding] = useState(false);
+  const [isDeletingHistory, setIsDeletingHistory] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [endingSessionId, setEndingSessionId] = useState<string | null>(null);
+
+  const sessions = useQuery(api.sessions.getActiveSessionsByAvatar, { avatarId });
+  const sessionStats = useQuery(api.sessions.getSessionStatsForAvatar, { avatarId });
+  const endSessions = useMutation(api.sessions.endSessionsForAvatar);
+  const cleanupStale = useMutation(api.sessions.cleanupStaleSessionsForAvatar);
+  const forceEndSession = useMutation(api.sessions.forceEndSession);
+  const deleteHistoricalSessions = useMutation(api.sessions.deleteHistoricalSessionsForAvatar);
+
+  // Format session type for display
+  const formatSessionType = (type: string) => {
+    const typeMap: Record<string, string> = {
+      structured_lesson: "Lesson",
+      quick_practice: "Practice",
+      free_conversation: "Chat",
+      vocabulary_review: "Vocab",
+      pronunciation_drill: "Pronun.",
+      presentation: "Slides",
+    };
+    return typeMap[type] || type;
+  };
+
+  // Format start time
+  const formatStartTime = (timestamp: number) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+
+    if (diffMins < 60) {
+      return `${diffMins}m ago`;
+    }
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) {
+      return `${diffHours}h ago`;
+    }
+    return date.toLocaleDateString();
+  };
+
+  // End a single session
+  const handleEndSession = async (sessionId: Id<"sessions">) => {
+    setEndingSessionId(sessionId);
+    try {
+      await forceEndSession({
+        sessionId,
+        reason: "admin_cleanup",
+      });
+      toast.success("Session ended");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to end session");
+    } finally {
+      setEndingSessionId(null);
+    }
+  };
+
+  const sessionCount = sessions?.length ?? 0;
+
+  const handleEndAll = async () => {
+    setIsEnding(true);
+    try {
+      const result = await endSessions({
+        avatarId,
+        reason: "admin_cleanup",
+      });
+      toast.success(`Ended ${result.endedCount} session(s)`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to end sessions");
+    } finally {
+      setIsEnding(false);
+    }
+  };
+
+  const handleCleanupStale = async () => {
+    setIsEnding(true);
+    try {
+      const result = await cleanupStale({
+        avatarId,
+        maxAgeMinutes: 60, // 1 hour
+      });
+      if (result.cleanedCount > 0) {
+        toast.success(`Cleaned up ${result.cleanedCount} stale session(s)`);
+      } else {
+        toast.info("No stale sessions found");
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to cleanup sessions");
+    } finally {
+      setIsEnding(false);
+    }
+  };
+
+  const handleDeleteHistory = async () => {
+    setIsDeletingHistory(true);
+    try {
+      const result = await deleteHistoricalSessions({
+        avatarId,
+        confirmDelete: true,
+      });
+      toast.success(`Deleted ${result.deletedCount} historical session(s)`);
+      setShowDeleteConfirm(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete sessions");
+    } finally {
+      setIsDeletingHistory(false);
+    }
+  };
+
+  const historicalCount = sessionStats?.historical ?? 0;
+
+  if (sessions === undefined) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="w-3 h-3 animate-spin" />
+        Loading sessions...
+      </div>
+    );
+  }
+
+  return (
+    <div className="border rounded-lg overflow-hidden">
+      {/* Delete History Confirmation Dialog */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-background border rounded-lg p-6 max-w-md shadow-lg">
+            <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              Delete Session History
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              This will permanently delete <strong>{historicalCount}</strong> historical sessions
+              (completed and abandoned). This action cannot be undone.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeletingHistory}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleDeleteHistory}
+                disabled={isDeletingHistory}
+              >
+                {isDeletingHistory ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                ) : (
+                  <Trash2 className="w-4 h-4 mr-1" />
+                )}
+                Delete {historicalCount} Sessions
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div
+        className={`flex items-center justify-between p-3 cursor-pointer transition-colors ${
+          sessionCount > 0 ? "bg-blue-50 dark:bg-blue-950/50" : "bg-muted/30"
+        }`}
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center gap-2">
+          <User className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm font-medium">Sessions</span>
+          <Badge
+            variant={sessionCount > 0 ? "default" : "secondary"}
+            className="text-xs"
+          >
+            {sessionCount} active
+          </Badge>
+          {historicalCount > 0 && (
+            <Badge
+              variant="outline"
+              className="text-xs text-muted-foreground"
+            >
+              {historicalCount} history
+            </Badge>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {historicalCount > 0 && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowDeleteConfirm(true);
+              }}
+              className="h-7 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="w-3 h-3 mr-1" />
+              Clear History
+            </Button>
+          )}
+          {sessionCount > 0 && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEndAll();
+              }}
+              disabled={isEnding}
+              className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+            >
+              {isEnding ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <>
+                  <XCircle className="w-3 h-3 mr-1" />
+                  End All
+                </>
+              )}
+            </Button>
+          )}
+          {isExpanded ? (
+            <ChevronUp className="w-4 h-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-muted-foreground" />
+          )}
+        </div>
+      </div>
+
+      {isExpanded && (
+        <div className="border-t">
+          {sessionCount === 0 ? (
+            <div className="p-4 text-center text-sm text-muted-foreground">
+              No active sessions for this avatar
+            </div>
+          ) : (
+            <>
+              <div className="max-h-60 overflow-y-auto">
+                {sessions.map((session) => (
+                  <div
+                    key={session._id}
+                    className="px-3 py-2 text-sm border-b last:border-b-0 hover:bg-muted/30"
+                  >
+                    {/* Row 1: Status, Type, Student Name, End Button */}
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant={session.status === "active" ? "default" : "secondary"}
+                          className="text-[10px] px-1.5 py-0"
+                        >
+                          {session.status}
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] px-1.5 py-0"
+                        >
+                          {formatSessionType(session.type)}
+                        </Badge>
+                        <span className="font-medium text-foreground">
+                          {session.studentName}
+                        </span>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleEndSession(session._id)}
+                        disabled={endingSessionId === session._id}
+                        className="h-6 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        {endingSessionId === session._id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <>
+                            <X className="w-3 h-3 mr-1" />
+                            End
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    {/* Row 2: Room name, Duration, Start time */}
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground pl-1">
+                      <span className="font-mono truncate max-w-[150px]" title={session.roomName}>
+                        {session.roomName}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {session.durationMinutes}m
+                      </span>
+                      <span className="text-muted-foreground/70">
+                        Started {formatStartTime(session.startedAt)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="p-2 bg-muted/20 border-t flex justify-end gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleCleanupStale}
+                  disabled={isEnding}
+                  className="h-7 text-xs"
+                >
+                  {isEnding ? (
+                    <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                  ) : (
+                    <Clock className="w-3 h-3 mr-1" />
+                  )}
+                  Cleanup Stale ({">"}1h)
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AvatarCreator({ onClose, allVoices, llmModels }: { onClose: () => void; allVoices: Voice[]; llmModels: LLMModel[] }) {
-  const [activeTab, setActiveTab] = useState<"basic" | "voice" | "avatar" | "llm" | "vision" | "behavior" | "personality" | "identity" | "knowledge" | "memory" | "lifeStory" | "sessionStart">("basic");
+  const [activeTab, setActiveTab] = useState<"basic" | "voice" | "avatar" | "llm" | "vision" | "behavior" | "personality" | "identity" | "knowledge" | "memory" | "lifeStory" | "sessionStart" | "sessionTimer">("basic");
   const [modelSearch, setModelSearch] = useState("");
   const knowledgeBases = useQuery(api.knowledgeBases.list);
   const [formData, setFormData] = useState({
@@ -426,10 +1032,17 @@ function AvatarCreator({ onClose, allVoices, llmModels }: { onClose: () => void;
     beyFps: 30,
     beyBackground: "transparent",
     cartesiaVoiceId: "a0e99841-438c-4a64-b679-ae501e7d6091",
-    cartesiaModel: "sonic-3",
+    cartesiaModel: "sonic-2",
     cartesiaSpeed: 1.0,
     cartesiaEmotion: "neutral",
+    cartesiaEmotionValue: ["positivity:medium"] as string[],
     cartesiaLanguage: "en",
+    // STT Config
+    sttModel: "nova-3",
+    sttLanguage: "en",
+    sttEndpointing: 600,
+    // LLM Config
+    llmProvider: "openrouter" as LLMProvider,
     llmModel: "anthropic/claude-sonnet-4-20250514",
     llmTemperature: 0.7,
     llmMaxTokens: 1024,
@@ -451,6 +1064,10 @@ function AvatarCreator({ onClose, allVoices, llmModels }: { onClose: () => void;
     lifeStoryDocument: null as string | null,
     lifeStorySummary: null as string | null,
     sessionStartConfig: null as any,
+    // Session Duration Config
+    sessionDurationMinutes: null as number | null,  // null = no limit
+    sessionWrapUpBufferMinutes: 2,
+    sessionAutoEnd: true,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -481,11 +1098,19 @@ function AvatarCreator({ onClose, allVoices, llmModels }: { onClose: () => void;
           model: formData.cartesiaModel,
           settings: {
             speed: formData.cartesiaSpeed,
-            emotion: formData.cartesiaEmotion,
+            emotion: formData.cartesiaEmotionValue,  // Array format for Cartesia
+          },
+        },
+        sttConfig: {
+          provider: "deepgram" as const,
+          model: formData.sttModel,
+          language: formData.sttLanguage,
+          settings: {
+            endpointing: formData.sttEndpointing,
           },
         },
         llmConfig: {
-          provider: "openrouter",
+          provider: formData.llmProvider,
           model: formData.llmModel,
           temperature: formData.llmTemperature,
           maxTokens: formData.llmMaxTokens,
@@ -526,6 +1151,12 @@ function AvatarCreator({ onClose, allVoices, llmModels }: { onClose: () => void;
         identity: formData.identity || undefined,
         knowledgeConfig: formData.knowledgeConfig || undefined,
         memoryConfig: formData.memoryConfig || undefined,
+        // Session timer config
+        sessionConfig: formData.sessionDurationMinutes ? {
+          defaultDurationMinutes: formData.sessionDurationMinutes,
+          wrapUpBufferMinutes: formData.sessionWrapUpBufferMinutes,
+          autoEnd: formData.sessionAutoEnd,
+        } : undefined,
       });
 
       toast.success("Avatar created successfully!");
@@ -542,6 +1173,7 @@ function AvatarCreator({ onClose, allVoices, llmModels }: { onClose: () => void;
     { id: "basic", label: "Basic Info" },
     { id: "lifeStory", label: "📖 Life Story" },
     { id: "sessionStart", label: "▶️ Session Start" },
+    { id: "sessionTimer", label: "⏱️ Session Timer" },
     { id: "personality", label: "Personality" },
     { id: "identity", label: "Identity" },
     { id: "knowledge", label: "Knowledge" },
@@ -719,6 +1351,81 @@ function AvatarCreator({ onClose, allVoices, llmModels }: { onClose: () => void;
               />
             )}
 
+            {activeTab === "sessionTimer" && (
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Clock className="w-4 h-4 text-blue-600" />
+                    <h4 className="font-medium text-blue-900">Session Timer Configuration</h4>
+                  </div>
+                  <p className="text-sm text-blue-700">
+                    Configure default session duration for this avatar. Sessions will automatically wrap up
+                    and end when time expires. Individual lessons can override these defaults.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Default Session Duration</label>
+                  <select
+                    value={formData.sessionDurationMinutes ?? "unlimited"}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      sessionDurationMinutes: e.target.value === "unlimited" ? null : parseInt(e.target.value)
+                    })}
+                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                  >
+                    <option value="unlimited">No Limit (Unlimited)</option>
+                    <option value="10">10 minutes</option>
+                    <option value="20">20 minutes</option>
+                    <option value="30">30 minutes</option>
+                    <option value="45">45 minutes</option>
+                    <option value="60">60 minutes (1 hour)</option>
+                  </select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Choose the default lesson duration. Students will be notified when time is running out.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Wrap-Up Buffer (minutes)</label>
+                  <select
+                    value={formData.sessionWrapUpBufferMinutes}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      sessionWrapUpBufferMinutes: parseInt(e.target.value)
+                    })}
+                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                  >
+                    <option value="1">1 minute before end</option>
+                    <option value="2">2 minutes before end (Recommended)</option>
+                    <option value="3">3 minutes before end</option>
+                    <option value="5">5 minutes before end</option>
+                  </select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    How long before the session ends to start wrapping up. The avatar will summarize
+                    the lesson and ask for final questions.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="sessionAutoEnd"
+                    checked={formData.sessionAutoEnd}
+                    onChange={(e) => setFormData({ ...formData, sessionAutoEnd: e.target.checked })}
+                    className="w-4 h-4 rounded border-gray-300"
+                  />
+                  <label htmlFor="sessionAutoEnd" className="text-sm font-medium">
+                    Automatically end session when time expires
+                  </label>
+                </div>
+                <p className="text-xs text-muted-foreground ml-6">
+                  When enabled, the session will automatically close after the avatar finishes the closing message.
+                  When disabled, the avatar will say goodbye but the student can continue if they wish.
+                </p>
+              </div>
+            )}
+
             {activeTab === "avatar" && (
               <>
                 <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg mb-4">
@@ -788,10 +1495,11 @@ function AvatarCreator({ onClose, allVoices, llmModels }: { onClose: () => void;
 
             {activeTab === "voice" && (
               <>
+                {/* TTS Section */}
                 <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
-                  <h4 className="font-medium text-blue-900 mb-1">Cartesia TTS Configuration</h4>
+                  <h4 className="font-medium text-blue-900 mb-1">Text-to-Speech (TTS)</h4>
                   <p className="text-sm text-blue-700">
-                    Configure text-to-speech with Cartesia Sonic-3 for ultra-low latency voice synthesis.
+                    Configure voice synthesis with Cartesia Sonic for ultra-low latency.
                   </p>
                 </div>
 
@@ -801,19 +1509,41 @@ function AvatarCreator({ onClose, allVoices, llmModels }: { onClose: () => void;
                   onSelect={(id) => setFormData({ ...formData, cartesiaVoiceId: id })}
                 />
 
-                <div>
-                  <label className="text-sm font-medium">Model</label>
-                  <select
-                    value={formData.cartesiaModel}
-                    onChange={(e) => setFormData({ ...formData, cartesiaModel: e.target.value })}
-                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
-                  >
-                    <option value="sonic-3">Sonic-3 (Latest)</option>
-                    <option value="sonic-2">Sonic-2</option>
-                  </select>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium">TTS Model</label>
+                    <select
+                      value={formData.cartesiaModel}
+                      onChange={(e) => setFormData({ ...formData, cartesiaModel: e.target.value })}
+                      className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                    >
+                      {CARTESIA_TTS_MODELS.map((model) => (
+                        <option key={model.id} value={model.id}>{model.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Voice Emotion</label>
+                    <select
+                      value={formData.cartesiaEmotion}
+                      onChange={(e) => {
+                        const preset = CARTESIA_EMOTION_PRESETS.find(p => p.id === e.target.value);
+                        setFormData({
+                          ...formData,
+                          cartesiaEmotion: e.target.value,
+                          cartesiaEmotionValue: preset?.value || []
+                        });
+                      }}
+                      className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                    >
+                      {CARTESIA_EMOTION_PRESETS.map((preset) => (
+                        <option key={preset.id} value={preset.id}>{preset.label}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium">Speed: {formData.cartesiaSpeed}x</label>
                     <input
@@ -825,20 +1555,6 @@ function AvatarCreator({ onClose, allVoices, llmModels }: { onClose: () => void;
                       onChange={(e) => setFormData({ ...formData, cartesiaSpeed: parseFloat(e.target.value) })}
                       className="w-full mt-2"
                     />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Emotion</label>
-                    <select
-                      value={formData.cartesiaEmotion}
-                      onChange={(e) => setFormData({ ...formData, cartesiaEmotion: e.target.value })}
-                      className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
-                    >
-                      {CARTESIA_EMOTIONS.map((emotion) => (
-                        <option key={emotion} value={emotion}>
-                          {emotion.charAt(0).toUpperCase() + emotion.slice(1)}
-                        </option>
-                      ))}
-                    </select>
                   </div>
                   <div>
                     <label className="text-sm font-medium">Language</label>
@@ -866,6 +1582,59 @@ function AvatarCreator({ onClose, allVoices, llmModels }: { onClose: () => void;
                     Override with a custom voice ID from Cartesia
                   </p>
                 </div>
+
+                {/* STT Section */}
+                <div className="border-t pt-6 mt-6">
+                  <div className="p-4 bg-green-50 border border-green-200 rounded-lg mb-4">
+                    <h4 className="font-medium text-green-900 mb-1">Speech-to-Text (STT)</h4>
+                    <p className="text-sm text-green-700">
+                      Configure speech recognition with Deepgram for accurate transcription.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium">STT Model</label>
+                      <select
+                        value={formData.sttModel}
+                        onChange={(e) => setFormData({ ...formData, sttModel: e.target.value })}
+                        className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                      >
+                        {DEEPGRAM_STT_MODELS.map((model) => (
+                          <option key={model.id} value={model.id}>{model.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Language</label>
+                      <select
+                        value={formData.sttLanguage}
+                        onChange={(e) => setFormData({ ...formData, sttLanguage: e.target.value })}
+                        className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                      >
+                        <option value="en">English</option>
+                        <option value="de">German</option>
+                        <option value="multi">Multi-language</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <label className="text-sm font-medium">Endpointing: {formData.sttEndpointing}ms</label>
+                    <input
+                      type="range"
+                      min="300"
+                      max="1500"
+                      step="100"
+                      value={formData.sttEndpointing}
+                      onChange={(e) => setFormData({ ...formData, sttEndpointing: parseInt(e.target.value) })}
+                      className="w-full mt-2"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Silence duration before ending an utterance (lower = faster, higher = more natural pauses)
+                    </p>
+                  </div>
+                </div>
               </>
             )}
 
@@ -874,21 +1643,45 @@ function AvatarCreator({ onClose, allVoices, llmModels }: { onClose: () => void;
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg mb-4">
                   <h4 className="font-medium text-green-900 mb-1">LLM Configuration</h4>
                   <p className="text-sm text-green-700">
-                    Configure the AI brain via OpenRouter. Claude Sonnet 4 is recommended for best teaching quality.
+                    {formData.llmProvider === "cerebras"
+                      ? "⚡ Cerebras offers ultra-fast inference at 2,314 tokens/sec - 70x faster than competitors!"
+                      : "Configure the AI brain via OpenRouter. Claude Sonnet 4 is recommended for best teaching quality."}
                   </p>
                 </div>
 
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm font-medium">Search Models</label>
-                    <input
-                      type="text"
-                      value={modelSearch}
-                      onChange={(e) => setModelSearch(e.target.value)}
+                    <label className="text-sm font-medium">LLM Provider</label>
+                    <select
+                      value={formData.llmProvider}
+                      onChange={(e) => {
+                        const newProvider = e.target.value as LLMProvider;
+                        setFormData({
+                          ...formData,
+                          llmProvider: newProvider,
+                          llmModel: newProvider === "cerebras" ? "llama-3.3-70b" : "anthropic/claude-sonnet-4-20250514"
+                        });
+                      }}
                       className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
-                      placeholder="Search OpenRouter models..."
-                    />
+                    >
+                      <option value="openrouter">OpenRouter (Claude, GPT, Gemini, etc.)</option>
+                      <option value="cerebras">⚡ Cerebras (Ultra-Fast Llama)</option>
+                    </select>
                   </div>
+
+                  {formData.llmProvider === "openrouter" && (
+                    <div>
+                      <label className="text-sm font-medium">Search Models</label>
+                      <input
+                        type="text"
+                        value={modelSearch}
+                        onChange={(e) => setModelSearch(e.target.value)}
+                        className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                        placeholder="Search OpenRouter models..."
+                      />
+                    </div>
+                  )}
+
                   <div>
                     <label className="text-sm font-medium">Select Model</label>
                     <select
@@ -896,20 +1689,31 @@ function AvatarCreator({ onClose, allVoices, llmModels }: { onClose: () => void;
                       onChange={(e) => setFormData({ ...formData, llmModel: e.target.value })}
                       className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
                     >
-                      {llmModels
-                        .filter(m =>
-                          m.name.toLowerCase().includes(modelSearch.toLowerCase()) ||
-                          m.id.toLowerCase().includes(modelSearch.toLowerCase()) ||
-                          m.id === formData.llmModel
-                        )
-                        .map((model) => (
+                      {formData.llmProvider === "cerebras" ? (
+                        CEREBRAS_MODELS.map((model) => (
                           <option key={model.id} value={model.id}>
                             {model.name}
                           </option>
-                        ))}
+                        ))
+                      ) : (
+                        llmModels
+                          .filter(m =>
+                            m.name.toLowerCase().includes(modelSearch.toLowerCase()) ||
+                            m.id.toLowerCase().includes(modelSearch.toLowerCase()) ||
+                            m.id === formData.llmModel
+                          )
+                          .map((model) => (
+                            <option key={model.id} value={model.id}>
+                              {model.name}
+                            </option>
+                          ))
+                      )}
                     </select>
                     <p className="text-xs text-muted-foreground mt-2">
                       Currently selected: <span className="font-mono">{formData.llmModel}</span>
+                      {formData.llmProvider === "cerebras" && (
+                        <span className="ml-2 text-yellow-600">⚡ 2,314 tok/s</span>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -942,6 +1746,14 @@ function AvatarCreator({ onClose, allVoices, llmModels }: { onClose: () => void;
                     />
                   </div>
                 </div>
+
+                {formData.llmProvider === "cerebras" && (
+                  <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg mt-4">
+                    <p className="text-sm text-yellow-800">
+                      ⚠️ <strong>Note:</strong> Cerebras models don&apos;t support vision. If you need vision capabilities, use OpenRouter with Gemini or Claude 3.5.
+                    </p>
+                  </div>
+                )}
               </>
             )}
 
@@ -1112,7 +1924,7 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
   const updateLifeStory = useMutation(api.avatars.updateLifeStory);
   const updateSessionStartConfig = useMutation(api.avatars.updateSessionStartConfig);
   const knowledgeBases = useQuery(api.knowledgeBases.list);
-  const [activeTab, setActiveTab] = useState<"basic" | "voice" | "avatar" | "llm" | "vision" | "behavior" | "personality" | "identity" | "knowledge" | "memory" | "lifeStory" | "sessionStart">("basic");
+  const [activeTab, setActiveTab] = useState<"basic" | "voice" | "avatar" | "llm" | "vision" | "behavior" | "personality" | "identity" | "knowledge" | "memory" | "lifeStory" | "sessionStart" | "sessionTimer">("basic");
   const [modelSearch, setModelSearch] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<{
@@ -1131,7 +1943,14 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
     cartesiaModel: string;
     cartesiaSpeed: number;
     cartesiaEmotion: string;
+    cartesiaEmotionValue: string[];
     cartesiaLanguage: string;
+    // STT Config
+    sttModel: string;
+    sttLanguage: string;
+    sttEndpointing: number;
+    // LLM Config
+    llmProvider: LLMProvider;
     llmModel: string;
     llmTemperature: number;
     llmMaxTokens: number;
@@ -1154,6 +1973,10 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
     lifeStoryDocument: string | null;
     lifeStorySummary: string | null;
     sessionStartConfig: any;
+    // Session Duration Config
+    sessionDurationMinutes: number | null;
+    sessionWrapUpBufferMinutes: number;
+    sessionAutoEnd: boolean;
   } | null>(null);
 
   useEffect(() => {
@@ -1171,10 +1994,21 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
         beyFps: avatar.avatarProvider.settings?.fps || 30,
         beyBackground: avatar.avatarProvider.settings?.background || "transparent",
         cartesiaVoiceId: avatar.voiceProvider.voiceId,
-        cartesiaModel: avatar.voiceProvider.model || "sonic-3",
+        cartesiaModel: avatar.voiceProvider.model || "sonic-2",
         cartesiaSpeed: avatar.voiceProvider.settings.speed,
-        cartesiaEmotion: avatar.voiceProvider.settings.emotion || "neutral",
+        cartesiaEmotion: typeof avatar.voiceProvider.settings.emotion === 'string'
+          ? avatar.voiceProvider.settings.emotion
+          : "neutral",
+        cartesiaEmotionValue: Array.isArray(avatar.voiceProvider.settings.emotion)
+          ? avatar.voiceProvider.settings.emotion
+          : ["positivity:medium"],
         cartesiaLanguage: avatar.voiceProvider.language,
+        // STT Config
+        sttModel: avatar.sttConfig?.model || "nova-3",
+        sttLanguage: avatar.sttConfig?.language || "en",
+        sttEndpointing: avatar.sttConfig?.settings?.endpointing || 600,
+        // LLM Config
+        llmProvider: (avatar.llmConfig.provider || "openrouter") as LLMProvider,
         llmModel: avatar.llmConfig.model,
         llmTemperature: avatar.llmConfig.temperature,
         llmMaxTokens: avatar.llmConfig.maxTokens,
@@ -1197,6 +2031,10 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
         lifeStoryDocument: avatar.lifeStoryDocument ?? null,
         lifeStorySummary: avatar.lifeStorySummary ?? null,
         sessionStartConfig: avatar.sessionStartConfig ?? null,
+        // Session Duration Config
+        sessionDurationMinutes: avatar.sessionConfig?.defaultDurationMinutes ?? null,
+        sessionWrapUpBufferMinutes: avatar.sessionConfig?.wrapUpBufferMinutes ?? 2,
+        sessionAutoEnd: avatar.sessionConfig?.autoEnd ?? true,
       });
     }
   }, [avatar, formData]);
@@ -1230,11 +2068,19 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
             model: formData.cartesiaModel,
             settings: {
               speed: formData.cartesiaSpeed,
-              emotion: formData.cartesiaEmotion,
+              emotion: formData.cartesiaEmotionValue,  // Array format for Cartesia
+            },
+          },
+          sttConfig: {
+            provider: "deepgram" as const,
+            model: formData.sttModel,
+            language: formData.sttLanguage,
+            settings: {
+              endpointing: formData.sttEndpointing,
             },
           },
           llmConfig: {
-            provider: "openrouter" as const,
+            provider: formData.llmProvider,
             model: formData.llmModel,
             temperature: formData.llmTemperature,
             maxTokens: formData.llmMaxTokens,
@@ -1267,6 +2113,12 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
           identity: formData.identity || undefined,
           knowledgeConfig: formData.knowledgeConfig || undefined,
           memoryConfig: formData.memoryConfig || undefined,
+          // Session timer config
+          sessionConfig: formData.sessionDurationMinutes ? {
+            defaultDurationMinutes: formData.sessionDurationMinutes,
+            wrapUpBufferMinutes: formData.sessionWrapUpBufferMinutes,
+            autoEnd: formData.sessionAutoEnd,
+          } : undefined,
         },
       });
 
@@ -1284,6 +2136,7 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
     { id: "basic", label: "Basic Info" },
     { id: "lifeStory", label: "📖 Life Story" },
     { id: "sessionStart", label: "▶️ Session Start" },
+    { id: "sessionTimer", label: "⏱️ Session Timer" },
     { id: "personality", label: "Personality" },
     { id: "identity", label: "Identity" },
     { id: "knowledge", label: "Knowledge" },
@@ -1502,6 +2355,82 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
               />
             )}
 
+            {activeTab === "sessionTimer" && (
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Clock className="w-4 h-4 text-blue-600" />
+                    <h4 className="font-medium text-blue-900">Session Timer Configuration</h4>
+                  </div>
+                  <p className="text-sm text-blue-700">
+                    Configure default session duration for this avatar. The avatar will automatically
+                    wrap up the lesson when time is running low and end gracefully.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Default Session Duration</label>
+                  <select
+                    value={formData.sessionDurationMinutes ?? "unlimited"}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      sessionDurationMinutes: e.target.value === "unlimited" ? null : parseInt(e.target.value)
+                    })}
+                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                  >
+                    <option value="unlimited">No Limit (Unlimited)</option>
+                    <option value="10">10 minutes</option>
+                    <option value="20">20 minutes</option>
+                    <option value="30">30 minutes</option>
+                    <option value="45">45 minutes</option>
+                    <option value="60">60 minutes (1 hour)</option>
+                  </select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Set the default session length. This can be overridden per lesson.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Wrap-Up Buffer (minutes before end)</label>
+                  <select
+                    value={formData.sessionWrapUpBufferMinutes}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      sessionWrapUpBufferMinutes: parseInt(e.target.value)
+                    })}
+                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                  >
+                    <option value="1">1 minute before end</option>
+                    <option value="2">2 minutes before end (Recommended)</option>
+                    <option value="3">3 minutes before end</option>
+                    <option value="5">5 minutes before end</option>
+                  </select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    When to start wrapping up the lesson. The avatar will summarize key points and say goodbye.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="edit-sessionAutoEnd"
+                    checked={formData.sessionAutoEnd}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      sessionAutoEnd: e.target.checked
+                    })}
+                    className="w-4 h-4"
+                  />
+                  <label htmlFor="edit-sessionAutoEnd" className="text-sm">
+                    Automatically end session when time expires
+                  </label>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  If enabled, the session will end automatically after the avatar finishes wrap-up remarks.
+                </p>
+              </div>
+            )}
+
             {activeTab === "avatar" && (
               <>
                 <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg mb-4">
@@ -1646,21 +2575,45 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg mb-4">
                   <h4 className="font-medium text-green-900 mb-1">LLM Configuration</h4>
                   <p className="text-sm text-green-700">
-                    Configure the AI brain via OpenRouter.
+                    {formData.llmProvider === "cerebras"
+                      ? "⚡ Cerebras offers ultra-fast inference at 2,314 tokens/sec - 70x faster than competitors!"
+                      : "Configure the AI brain via OpenRouter. Claude Sonnet 4 is recommended for best teaching quality."}
                   </p>
                 </div>
 
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm font-medium">Search Models</label>
-                    <input
-                      type="text"
-                      value={modelSearch}
-                      onChange={(e) => setModelSearch(e.target.value)}
+                    <label className="text-sm font-medium">LLM Provider</label>
+                    <select
+                      value={formData.llmProvider}
+                      onChange={(e) => {
+                        const newProvider = e.target.value as LLMProvider;
+                        setFormData({
+                          ...formData,
+                          llmProvider: newProvider,
+                          llmModel: newProvider === "cerebras" ? "llama-3.3-70b" : "anthropic/claude-sonnet-4-20250514"
+                        });
+                      }}
                       className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
-                      placeholder="Search OpenRouter models..."
-                    />
+                    >
+                      <option value="openrouter">OpenRouter (Claude, GPT, Gemini, etc.)</option>
+                      <option value="cerebras">⚡ Cerebras (Ultra-Fast Llama)</option>
+                    </select>
                   </div>
+
+                  {formData.llmProvider === "openrouter" && (
+                    <div>
+                      <label className="text-sm font-medium">Search Models</label>
+                      <input
+                        type="text"
+                        value={modelSearch}
+                        onChange={(e) => setModelSearch(e.target.value)}
+                        className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                        placeholder="Search OpenRouter models..."
+                      />
+                    </div>
+                  )}
+
                   <div>
                     <label className="text-sm font-medium">Select Model</label>
                     <select
@@ -1668,20 +2621,31 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
                       onChange={(e) => setFormData({ ...formData, llmModel: e.target.value })}
                       className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
                     >
-                      {llmModels
-                        .filter(m =>
-                          m.name.toLowerCase().includes(modelSearch.toLowerCase()) ||
-                          m.id.toLowerCase().includes(modelSearch.toLowerCase()) ||
-                          m.id === formData.llmModel
-                        )
-                        .map((model) => (
+                      {formData.llmProvider === "cerebras" ? (
+                        CEREBRAS_MODELS.map((model) => (
                           <option key={model.id} value={model.id}>
                             {model.name}
                           </option>
-                        ))}
+                        ))
+                      ) : (
+                        llmModels
+                          .filter(m =>
+                            m.name.toLowerCase().includes(modelSearch.toLowerCase()) ||
+                            m.id.toLowerCase().includes(modelSearch.toLowerCase()) ||
+                            m.id === formData.llmModel
+                          )
+                          .map((model) => (
+                            <option key={model.id} value={model.id}>
+                              {model.name}
+                            </option>
+                          ))
+                      )}
                     </select>
                     <p className="text-xs text-muted-foreground mt-2">
                       Currently selected: <span className="font-mono">{formData.llmModel}</span>
+                      {formData.llmProvider === "cerebras" && (
+                        <span className="ml-2 text-yellow-600">⚡ 2,314 tok/s</span>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -1698,6 +2662,9 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
                       onChange={(e) => setFormData({ ...formData, llmTemperature: parseFloat(e.target.value) })}
                       className="w-full mt-2"
                     />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Lower = more focused, Higher = more creative
+                    </p>
                   </div>
                   <div>
                     <label className="text-sm font-medium">Max Tokens</label>
@@ -1711,6 +2678,14 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
                     />
                   </div>
                 </div>
+
+                {formData.llmProvider === "cerebras" && (
+                  <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg mt-4">
+                    <p className="text-sm text-yellow-800">
+                      ⚠️ <strong>Note:</strong> Cerebras models don&apos;t support vision. If you need vision capabilities, use OpenRouter with Gemini or Claude 3.5.
+                    </p>
+                  </div>
+                )}
               </>
             )}
 

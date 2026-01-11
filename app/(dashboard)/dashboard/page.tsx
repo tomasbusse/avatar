@@ -4,6 +4,8 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import {
   Play,
   BookOpen,
@@ -13,16 +15,29 @@ import {
   MessageSquare,
   ShieldCheck,
   Presentation,
+  ArrowRight,
+  GraduationCap,
+  Calendar,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { formatDistanceToNow } from "date-fns";
 
 export default function DashboardPage() {
   const user = useQuery(api.users.getCurrentUser);
   const student = useQuery(api.students.getStudent);
+  const enrollments = useQuery(api.lessonEnrollments.getStudentEnrollments, {});
   const createAdmin = useMutation(api.users.createCurrentUserAsAdmin);
 
   const firstName = user?.firstName ?? "there";
+
+  // Get active lessons (enrolled or in progress)
+  const activeLessons = enrollments?.filter(
+    (e) => e.status === "enrolled" || e.status === "in_progress"
+  ).slice(0, 3) ?? [];
+
+  const completedCount = enrollments?.filter((e) => e.status === "completed").length ?? 0;
+  const inProgressCount = enrollments?.filter((e) => e.status === "in_progress").length ?? 0;
 
   const handleSetupAdmin = async () => {
     try {
@@ -161,16 +176,37 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MessageSquare className="w-5 h-5" />
-              Recommended Lessons
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="w-5 h-5" />
+                Your Lessons
+              </CardTitle>
+              <Link href="/lessons">
+                <Button variant="ghost" size="sm">
+                  View All
+                  <ArrowRight className="w-4 h-4 ml-1" />
+                </Button>
+              </Link>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-center py-8 text-muted-foreground">
-              <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>Complete onboarding to get personalized recommendations</p>
-            </div>
+            {activeLessons.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p className="mb-4">No lessons assigned yet</p>
+                <Link href="/lessons">
+                  <Button variant="outline" size="sm">
+                    Browse Available Lessons
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {activeLessons.map((enrollment: any) => (
+                  <EnrollmentCard key={enrollment._id} enrollment={enrollment} />
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -238,5 +274,58 @@ function StatCard({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function EnrollmentCard({ enrollment }: { enrollment: any }) {
+  const lesson = enrollment.lesson;
+  const avatar = enrollment.avatar;
+
+  if (!lesson) return null;
+
+  const statusColors: Record<string, string> = {
+    enrolled: "bg-blue-100 text-blue-800",
+    in_progress: "bg-yellow-100 text-yellow-800",
+    completed: "bg-green-100 text-green-800",
+  };
+
+  return (
+    <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+      <div className="flex items-center gap-4">
+        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+          <GraduationCap className="w-5 h-5 text-primary" />
+        </div>
+        <div>
+          <h4 className="font-medium">{lesson.title}</h4>
+          <div className="flex items-center gap-2 mt-1">
+            <Badge
+              variant="outline"
+              className={statusColors[enrollment.status] || "bg-gray-100"}
+            >
+              {enrollment.status === "in_progress" ? "In Progress" : "Assigned"}
+            </Badge>
+            {enrollment.dueDate && (
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Calendar className="w-3 h-3" />
+                Due {formatDistanceToNow(enrollment.dueDate, { addSuffix: true })}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+        {enrollment.progress !== undefined && enrollment.progress > 0 && (
+          <div className="w-24">
+            <Progress value={enrollment.progress} className="h-2" />
+          </div>
+        )}
+        <Link href={`/lesson/${lesson.shareToken}`}>
+          <Button size="sm">
+            <Play className="w-4 h-4 mr-1" />
+            {enrollment.status === "in_progress" ? "Continue" : "Start"}
+          </Button>
+        </Link>
+      </div>
+    </div>
   );
 }

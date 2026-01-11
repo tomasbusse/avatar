@@ -92,7 +92,34 @@ export default function PracticeJoinPage() {
       // Generate unique room name
       const roomName = `practice_${token}_${Date.now()}`;
 
-      // Create session
+      // Fetch web search results if enabled
+      let webSearchResults = undefined;
+      if (practiceData.practice.webSearchEnabled) {
+        console.log("[Practice Join] Fetching web search results...");
+        try {
+          const response = await fetch("/api/practice/test-web-search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              searchConfig: practiceData.practice.webSearchConfig,
+              subject: practiceData.practice.subject,
+            }),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.webSearchResults) {
+              webSearchResults = data.webSearchResults;
+              console.log(`[Practice Join] Fetched ${webSearchResults.results.length} results`);
+            }
+          }
+        } catch (err) {
+          console.error("[Practice Join] Web search failed:", err);
+          // Continue without web search results - non-blocking
+        }
+      }
+
+      // Create session with web search results
       const session = await createSession({
         practiceId: practiceData.practice._id,
         roomName,
@@ -105,6 +132,7 @@ export default function PracticeJoinPage() {
               referrer: typeof window !== "undefined" ? document.referrer : undefined,
             }
           : undefined,
+        webSearchResults,
       });
 
       // Navigate to the practice room

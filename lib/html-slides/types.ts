@@ -5,6 +5,8 @@
  * Each slide has inline CSS and requires no external dependencies.
  */
 
+import { SLS_COLORS } from "@/lib/brand-colors";
+
 export type SlideType =
   | "title"
   | "objectives"
@@ -46,23 +48,24 @@ export interface SlideGeneratorOptions {
 }
 
 export interface SlideTheme {
-  primary: string;      // Main heading color (default: #1e40af blue)
-  accent: string;       // Accent color for highlights (default: #059669 green)
-  grammar: string;      // Grammar box background (default: #fef3c7 amber)
-  grammarBorder: string;// Grammar box border (default: #fcd34d)
-  text: string;         // Main text color (default: #1f2937)
-  muted: string;        // Secondary text color (default: #6b7280)
-  background: string;   // Slide background (default: #ffffff)
+  primary: string;      // Main heading color (SLS teal: #003F37)
+  accent: string;       // Accent color for highlights (SLS chartreuse: #9F9D38)
+  grammar: string;      // Grammar box background (SLS cream: #FFE8CD)
+  grammarBorder: string;// Grammar box border (SLS orange: #B25627)
+  text: string;         // Main text color (#1a1a1a)
+  muted: string;        // Secondary text color (SLS olive: #4F5338)
+  background: string;   // Slide background (#ffffff)
 }
 
+// SLS Brand Theme - Simmonds Language Services colors
 export const DEFAULT_THEME: SlideTheme = {
-  primary: "#1e40af",
-  accent: "#059669",
-  grammar: "#fef3c7",
-  grammarBorder: "#fcd34d",
-  text: "#1f2937",
-  muted: "#6b7280",
-  background: "#ffffff",
+  primary: SLS_COLORS.teal,        // #003F37 - Dark teal
+  accent: SLS_COLORS.chartreuse,   // #9F9D38 - Yellow-green
+  grammar: SLS_COLORS.cream,       // #FFE8CD - Cream background
+  grammarBorder: SLS_COLORS.orange,// #B25627 - Orange border
+  text: "#1a1a1a",                 // Near-black for readability
+  muted: SLS_COLORS.olive,         // #4F5338 - Olive for secondary text
+  background: "#ffffff",           // White background
 };
 
 export const DEFAULT_OPTIONS: SlideGeneratorOptions = {

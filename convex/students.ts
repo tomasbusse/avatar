@@ -28,6 +28,40 @@ export const getStudentById = query({
   },
 });
 
+/**
+ * List all students with their user info (for admin)
+ */
+export const listStudents = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+
+    const students = await ctx.db.query("students").collect();
+
+    // Enrich with user info
+    const enrichedStudents = await Promise.all(
+      students.map(async (student) => {
+        const user = await ctx.db.get(student.userId);
+        return {
+          ...student,
+          user: user
+            ? {
+                _id: user._id,
+                email: user.email,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                imageUrl: user.imageUrl,
+              }
+            : null,
+        };
+      })
+    );
+
+    return enrichedStudents;
+  },
+});
+
 export const createStudent = mutation({
   args: {
     nativeLanguage: v.string(),

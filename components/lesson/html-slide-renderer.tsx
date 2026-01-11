@@ -34,25 +34,46 @@ export function HtmlSlideRenderer({
 
   // Capture screenshot of the rendered slide
   const captureSlideScreenshot = useCallback(async () => {
-    if (!iframeRef.current || !onScreenshotCapture) return;
+    console.log(`[HtmlSlideRenderer] Attempting screenshot capture for slide ${slideIndex}`);
+
+    if (!iframeRef.current || !onScreenshotCapture) {
+      console.log(`[HtmlSlideRenderer] Skipping - no iframe or callback`);
+      return;
+    }
 
     try {
       const iframe = iframeRef.current;
       const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
 
       if (!iframeDoc?.body) {
-        console.warn("Cannot capture screenshot: iframe body not accessible");
+        console.warn("[HtmlSlideRenderer] Cannot capture screenshot: iframe body not accessible");
+        // Fallback: capture the iframe container instead
+        if (containerRef.current) {
+          console.log("[HtmlSlideRenderer] Trying fallback: capture container");
+          const canvas = await html2canvas(containerRef.current, {
+            backgroundColor: "#ffffff",
+            scale: 1,
+            logging: true,
+            useCORS: true,
+            allowTaint: true,
+          });
+          const base64 = canvas.toDataURL("image/jpeg", 0.85);
+          const base64Data = base64.replace(/^data:image\/jpeg;base64,/, "");
+          console.log(`[HtmlSlideRenderer] Container capture success, size: ${base64Data.length}`);
+          onScreenshotCapture(base64Data, slideIndex);
+        }
         return;
       }
 
       // Get the slide element or use body
       const slideElement = iframeDoc.querySelector(".slide") || iframeDoc.body;
+      console.log(`[HtmlSlideRenderer] Capturing element:`, slideElement.tagName);
 
       // Use html2canvas to capture the slide
       const canvas = await html2canvas(slideElement as HTMLElement, {
         backgroundColor: "#ffffff",
         scale: 1, // Use 1x scale for faster processing (avatar doesn't need high-res)
-        logging: false,
+        logging: true,
         useCORS: true,
         allowTaint: true,
         width: 960,  // Standard 16:9 at 960x540
@@ -65,9 +86,29 @@ export function HtmlSlideRenderer({
       // Remove the data:image/jpeg;base64, prefix
       const base64Data = base64.replace(/^data:image\/jpeg;base64,/, "");
 
+      console.log(`[HtmlSlideRenderer] Screenshot captured, size: ${base64Data.length} chars`);
       onScreenshotCapture(base64Data, slideIndex);
     } catch (error) {
-      console.error("Failed to capture slide screenshot:", error);
+      console.error("[HtmlSlideRenderer] Failed to capture slide screenshot:", error);
+
+      // Last resort fallback: capture the container div
+      if (containerRef.current) {
+        try {
+          console.log("[HtmlSlideRenderer] Error fallback: capturing container");
+          const canvas = await html2canvas(containerRef.current, {
+            backgroundColor: "#ffffff",
+            scale: 1,
+            useCORS: true,
+            allowTaint: true,
+          });
+          const base64 = canvas.toDataURL("image/jpeg", 0.85);
+          const base64Data = base64.replace(/^data:image\/jpeg;base64,/, "");
+          console.log(`[HtmlSlideRenderer] Fallback capture success, size: ${base64Data.length}`);
+          onScreenshotCapture(base64Data, slideIndex);
+        } catch (fallbackError) {
+          console.error("[HtmlSlideRenderer] Fallback capture also failed:", fallbackError);
+        }
+      }
     }
   }, [slideIndex, onScreenshotCapture]);
 
@@ -122,7 +163,7 @@ export function HtmlSlideRenderer({
         ref={iframeRef}
         title={`Slide ${slideIndex + 1}`}
         onLoad={handleIframeLoad}
-        sandbox="allow-same-origin" // Needed for html2canvas to work
+        sandbox="allow-same-origin allow-scripts" // Needed for html2canvas and slide scripts
         className="absolute inset-0 w-full h-full border-0"
         style={{
           // Scale iframe content to fit container

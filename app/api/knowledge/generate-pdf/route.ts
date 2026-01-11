@@ -5,6 +5,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import puppeteer from "puppeteer";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { LessonContent } from "@/lib/types/lesson-content";
+import { SLS_COLORS } from "@/lib/brand-colors";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
@@ -27,15 +28,21 @@ async function generatePdfHTML(lessonContent: LessonContent): Promise<string> {
 DESIGN REQUIREMENTS:
 - Modern, clean textbook aesthetic (Cambridge or Oxford coursebook style)
 - Professional typography: Use Google Fonts (Merriweather for headings, Inter for body)
-- Color scheme: Primary blue (#1e40af), accent green (#059669), warm yellow for grammar (#fef3c7)
+- SLS Brand Color scheme:
+  * Primary Teal: ${SLS_COLORS.teal} (headers, titles, key elements)
+  * Secondary Olive: ${SLS_COLORS.olive} (subheadings, muted text)
+  * Accent Chartreuse: ${SLS_COLORS.chartreuse} (highlights, success indicators)
+  * Action Orange: ${SLS_COLORS.orange} (buttons, important callouts, grammar accents)
+  * Background Beige: ${SLS_COLORS.beige} (section backgrounds, alternating rows)
+  * Light Background Cream: ${SLS_COLORS.cream} (grammar boxes, light sections)
 - A4 page format with proper margins (already handled by Puppeteer)
-- Elegant grammar boxes with subtle shadows and rounded corners
+- Elegant grammar boxes with cream background (${SLS_COLORS.cream}) and orange left border (${SLS_COLORS.orange})
 - Exercise sections with numbered items and clear answer lines (__________)
-- Vocabulary tables with alternating row colors
-- Learning objectives in a highlighted callout box with green left border
+- Vocabulary tables with teal headers (${SLS_COLORS.teal}) and alternating cream/white rows
+- Learning objectives in a highlighted callout box with chartreuse left border (${SLS_COLORS.chartreuse})
 - Clear visual hierarchy with proper spacing
 - Page break hints before major sections (use CSS page-break-before: always where appropriate)
-- Header with lesson title and level badge
+- Header with lesson title (teal) and level badge (orange background)
 
 SPECIFIC ELEMENTS TO STYLE:
 1. **Title Section**: Large title with CEFR level badge, estimated duration, topic
@@ -104,24 +111,34 @@ function generateFallbackHTML(lesson: LessonContent): string {
   <title>${escapeHtml(lesson.metadata.title)}</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
   <style>
+    /* SLS Brand Colors */
+    :root {
+      --sls-teal: ${SLS_COLORS.teal};
+      --sls-olive: ${SLS_COLORS.olive};
+      --sls-chartreuse: ${SLS_COLORS.chartreuse};
+      --sls-orange: ${SLS_COLORS.orange};
+      --sls-beige: ${SLS_COLORS.beige};
+      --sls-cream: ${SLS_COLORS.cream};
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: 'Inter', sans-serif;
       line-height: 1.6;
-      color: #1f2937;
+      color: #1a1a1a;
       padding: 40px;
       max-width: 800px;
       margin: 0 auto;
     }
-    h1, h2, h3 { font-family: 'Merriweather', serif; color: #1e40af; }
+    h1, h2, h3 { font-family: 'Merriweather', serif; color: var(--sls-teal); }
     h1 { font-size: 28px; margin-bottom: 8px; }
-    h2 { font-size: 20px; margin: 32px 0 16px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; }
-    h3 { font-size: 16px; margin: 24px 0 12px; color: #374151; }
+    h2 { font-size: 20px; margin: 32px 0 16px; border-bottom: 2px solid var(--sls-beige); padding-bottom: 8px; }
+    h3 { font-size: 16px; margin: 24px 0 12px; color: var(--sls-olive); }
 
     .header { margin-bottom: 32px; }
     .level-badge {
       display: inline-block;
-      background: #1e40af;
+      background: var(--sls-orange);
       color: white;
       padding: 4px 12px;
       border-radius: 4px;
@@ -129,48 +146,50 @@ function generateFallbackHTML(lesson: LessonContent): string {
       font-weight: 600;
       margin-right: 12px;
     }
-    .meta { color: #6b7280; font-size: 14px; }
+    .meta { color: var(--sls-olive); font-size: 14px; }
 
     .objectives {
-      background: #f0fdf4;
-      border-left: 4px solid #059669;
+      background: var(--sls-beige);
+      border-left: 4px solid var(--sls-chartreuse);
       padding: 16px 20px;
       margin: 24px 0;
       border-radius: 0 8px 8px 0;
     }
-    .objectives h3 { color: #059669; margin-bottom: 12px; }
+    .objectives h3 { color: var(--sls-teal); margin-bottom: 12px; }
     .objectives ul { padding-left: 20px; }
     .objectives li { margin: 8px 0; }
 
     .grammar-box {
-      background: #fef3c7;
-      border: 1px solid #fcd34d;
-      border-radius: 8px;
+      background: var(--sls-cream);
+      border-left: 4px solid var(--sls-orange);
+      border-radius: 0 8px 8px 0;
       padding: 20px;
       margin: 20px 0;
     }
-    .grammar-box h3 { color: #92400e; margin-bottom: 12px; }
+    .grammar-box h3 { color: var(--sls-orange); margin-bottom: 12px; }
     .formula {
       background: white;
       padding: 12px;
       border-radius: 4px;
       font-family: monospace;
       margin: 12px 0;
+      color: var(--sls-teal);
+      font-weight: 600;
     }
 
     .exercise {
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
+      background: white;
+      border: 2px solid var(--sls-beige);
       border-radius: 8px;
       padding: 20px;
       margin: 20px 0;
     }
-    .exercise h3 { color: #1e40af; margin-bottom: 8px; }
-    .exercise-instructions { font-style: italic; color: #6b7280; margin-bottom: 16px; }
+    .exercise h3 { color: var(--sls-teal); margin-bottom: 8px; }
+    .exercise-instructions { font-style: italic; color: var(--sls-olive); margin-bottom: 16px; }
     .exercise-item { margin: 12px 0; padding-left: 24px; }
     .answer-line {
       display: inline-block;
-      border-bottom: 1px solid #374151;
+      border-bottom: 1px solid var(--sls-olive);
       min-width: 100px;
       margin: 0 4px;
     }
@@ -183,17 +202,18 @@ function generateFallbackHTML(lesson: LessonContent): string {
     th, td {
       padding: 12px;
       text-align: left;
-      border-bottom: 1px solid #e5e7eb;
+      border-bottom: 1px solid var(--sls-beige);
     }
-    th { background: #f3f4f6; font-weight: 600; }
-    tr:nth-child(even) { background: #f9fafb; }
+    th { background: var(--sls-teal); color: white; font-weight: 600; }
+    tr:nth-child(even) { background: var(--sls-cream); }
 
     .summary {
-      background: #f3f4f6;
+      background: var(--sls-beige);
       border-radius: 8px;
       padding: 20px;
       margin-top: 32px;
     }
+    .summary h2 { border-bottom: none; margin-top: 0; }
 
     @media print {
       body { padding: 0; }

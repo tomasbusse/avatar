@@ -388,6 +388,58 @@ Required environment variables (see `.env.example`):
 - `convex/schema.ts` - Update `bilingualConfig` schema
 - System prompts in avatar configuration
 
+## RLM Deep Analysis Tools (MCP)
+
+You have access to RLM (Recursive Language Model) tools via MCP for deep codebase analysis. These tools can analyze the entire codebase (10M+ tokens) by programmatically exploring code rather than stuffing everything into context.
+
+### Available Tools
+
+| Tool | Speed | Use For |
+|------|-------|---------|
+| `quick_search` | Instant | Find files/code by regex pattern |
+| `list_structure` | Instant | See project directory layout |
+| `analyze_codebase` | 30-90s | Deep multi-file analysis questions |
+
+### When to Use RLM vs Regular Tools
+
+**Use `quick_search` or `list_structure` for:**
+- Finding where something is defined
+- Locating files by name or content
+- Getting project structure overview
+- Simple grep-style searches
+
+**Use `analyze_codebase` for:**
+- "How does X flow through the entire codebase?"
+- "Trace data from UI → Convex → Python agent"
+- "Explain the architecture patterns used"
+- "Find all places that need updating for feature Y"
+- Questions requiring understanding across 10+ files
+
+**DON'T use `analyze_codebase` for:**
+- Questions about a single file (just read it)
+- Simple searches (use `quick_search`)
+- Real-time responses needed (takes 30-90 seconds)
+- When regular grep/find would suffice
+
+### Example Usage
+
+```
+# Fast: Find all files mentioning "bilingual"
+Use quick_search with path="/Users/tomas/apps/beethoven" and pattern="bilingual"
+
+# Fast: See project structure
+Use list_structure with path="/Users/tomas/apps/beethoven"
+
+# Deep: Understand voice pipeline end-to-end
+Use analyze_codebase with path="/Users/tomas/apps/beethoven" and question="Trace how voice input flows from the browser through LiveKit to the Python agent, gets processed by STT, sent to LLM, converted to TTS, and rendered by the avatar. Include all relevant files and latency considerations."
+```
+
+### Cost Awareness
+
+`analyze_codebase` costs ~$0.10-0.50 per call (Sonnet 4.5). Use fast tools first, RLM only when needed.
+
+---
+
 ## References
 
 **Key Documentation:**
@@ -403,3 +455,19 @@ Required environment variables (see `.env.example`):
 - Target: < 1 second response latency
 - Business model: Freemium (€19 Essential, €39 Premium, €99 Business)
 - Vision provider: Gemini 2.5 Flash (< 200ms for image analysis)
+
+---
+
+## Stable AI Avatar Configuration
+
+**Config Name:** `stable-ai-avatar` (2026-01-09)
+
+A working, simplified 2-participant configuration. See `apps/agent/STABLE_CONFIG.md` for full details.
+
+**Key Points:**
+- `maxParticipants: 2` (1 student + 1 avatar)
+- livekit-agents v1.3.10 API:
+  - `ChatMessage(content=[text])` - content as LIST
+  - `turn_ctx.items.insert()` - use `items` not `messages`
+- Screen share and game loading work without stopping avatar
+- No multi-participant broadcast needed

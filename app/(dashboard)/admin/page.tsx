@@ -1,13 +1,132 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Bot, BookOpen, Activity } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Users,
+  Bot,
+  BookOpen,
+  Activity,
+  Trash2,
+  Loader2,
+  AlertTriangle,
+  Radio,
+  XCircle,
+  Clock,
+  RefreshCw,
+} from "lucide-react";
+import { toast } from "sonner";
+
+interface LiveKitRoom {
+  name: string;
+  sid: string;
+  numParticipants: number;
+  creationTime: number | null;
+}
 
 export default function AdminPage() {
+  const [isCleaningUp, setIsCleaningUp] = useState(false);
+  const [cleanupPreview, setCleanupPreview] = useState<{ count: number; oldest: string | null } | null>(null);
+  const [liveKitRooms, setLiveKitRooms] = useState<LiveKitRoom[]>([]);
+  const [isLoadingRooms, setIsLoadingRooms] = useState(false);
+  const [endingSessionId, setEndingSessionId] = useState<string | null>(null);
+
   const users = useQuery(api.users.listUsers, { paginationOpts: { numItems: 100 } });
   const avatars = useQuery(api.avatars.listActiveAvatars);
+  const activeSessions = useQuery(api.sessions.getAllActiveSessions);
+  const cleanupSessions = useMutation(api.sessions.cleanupStaleSessions);
+  const forceEndSession = useMutation(api.sessions.forceEndSession);
+
+  // Fetch LiveKit rooms
+  const fetchLiveKitRooms = async () => {
+    setIsLoadingRooms(true);
+    try {
+      const res = await fetch("/api/livekit/rooms");
+      if (res.ok) {
+        const data = await res.json();
+        setLiveKitRooms(data.rooms || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch LiveKit rooms:", error);
+    } finally {
+      setIsLoadingRooms(false);
+    }
+  };
+
+  // Fetch rooms on mount and every 30 seconds
+  useEffect(() => {
+    fetchLiveKitRooms();
+    const interval = setInterval(fetchLiveKitRooms, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Force end a session
+  const handleForceEndSession = async (sessionId: string, roomName: string) => {
+    setEndingSessionId(sessionId);
+    try {
+      // End in Convex
+      await forceEndSession({ sessionId: sessionId as Id<"sessions">, reason: "admin_force_end" });
+
+      // Delete LiveKit room
+      await fetch("/api/livekit/rooms", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomName }),
+      });
+
+      toast.success(`Session ended: ${roomName}`);
+      fetchLiveKitRooms(); // Refresh room list
+    } catch (error: any) {
+      toast.error(error.message || "Failed to end session");
+    } finally {
+      setEndingSessionId(null);
+    }
+  };
+
+  // Delete orphaned LiveKit room (no matching Convex session)
+  const handleDeleteOrphanedRoom = async (roomName: string) => {
+    try {
+      await fetch("/api/livekit/rooms", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomName }),
+      });
+      toast.success(`Room deleted: ${roomName}`);
+      fetchLiveKitRooms();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to delete room");
+    }
+  };
+
+  const handlePreviewCleanup = async () => {
+    try {
+      const result = await cleanupSessions({ dryRun: true, maxAgeHours: 24 });
+      setCleanupPreview({
+        count: result.staleSessionCount ?? 0,
+        oldest: result.oldestSession ?? null,
+      });
+    } catch (error) {
+      toast.error("Failed to check stale sessions");
+    }
+  };
+
+  const handleCleanupSessions = async () => {
+    setIsCleaningUp(true);
+    try {
+      const result = await cleanupSessions({ maxAgeHours: 24 });
+      toast.success(result.message);
+      setCleanupPreview(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Cleanup failed");
+    } finally {
+      setIsCleaningUp(false);
+    }
+  };
 
   const totalUsers = users?.users?.length ?? 0;
   const totalAvatars = avatars?.length ?? 0;
@@ -82,6 +201,216 @@ export default function AdminPage() {
           </Card>
         </div>
 
+        {/* System Maintenance */}
+        <Card className="mb-6">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              System Maintenance
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  Clean up orphaned sessions that weren&apos;t properly closed.
+                  A cron job runs daily at 6am UTC, but you can trigger it manually here.
+                </p>
+                {cleanupPreview && (
+                  <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded text-sm">
+                    <span className="font-medium text-amber-800 dark:text-amber-200">
+                      {cleanupPreview.count} stale session(s) found
+                    </span>
+                    {cleanupPreview.oldest && (
+                      <span className="text-amber-600 dark:text-amber-400 ml-2">
+                        (oldest: {new Date(cleanupPreview.oldest).toLocaleDateString()})
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-2 ml-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePreviewCleanup}
+                  disabled={isCleaningUp}
+                >
+                  Check
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleCleanupSessions}
+                  disabled={isCleaningUp || (cleanupPreview?.count === 0)}
+                >
+                  {isCleaningUp ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                      Cleaning...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4 mr-1" />
+                      Cleanup Sessions
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Active Sessions - LiveKit Rooms */}
+        <Card className="mb-6">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Radio className="w-5 h-5 text-green-500" />
+                Active Sessions
+                {(activeSessions?.length || 0) > 0 && (
+                  <Badge variant="destructive" className="ml-2">
+                    {activeSessions?.length} active
+                  </Badge>
+                )}
+                {liveKitRooms.length > 0 && (
+                  <Badge variant="outline" className="ml-1">
+                    {liveKitRooms.length} LiveKit rooms
+                  </Badge>
+                )}
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={fetchLiveKitRooms}
+                disabled={isLoadingRooms}
+              >
+                {isLoadingRooms ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {/* Convex Sessions */}
+            {activeSessions && activeSessions.length > 0 ? (
+              <div className="space-y-2 mb-4">
+                <p className="text-xs text-muted-foreground font-medium mb-2">
+                  Sessions in Database
+                </p>
+                {activeSessions.map((session) => {
+                  const lkRoom = liveKitRooms.find((r) => r.name === session.roomName);
+                  return (
+                    <div
+                      key={session._id}
+                      className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs truncate">
+                            {session.roomName}
+                          </span>
+                          <Badge
+                            variant={session.status === "active" ? "default" : "secondary"}
+                            className="text-[10px]"
+                          >
+                            {session.status}
+                          </Badge>
+                          {lkRoom && (
+                            <Badge variant="outline" className="text-[10px] text-green-600">
+                              LiveKit: {lkRoom.numParticipants} users
+                            </Badge>
+                          )}
+                          {!lkRoom && (
+                            <Badge variant="outline" className="text-[10px] text-amber-600">
+                              No LiveKit room
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                          <span>{session.studentName}</span>
+                          <span>|</span>
+                          <span>{session.avatarName}</span>
+                          {session.lessonTitle && (
+                            <>
+                              <span>|</span>
+                              <span className="truncate max-w-40">{session.lessonTitle}</span>
+                            </>
+                          )}
+                          <span>|</span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {session.durationMinutes} min
+                          </span>
+                        </div>
+                      </div>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleForceEndSession(session._id, session.roomName)}
+                        disabled={endingSessionId === session._id}
+                        className="ml-2"
+                      >
+                        {endingSessionId === session._id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <XCircle className="w-4 h-4" />
+                        )}
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground mb-4">
+                No active sessions in database
+              </p>
+            )}
+
+            {/* Orphaned LiveKit Rooms */}
+            {(() => {
+              const orphanedRooms = liveKitRooms.filter(
+                (room) => !activeSessions?.some((s) => s.roomName === room.name)
+              );
+              if (orphanedRooms.length === 0) return null;
+
+              return (
+                <div className="border-t pt-4">
+                  <p className="text-xs text-amber-600 font-medium mb-2">
+                    Orphaned LiveKit Rooms (no matching session)
+                  </p>
+                  <div className="space-y-2">
+                    {orphanedRooms.map((room) => (
+                      <div
+                        key={room.sid}
+                        className="flex items-center justify-between p-2 rounded bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800"
+                      >
+                        <div>
+                          <span className="font-mono text-xs">{room.name}</span>
+                          <span className="text-xs text-muted-foreground ml-2">
+                            ({room.numParticipants} participants)
+                          </span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteOrphanedRoom(room.name)}
+                          className="text-amber-700 border-amber-300 hover:bg-amber-100"
+                        >
+                          <Trash2 className="w-3 h-3 mr-1" />
+                          Delete Room
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+          </CardContent>
+        </Card>
+
         <div className="grid lg:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
@@ -107,6 +436,16 @@ export default function AdminPage() {
                 href="/admin/lessons"
                 title="Structured Lessons"
                 description="Create shareable lesson links with pre-loaded content"
+              />
+              <QuickAction
+                href="/admin/practice"
+                title="Conversation Practice"
+                description="Create shareable practice sessions for speaking practice"
+              />
+              <QuickAction
+                href="/admin/tools"
+                title="Tools"
+                description="Word games, PDF worksheets, and assessment tools"
               />
             </CardContent>
           </Card>

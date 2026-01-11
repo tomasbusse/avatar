@@ -196,15 +196,19 @@ export const linkToAvatar = mutation({
     const currentKbs = avatar.knowledgeConfig?.knowledgeBaseIds ?? [];
     if (!currentKbs.includes(args.knowledgeBaseId)) {
       // Build complete knowledgeConfig with defaults if not present
-      const existingConfig = avatar.knowledgeConfig || {};
+      const existingConfig = avatar.knowledgeConfig ?? {
+        knowledgeBaseIds: [],
+        domain: { primaryTopic: "", subtopics: [], expertise: [], limitations: [] },
+        ragSettings: { enabled: false, triggerKeywords: [], maxContextChunks: 3, similarityThreshold: 0.7 },
+      };
       const newConfig = {
-        domain: existingConfig.domain || {
+        domain: existingConfig.domain.primaryTopic ? existingConfig.domain : {
           primaryTopic: "English Language Learning",
           subtopics: [],
           expertise: [],
           limitations: [],
         },
-        ragSettings: existingConfig.ragSettings || {
+        ragSettings: existingConfig.ragSettings.enabled !== undefined ? existingConfig.ragSettings : {
           enabled: true,
           triggerKeywords: [],
           maxContextChunks: 3,
@@ -771,6 +775,54 @@ export const getPublicContent = query({
 });
 
 // ============================================
+// GENERAL KNOWLEDGE BASE (for Python Agent fast lookup)
+// ============================================
+
+/**
+ * General knowledge that applies across all lessons:
+ * - Grammar rules
+ * - Core vocabulary (A1-B2)
+ * - Common German speaker mistakes
+ *
+ * These are loaded at agent startup and kept in memory for <1ms lookups.
+ */
+
+// Get general grammar rules (loaded once at agent startup)
+export const getGeneralGrammarRules = query({
+  args: {},
+  handler: async (ctx) => {
+    // Try to get from dedicated grammarRules table if it exists
+    // For now, return empty array - the Python agent has built-in defaults
+    // This allows future expansion where admins can add custom rules via UI
+    return [];
+  },
+});
+
+// Get general vocabulary up to a certain level
+export const getGeneralVocabulary = query({
+  args: {
+    maxLevel: v.optional(v.string()), // A1, A2, B1, B2
+  },
+  handler: async (ctx, args) => {
+    // Try to get from dedicated vocabulary table if it exists
+    // For now, return empty array - the Python agent has built-in defaults
+    // This allows future expansion where admins can add custom vocabulary via UI
+    return [];
+  },
+});
+
+// Get common German speaker mistakes
+export const getCommonMistakes = query({
+  args: {},
+  handler: async (ctx) => {
+    // Try to get from dedicated mistakes table if it exists
+    // For now, return empty array - the Python agent has built-in defaults
+    // This allows future expansion where admins can add custom patterns via UI
+    return [];
+  },
+});
+
+// ============================================
 // AVATAR KNOWLEDGE ACCESS (for Python Agent)
 // ============================================
 
@@ -845,5 +897,179 @@ export const getAvatarLessonContent = query({
       jsonContent: c.jsonContent,
       metadata: c.metadata,
     }));
+  },
+});
+
+// ============================================
+// CONTENT-LESSON LINKING (Multiple content per lesson)
+// ============================================
+
+/**
+ * Get all content linked to a lesson via contentLessonLinks table
+ * Used by admin UI when editing lessons
+ */
+export const getContentForLesson = query({
+  args: { lessonId: v.id("structuredLessons") },
+  handler: async (ctx, args) => {
+    const links = await ctx.db
+      .query("contentLessonLinks")
+      .withIndex("by_lesson", (q) => q.eq("lessonId", args.lessonId))
+      .collect();
+
+    // Fetch actual content items
+    const contentItems = await Promise.all(
+      links.map(async (link) => {
+        const content = await ctx.db.get(link.contentId);
+        return {
+          ...link,
+          content,
+        };
+      })
+    );
+
+    // Sort by order
+    return contentItems.sort((a, b) => a.order - b.order);
+  },
+});
+
+/**
+ * Get content available for a session (via the linked structured lesson)
+ * Used by the teaching room Materials panel
+ */
+export const getContentForSession = query({
+  args: { sessionId: v.id("sessions") },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session?.structuredLessonId) return [];
+
+    // Store lessonId in a const to help TypeScript narrow the type
+    const lessonId = session.structuredLessonId;
+
+    // Get content links via contentLessonLinks table
+    const links = await ctx.db
+      .query("contentLessonLinks")
+      .withIndex("by_lesson", (q) => q.eq("lessonId", lessonId))
+      .collect();
+
+    // Fetch content details
+    const contentItems = await Promise.all(
+      links.map(async (link) => {
+        const content = await ctx.db.get(link.contentId);
+        if (!content || content.processingStatus !== "completed") return null;
+        return {
+          ...content,
+          linkId: link._id,
+          order: link.order,
+          triggerType: link.triggerType,
+        };
+      })
+    );
+
+    // Filter out nulls and sort by order
+    return contentItems
+      .filter((c): c is NonNullable<typeof c> => c !== null)
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+  },
+});
+
+/**
+ * Link content to a lesson
+ * Maximum 20 content items per lesson
+ */
+export const linkContentToLesson = mutation({
+  args: {
+    contentId: v.id("knowledgeContent"),
+    lessonId: v.id("structuredLessons"),
+    triggerType: v.union(
+      v.literal("student"),
+      v.literal("avatar"),
+      v.literal("scheduled")
+    ),
+    triggerConfig: v.object({
+      afterMinutes: v.optional(v.number()),
+      keywords: v.optional(v.array(v.string())),
+    }),
+  },
+  handler: async (ctx, args) => {
+    // Get current links for this lesson
+    const existingLinks = await ctx.db
+      .query("contentLessonLinks")
+      .withIndex("by_lesson", (q) => q.eq("lessonId", args.lessonId))
+      .collect();
+
+    // Enforce 20-content limit
+    if (existingLinks.length >= 20) {
+      throw new Error("Maximum of 20 content items per lesson reached");
+    }
+
+    // Check if this content is already linked
+    const alreadyLinked = existingLinks.some(
+      (link) => link.contentId === args.contentId
+    );
+    if (alreadyLinked) {
+      throw new Error("This content is already linked to this lesson");
+    }
+
+    // Calculate next order
+    const maxOrder = existingLinks.reduce((max, link) => Math.max(max, link.order), 0);
+
+    // Create the link
+    const linkId = await ctx.db.insert("contentLessonLinks", {
+      contentId: args.contentId,
+      lessonId: args.lessonId,
+      triggerType: args.triggerType,
+      triggerConfig: args.triggerConfig,
+      order: maxOrder + 1,
+      createdAt: Date.now(),
+    });
+
+    return { success: true, linkId };
+  },
+});
+
+/**
+ * Unlink content from a lesson
+ */
+export const unlinkContentFromLesson = mutation({
+  args: {
+    linkId: v.id("contentLessonLinks"),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.linkId);
+    return { success: true };
+  },
+});
+
+/**
+ * Update content-lesson link (change order, trigger, etc.)
+ */
+export const updateContentLessonLink = mutation({
+  args: {
+    linkId: v.id("contentLessonLinks"),
+    triggerType: v.optional(
+      v.union(
+        v.literal("student"),
+        v.literal("avatar"),
+        v.literal("scheduled")
+      )
+    ),
+    triggerConfig: v.optional(
+      v.object({
+        afterMinutes: v.optional(v.number()),
+        keywords: v.optional(v.array(v.string())),
+      })
+    ),
+    order: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const { linkId, ...updates } = args;
+    const validUpdates: Record<string, unknown> = {};
+
+    if (updates.triggerType !== undefined) validUpdates.triggerType = updates.triggerType;
+    if (updates.triggerConfig !== undefined) validUpdates.triggerConfig = updates.triggerConfig;
+    if (updates.order !== undefined) validUpdates.order = updates.order;
+
+    await ctx.db.patch(linkId, validUpdates);
+    return { success: true };
   },
 });

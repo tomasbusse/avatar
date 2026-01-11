@@ -167,6 +167,157 @@ class OpenRouterStream(LLMStream):
 
         return messages
 
+    def _build_tools(self) -> List[Dict[str, Any]]:
+        """Convert FunctionTool objects to OpenAI-compatible tool format.
+
+        Handles both FunctionTool objects AND plain methods (which may arrive when
+        SDK internals pass bound methods instead of FunctionTool wrappers).
+        """
+        import inspect
+        import types
+
+        logger.info(f"🔧 [TOOLS] _build_tools called with {len(self._tools) if self._tools else 0} tools")
+        if not self._tools:
+            logger.info(f"🔧 [TOOLS] No tools available in self._tools")
+            return []
+
+        tools = []
+        for i, tool in enumerate(self._tools):
+            try:
+                tool_type = type(tool).__name__
+                logger.debug(f"🔧 [TOOLS] Tool {i}: type={tool_type}")
+
+                name = None
+                description = ""
+                parameters = {"type": "object", "properties": {}, "required": []}
+
+                # Case 1: FunctionTool with .info attribute (SDK's proper format)
+                if hasattr(tool, "info"):
+                    info = tool.info
+                    name = getattr(info, "name", None)
+                    description = getattr(info, "description", "") or ""
+
+                    # Try raw_schema first (RawFunctionTool)
+                    if hasattr(info, "raw_schema") and info.raw_schema:
+                        raw = info.raw_schema
+                        parameters = raw.get("parameters", parameters)
+                    elif hasattr(info, "parameters") and info.parameters:
+                        parameters = info.parameters
+                    elif hasattr(tool, "_callable"):
+                        sig = inspect.signature(tool._callable)
+                        props, req = self._params_from_signature(sig)
+                        parameters = {"type": "object", "properties": props, "required": req}
+
+                # Case 2: Plain bound method (when SDK passes methods instead of FunctionTool)
+                elif isinstance(tool, types.MethodType):
+                    # Get the underlying function
+                    func = tool.__func__
+                    name = func.__name__
+                    description = (func.__doc__ or "").split("\n\n")[0].strip()  # First paragraph
+
+                    # Build parameters from signature
+                    sig = inspect.signature(func)
+                    props, req = self._params_from_signature(sig)
+                    parameters = {"type": "object", "properties": props, "required": req}
+
+                    # Try to extract better param descriptions from docstring
+                    if func.__doc__ and "Args:" in func.__doc__:
+                        props = self._enrich_params_from_docstring(props, func.__doc__)
+                        parameters["properties"] = props
+
+                    logger.info(f"🔧 [TOOLS] Tool {i}: extracted from method '{name}'")
+
+                # Case 3: Plain function
+                elif callable(tool):
+                    name = getattr(tool, "__name__", f"tool_{i}")
+                    description = (getattr(tool, "__doc__", "") or "").split("\n\n")[0].strip()
+
+                    try:
+                        sig = inspect.signature(tool)
+                        props, req = self._params_from_signature(sig)
+                        parameters = {"type": "object", "properties": props, "required": req}
+                    except (ValueError, TypeError):
+                        pass
+
+                if name:
+                    tool_def = {
+                        "type": "function",
+                        "function": {
+                            "name": name,
+                            "description": description,
+                            "parameters": parameters
+                        }
+                    }
+                    tools.append(tool_def)
+                    logger.info(f"🔧 [TOOLS] Added tool: {name}")
+                else:
+                    logger.warning(f"🔧 [TOOLS] Tool {i} has no name, skipping")
+
+            except Exception as te:
+                logger.error(f"🔧 [TOOLS] Failed to add tool {i}: {te}")
+
+        if tools:
+            tool_names = [t['function']['name'] for t in tools]
+            logger.info(f"🔧 [TOOLS] Sending {len(tools)} tools to LLM: {tool_names}")
+        return tools
+
+    def _params_from_signature(self, sig) -> tuple:
+        """Extract parameter properties and required list from a function signature."""
+        import inspect
+
+        props = {}
+        required = []
+        for pname, param in sig.parameters.items():
+            # Skip self, ctx, context, cls
+            if pname in ("self", "ctx", "context", "cls"):
+                continue
+
+            # Determine type from annotation
+            param_type = "string"  # Default
+            if param.annotation != inspect.Parameter.empty:
+                ann = param.annotation
+                if ann == str or getattr(ann, "__name__", "") == "str":
+                    param_type = "string"
+                elif ann == int or getattr(ann, "__name__", "") == "int":
+                    param_type = "integer"
+                elif ann == float or getattr(ann, "__name__", "") == "float":
+                    param_type = "number"
+                elif ann == bool or getattr(ann, "__name__", "") == "bool":
+                    param_type = "boolean"
+
+            props[pname] = {"type": param_type}
+
+            # Check if required (no default)
+            if param.default == inspect.Parameter.empty:
+                required.append(pname)
+
+        return props, required
+
+    def _enrich_params_from_docstring(self, props: dict, docstring: str) -> dict:
+        """Extract parameter descriptions from Google-style docstring Args section."""
+        import re
+
+        # Find Args section
+        args_match = re.search(r"Args:\s*\n(.*?)(?:\n\n|\nReturns:|\nRaises:|\Z)", docstring, re.DOTALL)
+        if not args_match:
+            return props
+
+        args_text = args_match.group(1)
+
+        # Parse each argument line
+        for line in args_text.split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            # Match "param_name: description" or "param_name (type): description"
+            match = re.match(r"(\w+)(?:\s*\([^)]+\))?:\s*(.+)", line)
+            if match:
+                param_name, desc = match.groups()
+                if param_name in props:
+                    props[param_name]["description"] = desc.strip()
+
+        return props
+
     async def _run(self) -> None:
         """Execute the streaming request with retry logic for transient errors."""
         headers = {
@@ -177,6 +328,18 @@ class OpenRouterStream(LLMStream):
         }
 
         messages = self._build_messages()
+        tools = self._build_tools()
+
+        # Debug: Log the system prompt length
+        for msg in messages:
+            if msg.get("role") == "system":
+                content = msg.get("content", "")
+                if isinstance(content, str):
+                    print(f"🔍 [DEBUG] System prompt length: {len(content)} chars", flush=True)
+                    if "Current News" in content:
+                        print(f"🔍 [DEBUG] ✅ System prompt CONTAINS 'Current News' section", flush=True)
+                    else:
+                        print(f"🔍 [DEBUG] ❌ System prompt DOES NOT contain 'Current News' section", flush=True)
 
         payload = {
             "model": self._model,
@@ -185,6 +348,11 @@ class OpenRouterStream(LLMStream):
             "max_tokens": self._max_tokens,
             "stream": True,
         }
+
+        # Add tools if available
+        if tools:
+            payload["tools"] = tools
+            payload["tool_choice"] = "auto"  # Let the model decide when to use tools
 
         last_error = None
         for attempt in range(MAX_RETRIES + 1):
@@ -217,6 +385,9 @@ class OpenRouterStream(LLMStream):
                         raise Exception(f"OpenRouter API error: {response.status_code}")
 
                     # Successful response - process the stream
+                    # Track accumulated tool call data across chunks
+                    tool_call_accumulator = {}  # tool_call_id -> {name, arguments}
+
                     async for line in response.aiter_lines():
                         if not line or not line.startswith("data: "):
                             continue
@@ -233,7 +404,9 @@ class OpenRouterStream(LLMStream):
 
                             delta = choices[0].get("delta", {})
                             content = delta.get("content", "")
+                            tool_calls = delta.get("tool_calls", [])
 
+                            # Handle regular content
                             if content:
                                 chat_chunk = ChatChunk(
                                     id=chunk.get("id", str(uuid.uuid4())),
@@ -243,8 +416,56 @@ class OpenRouterStream(LLMStream):
                                     )
                                 )
                                 self._event_ch.send_nowait(chat_chunk)
+
+                            # Handle tool calls (streamed in parts)
+                            for tc in tool_calls:
+                                tc_index = tc.get("index", 0)
+                                tc_id = tc.get("id")
+                                tc_function = tc.get("function", {})
+
+                                if tc_index not in tool_call_accumulator:
+                                    tool_call_accumulator[tc_index] = {
+                                        "id": tc_id,
+                                        "name": "",
+                                        "arguments": ""
+                                    }
+
+                                if tc_id:
+                                    tool_call_accumulator[tc_index]["id"] = tc_id
+                                if tc_function.get("name"):
+                                    tool_call_accumulator[tc_index]["name"] = tc_function["name"]
+                                if tc_function.get("arguments"):
+                                    tool_call_accumulator[tc_index]["arguments"] += tc_function["arguments"]
+
                         except json.JSONDecodeError:
                             continue
+
+                    # After stream completes, emit any accumulated tool calls
+                    for tc_index, tc_data in tool_call_accumulator.items():
+                        if tc_data.get("name"):
+                            logger.info(f"🔧 [TOOLS] LLM called function: {tc_data['name']}")
+                            logger.info(f"🔧 [TOOLS] Arguments: {tc_data['arguments']}")
+
+                            # Create a FunctionToolCall to emit
+                            try:
+                                from livekit.agents.llm import FunctionToolCall
+                                tool_call = FunctionToolCall(
+                                    id=tc_data.get("id") or str(uuid.uuid4()),
+                                    name=tc_data["name"],
+                                    arguments=tc_data["arguments"]
+                                )
+                                # Send as a chat chunk with tool_calls
+                                chat_chunk = ChatChunk(
+                                    id=str(uuid.uuid4()),
+                                    delta=ChoiceDelta(
+                                        role="assistant",
+                                        content="",
+                                        tool_calls=[tool_call],
+                                    )
+                                )
+                                self._event_ch.send_nowait(chat_chunk)
+                            except Exception as e:
+                                logger.error(f"🔧 [TOOLS] Failed to emit tool call: {e}")
 
                     # Success - exit retry loop
                     return

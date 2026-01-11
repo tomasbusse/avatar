@@ -11,8 +11,14 @@ import { cn } from "@/lib/utils";
 const adminNavItems = [
   { title: "Overview", href: "/admin" },
   { title: "Users", href: "/admin/users" },
+  { title: "Companies", href: "/admin/companies" },
+  { title: "Groups", href: "/admin/groups" },
+  { title: "Roles", href: "/admin/roles" },
   { title: "Avatars", href: "/admin/avatars" },
   { title: "Knowledge", href: "/admin/knowledge" },
+  { title: "Lessons", href: "/admin/lessons" },
+  { title: "Entry Tests", href: "/admin/entry-tests" },
+  { title: "Tools", href: "/admin/tools" },
 ];
 
 export default function AdminLayout({
@@ -57,20 +63,28 @@ export default function AdminLayout({
             <h1 className="text-xl font-bold">Admin Panel</h1>
           </div>
           <nav className="flex gap-4">
-            {adminNavItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "px-3 py-1.5 rounded-lg text-sm transition-colors",
-                  pathname === item.href
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted"
-                )}
-              >
-                {item.title}
-              </Link>
-            ))}
+            {adminNavItems.map((item) => {
+              // For tools and entry-tests, also highlight when on sub-routes
+              const isActive = item.href === "/admin/tools"
+                ? pathname.startsWith("/admin/tools")
+                : item.href === "/admin/entry-tests"
+                ? pathname.startsWith("/admin/entry-tests")
+                : pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-sm transition-colors",
+                    isActive
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  {item.title}
+                </Link>
+              );
+            })}
           </nav>
         </div>
       </div>

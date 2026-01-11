@@ -366,6 +366,30 @@ function FileUploadPanel({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState("");
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      // Create a synthetic event to reuse the existing handler
+      const syntheticEvent = {
+        target: { files: e.dataTransfer.files }
+      } as React.ChangeEvent<HTMLInputElement>;
+      handleFileSelect(syntheticEvent);
+    }
+  };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -451,7 +475,17 @@ function FileUploadPanel({
         </Button>
       </div>
 
-      <div className="p-4 border-2 border-dashed rounded-lg text-center">
+      <div
+        className={`p-6 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors ${
+          isDragOver
+            ? "border-primary bg-primary/5"
+            : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50"
+        }`}
+        onClick={() => !isUploading && fileInputRef.current?.click()}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
         <input
           type="file"
           ref={fileInputRef}
@@ -467,16 +501,23 @@ function FileUploadPanel({
           </div>
         ) : (
           <>
-            <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-            <p className="text-sm mb-2">
-              Drop a file here or{" "}
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="text-primary hover:underline"
-              >
-                browse
-              </button>
+            <Upload className={`w-12 h-12 mx-auto mb-3 ${isDragOver ? "text-primary" : "text-muted-foreground"}`} />
+            <p className="text-sm font-medium mb-2">
+              {isDragOver ? "Drop file here" : "Drag and drop a file here"}
             </p>
+            <p className="text-sm text-muted-foreground mb-4">or</p>
+            <Button
+              type="button"
+              variant="default"
+              onClick={(e) => {
+                e.stopPropagation();
+                fileInputRef.current?.click();
+              }}
+              className="mb-3"
+            >
+              <File className="w-4 h-4 mr-2" />
+              Browse Files
+            </Button>
             <p className="text-xs text-muted-foreground">
               Supported: PDF, PowerPoint (.pptx), Markdown (.md), Text (.txt)
             </p>

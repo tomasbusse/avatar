@@ -4,19 +4,23 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import PptxGenJS from "pptxgenjs";
 import { LessonContent } from "@/lib/types/lesson-content";
+import { SLS_COLORS_HEX } from "@/lib/brand-colors";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
-// Color scheme matching the PDF design
+// SLS Brand Color scheme for presentations
 const COLORS = {
-  primary: "1E40AF", // Blue
-  accent: "059669", // Green
-  warning: "FEF3C7", // Amber background
-  warningText: "92400E", // Amber text
-  muted: "6B7280", // Gray
-  background: "F9FAFB", // Light gray
-  white: "FFFFFF",
-  black: "1F2937",
+  primary: SLS_COLORS_HEX.teal,         // Dark teal - headers, title slides
+  secondary: SLS_COLORS_HEX.olive,      // Olive - secondary elements
+  accent: SLS_COLORS_HEX.chartreuse,    // Yellow-green - highlights
+  action: SLS_COLORS_HEX.orange,        // Orange - calls to action
+  warning: SLS_COLORS_HEX.cream,        // Cream - grammar backgrounds
+  warningText: SLS_COLORS_HEX.orange,   // Orange - grammar text accents
+  muted: SLS_COLORS_HEX.olive,          // Olive - muted text
+  background: SLS_COLORS_HEX.beige,     // Beige - section backgrounds
+  backgroundLight: SLS_COLORS_HEX.cream, // Cream - light backgrounds
+  white: SLS_COLORS_HEX.white,
+  black: SLS_COLORS_HEX.textDark,
 };
 
 async function generatePptxFromContent(lessonContent: LessonContent): Promise<Buffer> {
