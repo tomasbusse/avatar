@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ConvexHttpClient } from "convex/browser";
+import { getConvexClient } from "@/lib/convex-client";
+
+// Lazy-initialized Convex client
+const getConvex = () => getConvexClient();
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import PptxGenJS from "pptxgenjs";
 import { LessonContent } from "@/lib/types/lesson-content";
 import { SLS_COLORS_HEX } from "@/lib/brand-colors";
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 // SLS Brand Color scheme for presentations
 const COLORS = {
@@ -418,7 +420,7 @@ export async function POST(request: NextRequest) {
     console.log("📊 PPTX Generation started for:", contentId);
 
     // Get content from Convex
-    const content = await convex.query(api.knowledgeBases.getContentById, {
+    const content = await getConvex().query(api.knowledgeBases.getContentById, {
       contentId: contentId as Id<"knowledgeContent">,
     });
 
@@ -436,7 +438,7 @@ export async function POST(request: NextRequest) {
     const lessonContent = content.jsonContent as LessonContent;
 
     // Update status to generating
-    await convex.mutation(api.knowledgeBases.updateProcessingStatus, {
+    await getConvex().mutation(api.knowledgeBases.updateProcessingStatus, {
       contentId: contentId as Id<"knowledgeContent">,
       status: "generating_pptx",
     });
@@ -447,7 +449,7 @@ export async function POST(request: NextRequest) {
     console.log(`✅ PPTX generated: ${pptxBuffer.length} bytes`);
 
     // Step 2: Upload PPTX to Convex storage
-    const uploadUrl = await convex.mutation(api.knowledgeBases.generateUploadUrl);
+    const uploadUrl = await getConvex().mutation(api.knowledgeBases.generateUploadUrl);
 
     const uploadResponse = await fetch(uploadUrl, {
       method: "POST",
@@ -470,13 +472,13 @@ export async function POST(request: NextRequest) {
     const slideContent = generateSlideContent(lessonContent);
 
     // Get the knowledge base to find the user who created it (optional)
-    const knowledgeBase = await convex.query(api.knowledgeBases.getById, {
+    const knowledgeBase = await getConvex().query(api.knowledgeBases.getById, {
       id: content.knowledgeBaseId,
     });
 
     // Create the presentation via internal mutation (no auth required)
     // If no createdBy, the mutation will find an admin user as fallback
-    const presentationId = await convex.mutation(api.presentations.createPresentationInternal, {
+    const presentationId = await getConvex().mutation(api.presentations.createPresentationInternal, {
       name: lessonContent.metadata.title,
       originalFileName: `${lessonContent.metadata.title}.pptx`,
       originalFileType:
@@ -485,26 +487,26 @@ export async function POST(request: NextRequest) {
     });
 
     // Add slide to presentation (single slide representing entire PPTX)
-    await convex.mutation(api.presentations.addSlideToPresentationInternal, {
+    await getConvex().mutation(api.presentations.addSlideToPresentationInternal, {
       presentationId: presentationId as Id<"presentations">,
       slideIndex: 0,
       storageId: storageId as Id<"_storage">,
     });
 
     // Update slide content for avatar context
-    await convex.mutation(api.presentations.updateSlideContent, {
+    await getConvex().mutation(api.presentations.updateSlideContent, {
       presentationId: presentationId as Id<"presentations">,
       slideContent: slideContent,
     });
 
     // Finalize presentation
-    await convex.mutation(api.presentations.finalizePresentationInternal, {
+    await getConvex().mutation(api.presentations.finalizePresentationInternal, {
       presentationId: presentationId as Id<"presentations">,
       totalSlides: slideCount,
     });
 
     // Step 4: Link presentation to knowledge content
-    await convex.mutation(api.knowledgeBases.updatePresentationLink, {
+    await getConvex().mutation(api.knowledgeBases.updatePresentationLink, {
       contentId: contentId as Id<"knowledgeContent">,
       presentationId: presentationId as Id<"presentations">,
     });
@@ -525,7 +527,7 @@ export async function POST(request: NextRequest) {
     try {
       const { contentId } = await request.json().catch(() => ({}));
       if (contentId) {
-        await convex.mutation(api.knowledgeBases.updateProcessingStatus, {
+        await getConvex().mutation(api.knowledgeBases.updateProcessingStatus, {
           contentId: contentId as Id<"knowledgeContent">,
           status: "failed",
         });

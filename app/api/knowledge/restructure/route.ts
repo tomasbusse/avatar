@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ConvexHttpClient } from "convex/browser";
+import { getConvexClient } from "@/lib/convex-client";
+
+// Lazy-initialized Convex client
+const getConvex = () => getConvexClient();
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { LessonContent, lessonToMarkdown } from "@/lib/types/lesson-content";
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 // JSON schema for structured lesson output
 const LESSON_SCHEMA = `{
@@ -175,7 +177,7 @@ export async function POST(request: NextRequest) {
     console.log("🔄 Restructuring content:", contentId);
 
     // Get existing content
-    const existingContent = await convex.query(api.knowledgeBases.getContentById, {
+    const existingContent = await getConvex().query(api.knowledgeBases.getContentById, {
       contentId: contentId as Id<"knowledgeContent">,
     });
 
@@ -184,7 +186,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update status
-    await convex.mutation(api.knowledgeBases.updateProcessingStatus, {
+    await getConvex().mutation(api.knowledgeBases.updateProcessingStatus, {
       contentId: contentId as Id<"knowledgeContent">,
       status: "structuring",
     });
@@ -193,7 +195,7 @@ export async function POST(request: NextRequest) {
     const lessonContent = await createLessonFromContent(existingContent.content);
 
     if (!lessonContent) {
-      await convex.mutation(api.knowledgeBases.updateProcessingStatus, {
+      await getConvex().mutation(api.knowledgeBases.updateProcessingStatus, {
         contentId: contentId as Id<"knowledgeContent">,
         status: "failed",
       });
@@ -214,7 +216,7 @@ export async function POST(request: NextRequest) {
       level: lessonContent.metadata.level,
     };
 
-    await convex.mutation(api.knowledgeBases.updateContentWithStructure, {
+    await getConvex().mutation(api.knowledgeBases.updateContentWithStructure, {
       contentId: contentId as Id<"knowledgeContent">,
       content: markdown,
       jsonContent: lessonContent,

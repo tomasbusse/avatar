@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ConvexHttpClient } from "convex/browser";
+import { getConvexClient } from "@/lib/convex-client";
+
+// Lazy-initialized Convex client
+const getConvex = () => getConvexClient();
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { LessonContent, lessonToMarkdown } from "@/lib/types/lesson-content";
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 const OCR_SERVER_URL = process.env.OCR_SERVER_URL || "http://localhost:8765";
 
 // JSON schema for structured lesson output
@@ -326,7 +328,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get file URL from Convex storage
-    const fileUrl = await convex.query(api.knowledgeBases.getFileUrl, {
+    const fileUrl = await getConvex().query(api.knowledgeBases.getFileUrl, {
       storageId: storageId as Id<"_storage">,
     });
 
@@ -340,7 +342,7 @@ export async function POST(request: NextRequest) {
     console.log("📥 File URL obtained, starting OCR...");
 
     // Update status: processing (OCR)
-    await convex.mutation(api.knowledgeBases.updateProcessingStatus, {
+    await getConvex().mutation(api.knowledgeBases.updateProcessingStatus, {
       contentId: contentId as Id<"knowledgeContent">,
       status: "processing",
     });
@@ -351,7 +353,7 @@ export async function POST(request: NextRequest) {
       rawText = await extractWithOcr(fileUrl);
     } catch (e) {
       console.error("OCR failed:", e);
-      await convex.mutation(api.knowledgeBases.updateProcessingStatus, {
+      await getConvex().mutation(api.knowledgeBases.updateProcessingStatus, {
         contentId: contentId as Id<"knowledgeContent">,
         status: "failed",
       });
@@ -362,7 +364,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!rawText || rawText.trim().length < 10) {
-      await convex.mutation(api.knowledgeBases.updateProcessingStatus, {
+      await getConvex().mutation(api.knowledgeBases.updateProcessingStatus, {
         contentId: contentId as Id<"knowledgeContent">,
         status: "failed",
       });
@@ -373,7 +375,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update status: structuring (AI)
-    await convex.mutation(api.knowledgeBases.updateProcessingStatus, {
+    await getConvex().mutation(api.knowledgeBases.updateProcessingStatus, {
       contentId: contentId as Id<"knowledgeContent">,
       status: "structuring",
     });
@@ -402,7 +404,7 @@ export async function POST(request: NextRequest) {
     };
 
     // Step 5: Save to Convex (both JSON and Markdown)
-    await convex.mutation(api.knowledgeBases.updateContentWithStructure, {
+    await getConvex().mutation(api.knowledgeBases.updateContentWithStructure, {
       contentId: contentId as Id<"knowledgeContent">,
       content: markdown,
       jsonContent: lessonContent,

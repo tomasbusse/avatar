@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ConvexHttpClient } from "convex/browser";
+import { getConvexClient } from "@/lib/convex-client";
+
+// Lazy-initialized Convex client
+const getConvex = () => getConvexClient();
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 // Extract video ID from YouTube URL
 function extractVideoId(url: string): string | null {
@@ -150,7 +152,7 @@ export async function POST(request: NextRequest) {
     const wordCount = markdown.split(/\s+/).length;
 
     // Update content in Convex
-    await convex.mutation(api.knowledgeBases.updateContent, {
+    await getConvex().mutation(api.knowledgeBases.updateContent, {
       contentId: contentId as Id<"knowledgeContent">,
       content: markdown,
       metadata: {
@@ -172,7 +174,7 @@ export async function POST(request: NextRequest) {
     try {
       const body = await request.clone().json();
       if (body.contentId) {
-        await convex.mutation(api.knowledgeBases.updateContent, {
+        await getConvex().mutation(api.knowledgeBases.updateContent, {
           contentId: body.contentId as Id<"knowledgeContent">,
           content: "",
           status: "failed",

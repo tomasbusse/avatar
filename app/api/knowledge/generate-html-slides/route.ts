@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ConvexHttpClient } from "convex/browser";
+import { getConvexClient } from "@/lib/convex-client";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { LessonContent } from "@/lib/types/lesson-content";
@@ -9,7 +9,8 @@ import {
   getSlideStats,
 } from "@/lib/html-slides";
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+// Lazy-initialized Convex client
+const getConvex = () => getConvexClient();
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest) {
     console.log("🖼️ HTML Slides generation started for:", contentId);
 
     // Get content from Convex
-    const content = await convex.query(api.knowledgeBases.getContentById, {
+    const content = await getConvex().query(api.knowledgeBases.getContentById, {
       contentId: contentId as Id<"knowledgeContent">,
     });
 
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest) {
     console.log("📊 Slide stats:", stats);
 
     // Store slides in Convex
-    await convex.mutation(api.knowledgeBases.updateHtmlSlides, {
+    await getConvex().mutation(api.knowledgeBases.updateHtmlSlides, {
       contentId: contentId as Id<"knowledgeContent">,
       htmlSlides: slides.map((slide) => ({
         index: slide.index,
@@ -115,7 +116,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const content = await convex.query(api.knowledgeBases.getContentById, {
+    const content = await getConvex().query(api.knowledgeBases.getContentById, {
       contentId: contentId as Id<"knowledgeContent">,
     });
 

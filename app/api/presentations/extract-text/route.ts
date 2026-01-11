@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ConvexHttpClient } from "convex/browser";
+import { getConvexClient } from "@/lib/convex-client";
+
+// Lazy-initialized Convex client
+const getConvex = () => getConvexClient();
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,7 +19,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get presentation from Convex
-    const presentation = await convex.query(api.presentations.getPresentation, {
+    const presentation = await getConvex().query(api.presentations.getPresentation, {
       presentationId: presentationId as Id<"presentations">,
     });
 
@@ -39,7 +41,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update status to processing
-    await convex.mutation(api.presentations.updateTextExtractionStatus, {
+    await getConvex().mutation(api.presentations.updateTextExtractionStatus, {
       presentationId: presentationId as Id<"presentations">,
       status: "processing",
     });
@@ -65,7 +67,7 @@ export async function POST(request: NextRequest) {
     console.log(`Original file type: ${presentation.originalFileType}`);
 
     // Mark as completed (actual extraction happens in convert route)
-    await convex.mutation(api.presentations.updateTextExtractionStatus, {
+    await getConvex().mutation(api.presentations.updateTextExtractionStatus, {
       presentationId: presentationId as Id<"presentations">,
       status: "completed",
     });
@@ -82,7 +84,7 @@ export async function POST(request: NextRequest) {
     try {
       const body = await request.clone().json();
       if (body.presentationId) {
-        await convex.mutation(api.presentations.updateTextExtractionStatus, {
+        await getConvex().mutation(api.presentations.updateTextExtractionStatus, {
           presentationId: body.presentationId as Id<"presentations">,
           status: "failed",
         });

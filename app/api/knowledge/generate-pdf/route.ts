@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ConvexHttpClient } from "convex/browser";
+import { getConvexClient } from "@/lib/convex-client";
+
+// Lazy-initialized Convex client
+const getConvex = () => getConvexClient();
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import puppeteer from "puppeteer";
@@ -7,7 +10,6 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { LessonContent } from "@/lib/types/lesson-content";
 import { SLS_COLORS } from "@/lib/brand-colors";
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 // Generate beautiful HTML for PDF using Gemini
 async function generatePdfHTML(lessonContent: LessonContent): Promise<string> {
@@ -329,7 +331,7 @@ export async function POST(request: NextRequest) {
     console.log("📄 PDF Generation started for:", contentId);
 
     // Get content from Convex
-    const content = await convex.query(api.knowledgeBases.getContentById, {
+    const content = await getConvex().query(api.knowledgeBases.getContentById, {
       contentId: contentId as Id<"knowledgeContent">,
     });
 
@@ -386,7 +388,7 @@ export async function POST(request: NextRequest) {
     console.log(`✅ PDF generated: ${pdfBuffer.length} bytes`);
 
     // Step 3: Upload to Convex storage
-    const uploadUrl = await convex.mutation(api.knowledgeBases.generateUploadUrl);
+    const uploadUrl = await getConvex().mutation(api.knowledgeBases.generateUploadUrl);
 
     const uploadResponse = await fetch(uploadUrl, {
       method: "POST",
@@ -401,7 +403,7 @@ export async function POST(request: NextRequest) {
     const { storageId } = await uploadResponse.json();
 
     // Step 4: Update content with PDF reference
-    await convex.mutation(api.knowledgeBases.updatePdfStorage, {
+    await getConvex().mutation(api.knowledgeBases.updatePdfStorage, {
       contentId: contentId as Id<"knowledgeContent">,
       pdfStorageId: storageId as Id<"_storage">,
     });
@@ -435,7 +437,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const content = await convex.query(api.knowledgeBases.getContentById, {
+    const content = await getConvex().query(api.knowledgeBases.getContentById, {
       contentId: contentId as Id<"knowledgeContent">,
     });
 

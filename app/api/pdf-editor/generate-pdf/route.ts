@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ConvexHttpClient } from "convex/browser";
+import { getConvexClient } from "@/lib/convex-client";
+
+// Lazy-initialized Convex client
+const getConvex = () => getConvexClient();
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import puppeteer from "puppeteer";
@@ -8,8 +11,6 @@ import {
   worksheetToHtml,
   calculateTotalPoints,
 } from "@/lib/types/worksheet-content";
-
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,13 +26,13 @@ export async function POST(request: NextRequest) {
     console.log("📄 PDF Generation started for worksheet:", worksheetId);
 
     // Update processing stage
-    await convex.mutation(api.pdfWorksheets.updateProcessingStage, {
+    await getConvex().mutation(api.pdfWorksheets.updateProcessingStage, {
       worksheetId: worksheetId as Id<"pdfWorksheets">,
       processingStage: "generating_pdf",
     });
 
     // Get worksheet from Convex
-    const worksheet = await convex.query(api.pdfWorksheets.getWorksheet, {
+    const worksheet = await getConvex().query(api.pdfWorksheets.getWorksheet, {
       worksheetId: worksheetId as Id<"pdfWorksheets">,
     });
 
@@ -108,7 +109,7 @@ export async function POST(request: NextRequest) {
     console.log(`✅ PDF generated: ${pdfBuffer.length} bytes`);
 
     // Upload to Convex storage
-    const uploadUrl = await convex.mutation(
+    const uploadUrl = await getConvex().mutation(
       api.pdfWorksheets.generateUploadUrl
     );
 
@@ -125,7 +126,7 @@ export async function POST(request: NextRequest) {
     const { storageId } = await uploadResponse.json();
 
     // Update worksheet with PDF reference
-    await convex.mutation(api.pdfWorksheets.saveRenderedPdf, {
+    await getConvex().mutation(api.pdfWorksheets.saveRenderedPdf, {
       worksheetId: worksheetId as Id<"pdfWorksheets">,
       storageId: storageId as Id<"_storage">,
     });
@@ -144,7 +145,7 @@ export async function POST(request: NextRequest) {
     try {
       const { worksheetId } = await request.json();
       if (worksheetId) {
-        await convex.mutation(api.pdfWorksheets.updateProcessingStage, {
+        await getConvex().mutation(api.pdfWorksheets.updateProcessingStage, {
           worksheetId: worksheetId as Id<"pdfWorksheets">,
           processingStage: "failed",
           processingError:
@@ -272,7 +273,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const worksheet = await convex.query(api.pdfWorksheets.getWorksheet, {
+    const worksheet = await getConvex().query(api.pdfWorksheets.getWorksheet, {
       worksheetId: worksheetId as Id<"pdfWorksheets">,
     });
 
@@ -284,7 +285,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get the URL from storage
-    const pdfUrl = await convex.query(api.pdfWorksheets.getStorageUrl, {
+    const pdfUrl = await getConvex().query(api.pdfWorksheets.getStorageUrl, {
       storageId: worksheet.renderedPdfStorageId,
     });
 

@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { ConvexHttpClient } from "convex/browser";
+import { getConvexClient } from "@/lib/convex-client";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 
+// Lazy-initialized Convex client
+const getConvex = () => getConvexClient();
+
 export const runtime = "nodejs";
 export const maxDuration = 120;
-
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 // ============================================
 // TYPES
@@ -334,7 +335,7 @@ export async function POST(request: NextRequest) {
     const sessionId = body.sessionId as Id<"entryTestSessions">;
 
     // Get session with questions
-    const session = await convex.query(api.entryTestSessions.getSessionWithQuestions, {
+    const session = await getConvex().query(api.entryTestSessions.getSessionWithQuestions, {
       sessionId,
     });
 
@@ -445,7 +446,7 @@ export async function POST(request: NextRequest) {
     const percentScore = maxPossibleScore > 0 ? Math.round((totalScore / maxPossibleScore) * 100) : 0;
 
     // Store results in database
-    await convex.mutation(api.entryTestSessions.storeResults, {
+    await getConvex().mutation(api.entryTestSessions.storeResults, {
       sessionId,
       sectionScores,
       overallResult: {

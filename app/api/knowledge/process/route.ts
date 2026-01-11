@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ConvexHttpClient } from "convex/browser";
+import { getConvexClient } from "@/lib/convex-client";
+
+// Lazy-initialized Convex client
+const getConvex = () => getConvexClient();
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { extractText, getDocumentProxy } from "unpdf";
-
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 // Clean up and structure OCR text using AI
 async function cleanupWithAI(rawText: string, documentType: string): Promise<string> {
@@ -197,7 +198,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get file URL from Convex storage
-    const fileUrl = await convex.query(api.knowledgeBases.getFileUrl, {
+    const fileUrl = await getConvex().query(api.knowledgeBases.getFileUrl, {
       storageId: storageId as Id<"_storage">,
     });
 
@@ -271,7 +272,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get content record for title
-    const content = await convex.query(api.knowledgeBases.getContentBySource, {
+    const content = await getConvex().query(api.knowledgeBases.getContentBySource, {
       sourceId: "", // We'll get it another way
     });
 
@@ -283,7 +284,7 @@ export async function POST(request: NextRequest) {
     metadata.wordCount = markdown.split(/\s+/).length;
 
     // Update content in Convex
-    await convex.mutation(api.knowledgeBases.updateContent, {
+    await getConvex().mutation(api.knowledgeBases.updateContent, {
       contentId: contentId as Id<"knowledgeContent">,
       content: markdown,
       metadata,
@@ -302,7 +303,7 @@ export async function POST(request: NextRequest) {
     try {
       const body = await request.clone().json();
       if (body.contentId) {
-        await convex.mutation(api.knowledgeBases.updateContent, {
+        await getConvex().mutation(api.knowledgeBases.updateContent, {
           contentId: body.contentId as Id<"knowledgeContent">,
           content: "",
           status: "failed",

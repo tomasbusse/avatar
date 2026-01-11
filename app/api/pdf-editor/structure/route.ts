@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ConvexHttpClient } from "convex/browser";
+import { getConvexClient } from "@/lib/convex-client";
+
+// Lazy-initialized Convex client
+const getConvex = () => getConvexClient();
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import Anthropic from "@anthropic-ai/sdk";
@@ -12,8 +15,6 @@ import {
 } from "@/lib/types/worksheet-content";
 import type { CEFRLevel } from "@/lib/types/lesson-content";
 import { SLS_COLORS } from "@/lib/brand-colors";
-
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 // JSON schema for worksheet output
 const WORKSHEET_SCHEMA = `{
@@ -440,7 +441,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get worksheet to get title
-    const worksheet = await convex.query(api.pdfWorksheets.getWorksheet, {
+    const worksheet = await getConvex().query(api.pdfWorksheets.getWorksheet, {
       worksheetId: worksheetId as Id<"pdfWorksheets">,
     });
 
@@ -452,7 +453,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update processing stage to ai_structuring
-    await convex.mutation(api.pdfWorksheets.updateProcessingStage, {
+    await getConvex().mutation(api.pdfWorksheets.updateProcessingStage, {
       worksheetId: worksheetId as Id<"pdfWorksheets">,
       processingStage: "ai_structuring",
     });
@@ -477,7 +478,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Save structured content
-    await convex.mutation(api.pdfWorksheets.saveJsonContent, {
+    await getConvex().mutation(api.pdfWorksheets.saveJsonContent, {
       worksheetId: worksheetId as Id<"pdfWorksheets">,
       jsonContent: worksheetContent,
     });
@@ -517,7 +518,7 @@ export async function POST(request: NextRequest) {
     try {
       const { worksheetId } = await request.json();
       if (worksheetId) {
-        await convex.mutation(api.pdfWorksheets.updateProcessingStage, {
+        await getConvex().mutation(api.pdfWorksheets.updateProcessingStage, {
           worksheetId: worksheetId as Id<"pdfWorksheets">,
           processingStage: "failed",
           processingError:

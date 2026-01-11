@@ -1,10 +1,11 @@
 import { auth } from "@clerk/nextjs/server";
 import { RoomServiceClient } from "livekit-server-sdk";
 import { NextRequest, NextResponse } from "next/server";
-import { ConvexHttpClient } from "convex/browser";
-import { api } from "@/convex/_generated/api";
+import { getConvexClient } from "@/lib/convex-client";
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+// Lazy-initialized Convex client
+const getConvex = () => getConvexClient();
+import { api } from "@/convex/_generated/api";
 
 // GET - List all active LiveKit rooms
 export async function GET(req: NextRequest) {
@@ -97,10 +98,10 @@ export async function DELETE(req: NextRequest) {
         // Use the Clerk session token for Convex auth
         const authToken = req.headers.get("authorization")?.replace("Bearer ", "");
         if (authToken) {
-          convex.setAuth(authToken);
+          getConvex().setAuth(authToken);
         }
 
-        await convex.mutation(api.sessions.forceEndSession, {
+        await getConvex().mutation(api.sessions.forceEndSession, {
           sessionId,
           reason: "admin_force_end",
         });

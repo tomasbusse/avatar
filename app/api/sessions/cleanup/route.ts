@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ConvexHttpClient } from "convex/browser";
+import { getConvexClient } from "@/lib/convex-client";
+
+// Lazy-initialized Convex client
+const getConvex = () => getConvexClient();
 import { api } from "@/convex/_generated/api";
 
 /**
@@ -12,8 +15,6 @@ import { api } from "@/convex/_generated/api";
  *
  * Uses Convex HTTP client since this runs outside React context
  */
-
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
     console.log(`[Session Cleanup] Beacon received for room: ${roomName}, reason: ${reason}`);
 
     // Call the Convex mutation to end the session
-    const result = await convex.mutation(api.sessions.endSessionByRoom, {
+    const result = await getConvex().mutation(api.sessions.endSessionByRoom, {
       roomName,
       reason: reason || "browser_closed",
     });

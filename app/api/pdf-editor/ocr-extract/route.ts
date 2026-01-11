@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ConvexHttpClient } from "convex/browser";
+import { getConvexClient } from "@/lib/convex-client";
+
+// Lazy-initialized Convex client
+const getConvex = () => getConvexClient();
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 const OCR_SERVER_URL = process.env.OCR_SERVER_URL || "http://localhost:8765";
 
 /**
@@ -52,18 +54,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Update processing stage to ocr_extracting
-    await convex.mutation(api.pdfWorksheets.updateProcessingStage, {
+    await getConvex().mutation(api.pdfWorksheets.updateProcessingStage, {
       worksheetId: worksheetId as Id<"pdfWorksheets">,
       processingStage: "ocr_extracting",
     });
 
     // Get file URL from Convex storage
-    const fileUrl = await convex.query(api.pdfWorksheets.getStorageUrl, {
+    const fileUrl = await getConvex().query(api.pdfWorksheets.getStorageUrl, {
       storageId: storageId as Id<"_storage">,
     });
 
     if (!fileUrl) {
-      await convex.mutation(api.pdfWorksheets.updateProcessingStage, {
+      await getConvex().mutation(api.pdfWorksheets.updateProcessingStage, {
         worksheetId: worksheetId as Id<"pdfWorksheets">,
         processingStage: "failed",
         processingError: "File not found in storage",
@@ -82,7 +84,7 @@ export async function POST(request: NextRequest) {
       ocrResult = await extractWithOcr(fileUrl);
     } catch (e) {
       console.error("OCR extraction failed:", e);
-      await convex.mutation(api.pdfWorksheets.updateProcessingStage, {
+      await getConvex().mutation(api.pdfWorksheets.updateProcessingStage, {
         worksheetId: worksheetId as Id<"pdfWorksheets">,
         processingStage: "failed",
         processingError: "OCR extraction failed. Is the OCR server running?",
@@ -94,7 +96,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!ocrResult.text || ocrResult.text.trim().length < 10) {
-      await convex.mutation(api.pdfWorksheets.updateProcessingStage, {
+      await getConvex().mutation(api.pdfWorksheets.updateProcessingStage, {
         worksheetId: worksheetId as Id<"pdfWorksheets">,
         processingStage: "failed",
         processingError: "OCR extracted no text from document",
@@ -106,7 +108,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Save OCR text to worksheet
-    await convex.mutation(api.pdfWorksheets.saveOcrText, {
+    await getConvex().mutation(api.pdfWorksheets.saveOcrText, {
       worksheetId: worksheetId as Id<"pdfWorksheets">,
       ocrText: ocrResult.text,
     });

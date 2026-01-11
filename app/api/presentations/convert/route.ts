@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { ConvexHttpClient } from "convex/browser";
+import { getConvexClient } from "@/lib/convex-client";
+
+// Lazy-initialized Convex client
+const getConvex = () => getConvexClient();
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import JSZip from "jszip";
-
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 // Types for slide content
 interface SlideContent {
@@ -135,15 +136,15 @@ export async function POST(request: NextRequest): Promise<NextResponse<Conversio
       return NextResponse.json({ success: false, error: "Failed to get auth token" }, { status: 401 });
     }
 
-    convex.setAuth(token);
+    getConvex().setAuth(token);
 
-    const presentationId = await convex.mutation(api.presentations.createPresentation, {
+    const presentationId = await getConvex().mutation(api.presentations.createPresentation, {
       name: presentationName || file.name.replace(/\.[^/.]+$/, ""),
       originalFileName: file.name,
       originalFileType: fileType,
     });
 
-    await convex.mutation(api.presentations.updatePresentationStatus, {
+    await getConvex().mutation(api.presentations.updatePresentationStatus, {
       presentationId,
       status: "processing",
     });
@@ -174,7 +175,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Conversio
 
               // Save slide content to presentation
               if (slideContent.length > 0) {
-                await convex.mutation(api.presentations.updateSlideContent, {
+                await getConvex().mutation(api.presentations.updateSlideContent, {
                   presentationId,
                   slideContent,
                 });
@@ -212,7 +213,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Conversio
           throw new Error("Failed to convert presentation. Is LibreOffice installed?");
         }
       } else {
-        await convex.mutation(api.presentations.updatePresentationStatus, {
+        await getConvex().mutation(api.presentations.updatePresentationStatus, {
           presentationId,
           status: "failed",
           errorMessage: `Unsupported file type: ${fileType}`,
@@ -226,7 +227,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Conversio
       for (let i = 0; i < slides.length; i++) {
         const slideBuffer = slides[i];
 
-        const uploadUrl = await convex.mutation(api.presentations.generateUploadUrl, {});
+        const uploadUrl = await getConvex().mutation(api.presentations.generateUploadUrl, {});
 
         const slideBlob = new Blob([new Uint8Array(slideBuffer)], { type: "image/png" });
 
@@ -242,14 +243,14 @@ export async function POST(request: NextRequest): Promise<NextResponse<Conversio
 
         const { storageId } = await uploadResponse.json();
 
-        await convex.mutation(api.presentations.addSlideToPresentation, {
+        await getConvex().mutation(api.presentations.addSlideToPresentation, {
           presentationId,
           slideIndex: i,
           storageId: storageId as Id<"_storage">,
         });
       }
 
-      await convex.mutation(api.presentations.finalizePresentation, {
+      await getConvex().mutation(api.presentations.finalizePresentation, {
         presentationId,
         totalSlides: slides.length,
       });
@@ -263,7 +264,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Conversio
     } catch (conversionError) {
       console.error("Conversion error:", conversionError);
 
-      await convex.mutation(api.presentations.updatePresentationStatus, {
+      await getConvex().mutation(api.presentations.updatePresentationStatus, {
         presentationId,
         status: "failed",
         errorMessage: conversionError instanceof Error ? conversionError.message : "Unknown conversion error",

@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ConvexHttpClient } from "convex/browser";
+import { getConvexClient } from "@/lib/convex-client";
+
+// Lazy-initialized Convex client
+const getConvex = () => getConvexClient();
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 // Chunk text into overlapping segments for better retrieval
 function chunkText(text: string, chunkSize = 500, overlap = 50): string[] {
@@ -68,7 +70,7 @@ export async function POST(request: NextRequest) {
     const collectionName = `kb_${knowledgeBaseId}`;
 
     // Get all content for this knowledge base
-    const allContent = await convex.query(api.knowledgeBases.getContentForKnowledgeBase, {
+    const allContent = await getConvex().query(api.knowledgeBases.getContentForKnowledgeBase, {
       knowledgeBaseId: knowledgeBaseId as Id<"knowledgeBases">,
     });
 
@@ -166,7 +168,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update knowledge base with vector store reference
-    await convex.mutation(api.knowledgeBases.updateVectorStoreRef, {
+    await getConvex().mutation(api.knowledgeBases.updateVectorStoreRef, {
       knowledgeBaseId: knowledgeBaseId as Id<"knowledgeBases">,
       vectorStoreRef: collectionName,
     });
