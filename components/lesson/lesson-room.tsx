@@ -130,12 +130,12 @@ export function LessonRoom({
   // Error state
   if (error) {
     return (
-      <div className="fixed inset-0 bg-[#4F5338] flex items-center justify-center">
-        {/* Background Logo */}
+      <div className="fixed inset-0 bg-[#4F5338] flex flex-col items-center justify-center p-4">
+        {/* Logo */}
         <img
-          src="/sls-logo-white.jpg"
-          alt=""
-          className="absolute top-8 left-1/2 -translate-x-1/2 h-12 md:h-16 object-contain opacity-80"
+          src="/sls-logo-green.jpg"
+          alt="SLS"
+          className="absolute top-6 left-1/2 -translate-x-1/2 h-10 md:h-12 object-contain"
         />
         <div className="text-center text-white">
           <p className="text-red-400 mb-4">{error}</p>
@@ -154,12 +154,12 @@ export function LessonRoom({
   // Loading state
   if (isConnecting || !token) {
     return (
-      <div className="fixed inset-0 bg-[#4F5338] flex items-center justify-center">
-        {/* Background Logo */}
+      <div className="fixed inset-0 bg-[#4F5338] flex flex-col items-center justify-center p-4">
+        {/* Logo */}
         <img
-          src="/sls-logo-white.jpg"
-          alt=""
-          className="absolute top-8 left-1/2 -translate-x-1/2 h-12 md:h-16 object-contain opacity-80"
+          src="/sls-logo-green.jpg"
+          alt="SLS"
+          className="absolute top-6 left-1/2 -translate-x-1/2 h-10 md:h-12 object-contain"
         />
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-white/60" />
@@ -361,12 +361,12 @@ function RoomContent({
   // Session Complete overlay
   if (showComplete) {
     return (
-      <div className="fixed inset-0 bg-[#4F5338] flex items-center justify-center animate-in fade-in duration-500">
-        {/* Background Logo */}
+      <div className="fixed inset-0 bg-[#4F5338] flex flex-col items-center justify-center p-4 animate-in fade-in duration-500">
+        {/* Logo */}
         <img
-          src="/sls-logo-white.jpg"
-          alt=""
-          className="absolute top-8 left-1/2 -translate-x-1/2 h-12 md:h-16 object-contain opacity-80"
+          src="/sls-logo-green.jpg"
+          alt="SLS"
+          className="absolute top-6 left-1/2 -translate-x-1/2 h-10 md:h-12 object-contain"
         />
         <div className="text-center text-white">
           <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-6">
@@ -383,13 +383,6 @@ function RoomContent({
 
   return (
     <div className="fixed inset-0 bg-[#4F5338]">
-      {/* Background Logo */}
-      <img
-        src="/sls-logo-white.jpg"
-        alt=""
-        className="absolute top-8 left-1/2 -translate-x-1/2 h-12 md:h-16 object-contain opacity-80 z-10"
-      />
-
       {/* Audio Blocked Overlay */}
       {audioContextBlocked && (
         <div className="absolute inset-0 z-50 bg-[#4F5338]/90 backdrop-blur-sm flex items-center justify-center p-6">
@@ -411,104 +404,213 @@ function RoomContent({
         </div>
       )}
 
-      {/* Timer - Top Center (below logo) */}
-      <div className="absolute top-24 md:top-28 left-1/2 -translate-x-1/2 z-20">
-        <div className="bg-white/10 backdrop-blur-xl rounded-full px-4 py-2 border border-white/20">
-          <SessionTimer
-            durationMinutes={durationMinutes}
-            startTime={sessionStartTime}
-            onExpired={handleTimerExpiry}
+      {/* ===== PORTRAIT MODE (Mobile) ===== */}
+      <div className="flex flex-col h-full landscape:hidden">
+        {/* Header with Logo */}
+        <div className="flex-none pt-4 pb-2 px-4">
+          <img
+            src="/sls-logo-green.jpg"
+            alt="SLS"
+            className="h-10 mx-auto object-contain"
           />
         </div>
-      </div>
 
-      {/* Avatar Video - Centered */}
-      <div className="absolute inset-0 flex items-center justify-center p-4 md:p-8 pt-36 md:pt-40">
-        <div
-          className={cn(
-            "relative w-full max-w-3xl aspect-video rounded-3xl overflow-hidden",
-            "shadow-2xl shadow-black/50",
-            "transition-opacity duration-[3000ms]",
-            isFadingOut && "opacity-0"
-          )}
-        >
-          {avatarVideoTrack ? (
-            <VideoTrack
-              trackRef={avatarVideoTrack}
-              className="w-full h-full object-cover"
+        {/* Timer */}
+        <div className="flex-none flex justify-center pb-3">
+          <div className="bg-white/10 backdrop-blur-xl rounded-full px-4 py-1.5 border border-white/20">
+            <SessionTimer
+              durationMinutes={durationMinutes}
+              startTime={sessionStartTime}
+              onExpired={handleTimerExpiry}
             />
-          ) : (
-            // Loading placeholder
-            <div className="w-full h-full bg-[#3a3f2a] flex items-center justify-center">
-              <div className="text-center">
-                <div className="relative mx-auto mb-6">
-                  <div className="w-24 h-24 rounded-full bg-white/10 flex items-center justify-center overflow-hidden">
-                    {avatar?.profileImage ? (
-                      <img
-                        src={avatar.profileImage}
-                        alt={avatarName}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-4xl font-light text-white/80">
-                        {avatarName.charAt(0).toUpperCase()}
-                      </span>
-                    )}
-                  </div>
-                  <div className="absolute inset-0 rounded-full border-2 border-white/20 animate-ping" />
-                </div>
-                <p className="text-white/60 text-sm">
-                  {agent ? "Almost ready..." : `Connecting to ${avatarName}...`}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Connection status */}
-          {room.state !== "connected" && (
-            <div className="absolute inset-0 bg-[#4F5338]/60 flex items-center justify-center">
-              <Loader2 className="w-8 h-8 animate-spin text-white/60" />
-            </div>
-          )}
+          </div>
         </div>
-      </div>
 
-      {/* Student Preview - Bottom Right (FaceTime style) */}
-      {localVideoTrack && (
+        {/* Video Container */}
+        <div className="flex-1 flex items-center justify-center px-4 min-h-0">
+          <div
+            className={cn(
+              "relative w-full max-w-md aspect-[3/4] rounded-3xl overflow-hidden",
+              "border-2 border-white/10",
+              "shadow-[0_0_60px_rgba(255,255,255,0.1)]",
+              "transition-opacity duration-[3000ms]",
+              isFadingOut && "opacity-0"
+            )}
+          >
+            {avatarVideoTrack ? (
+              <VideoTrack
+                trackRef={avatarVideoTrack}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full bg-[#3a3f2a] flex items-center justify-center">
+                <div className="text-center">
+                  <div className="relative mx-auto mb-4">
+                    <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center overflow-hidden">
+                      {avatar?.profileImage ? (
+                        <img
+                          src={avatar.profileImage}
+                          alt={avatarName}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-3xl font-light text-white/80">
+                          {avatarName.charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div className="absolute inset-0 rounded-full border-2 border-white/20 animate-ping" />
+                  </div>
+                  <p className="text-white/60 text-sm">
+                    {agent ? "Almost ready..." : `Connecting...`}
+                  </p>
+                </div>
+              </div>
+            )}
+            {room.state !== "connected" && (
+              <div className="absolute inset-0 bg-[#4F5338]/60 flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-white/60" />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Controls - Below Video */}
         <div
           className={cn(
-            "absolute bottom-28 right-4 md:bottom-32 md:right-8",
-            "w-24 h-32 md:w-32 md:h-44",
-            "rounded-2xl overflow-hidden",
-            "border-2 border-white/20",
-            "shadow-xl shadow-black/40",
+            "flex-none py-4 flex justify-center",
             "transition-opacity duration-[3000ms]",
             isFadingOut && "opacity-0"
           )}
         >
-          <VideoTrack
-            trackRef={localVideoTrack}
-            className="w-full h-full object-cover mirror"
+          <MinimalControls
+            isPaused={isMuted}
+            isEnding={isEnding}
+            onPause={toggleMute}
+            onResume={toggleMute}
+            onRestart={restartSession}
+            onStop={() => endLesson(false)}
           />
         </div>
-      )}
 
-      {/* Controls - Bottom Center */}
-      <div
-        className={cn(
-          "absolute bottom-6 left-1/2 -translate-x-1/2 z-20",
-          "transition-opacity duration-[3000ms]",
-          isFadingOut && "opacity-0"
-        )}
-      >
-        <MinimalControls
-          isPaused={isMuted}
-          isEnding={isEnding}
-          onPause={toggleMute}
-          onResume={toggleMute}
-          onRestart={restartSession}
-          onStop={() => endLesson(false)}
-        />
+        {/* Student Preview - Bottom */}
+        <div
+          className={cn(
+            "flex-none pb-4 flex justify-center",
+            "transition-opacity duration-[3000ms]",
+            isFadingOut && "opacity-0"
+          )}
+        >
+          {localVideoTrack ? (
+            <div className="w-20 h-28 rounded-2xl overflow-hidden border-2 border-white/20 shadow-lg">
+              <VideoTrack
+                trackRef={localVideoTrack}
+                className="w-full h-full object-cover mirror"
+              />
+            </div>
+          ) : (
+            <div className="w-20 h-28 rounded-2xl bg-white/10 border-2 border-white/20" />
+          )}
+        </div>
+      </div>
+
+      {/* ===== LANDSCAPE MODE (Horizontal) ===== */}
+      <div className="hidden landscape:flex h-full">
+        {/* Left Side - Video */}
+        <div className="flex-[2] flex items-center justify-center p-4">
+          <div
+            className={cn(
+              "relative w-full h-full max-h-[90vh] aspect-video rounded-3xl overflow-hidden",
+              "border-2 border-white/10",
+              "shadow-[0_0_60px_rgba(255,255,255,0.1)]",
+              "transition-opacity duration-[3000ms]",
+              isFadingOut && "opacity-0"
+            )}
+          >
+            {avatarVideoTrack ? (
+              <VideoTrack
+                trackRef={avatarVideoTrack}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full bg-[#3a3f2a] flex items-center justify-center">
+                <div className="text-center">
+                  <div className="relative mx-auto mb-4">
+                    <div className="w-24 h-24 rounded-full bg-white/10 flex items-center justify-center overflow-hidden">
+                      {avatar?.profileImage ? (
+                        <img
+                          src={avatar.profileImage}
+                          alt={avatarName}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-4xl font-light text-white/80">
+                          {avatarName.charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div className="absolute inset-0 rounded-full border-2 border-white/20 animate-ping" />
+                  </div>
+                  <p className="text-white/60 text-sm">
+                    {agent ? "Almost ready..." : `Connecting...`}
+                  </p>
+                </div>
+              </div>
+            )}
+            {room.state !== "connected" && (
+              <div className="absolute inset-0 bg-[#4F5338]/60 flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-white/60" />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Side - Logo, Timer, Controls, Preview */}
+        <div
+          className={cn(
+            "flex-1 flex flex-col items-center justify-between py-6 px-4",
+            "transition-opacity duration-[3000ms]",
+            isFadingOut && "opacity-0"
+          )}
+        >
+          {/* Logo */}
+          <img
+            src="/sls-logo-green.jpg"
+            alt="SLS"
+            className="h-12 object-contain"
+          />
+
+          {/* Timer */}
+          <div className="bg-white/10 backdrop-blur-xl rounded-full px-4 py-2 border border-white/20">
+            <SessionTimer
+              durationMinutes={durationMinutes}
+              startTime={sessionStartTime}
+              onExpired={handleTimerExpiry}
+            />
+          </div>
+
+          {/* Controls */}
+          <MinimalControls
+            isPaused={isMuted}
+            isEnding={isEnding}
+            onPause={toggleMute}
+            onResume={toggleMute}
+            onRestart={restartSession}
+            onStop={() => endLesson(false)}
+          />
+
+          {/* Student Preview */}
+          {localVideoTrack ? (
+            <div className="w-28 h-36 rounded-2xl overflow-hidden border-2 border-white/20 shadow-lg">
+              <VideoTrack
+                trackRef={localVideoTrack}
+                className="w-full h-full object-cover mirror"
+              />
+            </div>
+          ) : (
+            <div className="w-28 h-36 rounded-2xl bg-white/10 border-2 border-white/20" />
+          )}
+        </div>
       </div>
     </div>
   );
