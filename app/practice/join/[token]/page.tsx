@@ -226,11 +226,11 @@ export default function PracticeJoinPage() {
     const waitingConfig = practiceData.practice.entryFlowConfig?.waitingScreen;
     return (
       <WaitingScreen
-        text={waitingConfig?.text || "{avatarName} is preparing your session..."}
+        text={waitingConfig?.text || "{avatarName} is getting ready..."}
         subtext={waitingConfig?.subtext}
         animation={waitingConfig?.animation || "pulse"}
         showAvatarImage={waitingConfig?.showAvatarImage !== false}
-        avatarImage={practiceData.avatar.appearance?.avatarImage}
+        avatarImage={practiceData.avatar.profileImage || practiceData.avatar.appearance?.avatarImage}
         avatarName={practiceData.avatar.name}
         estimatedWaitSeconds={waitingConfig?.estimatedWaitSeconds}
         onCancel={handleCancel}
@@ -245,7 +245,7 @@ export default function PracticeJoinPage() {
         <GuestEntryForm
           settings={practiceData.practice.guestSettings || {}}
           avatarName={practiceData.avatar?.name || "Avatar"}
-          avatarImage={practiceData.avatar?.appearance?.avatarImage}
+          avatarImage={practiceData.avatar?.profileImage || practiceData.avatar?.appearance?.avatarImage}
           onSubmit={handleGuestFormSubmit}
         />
       </div>
@@ -276,10 +276,11 @@ export default function PracticeJoinPage() {
           {/* Avatar preview */}
           {avatar && (
             <div className="mb-8">
+              <p className="text-center mb-2 text-sm text-[#4F5338]">{avatar.name}</p>
               <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-lg">
-                {avatar.appearance?.avatarImage ? (
+                {(avatar.profileImage || avatar.appearance?.avatarImage) ? (
                   <Image
-                    src={avatar.appearance.avatarImage}
+                    src={avatar.profileImage || avatar.appearance?.avatarImage || ""}
                     alt={avatar.name}
                     fill
                     className="object-cover"
@@ -292,7 +293,7 @@ export default function PracticeJoinPage() {
                   </div>
                 )}
               </div>
-              <p className="text-center mt-3 font-medium text-[#003F37]">{avatar.name}</p>
+              <p className="text-center mt-3 font-semibold text-[#003F37]">{avatar.name}</p>
             </div>
           )}
 
@@ -355,11 +356,11 @@ export default function PracticeJoinPage() {
 
           {/* Start button */}
           <StartButton
-            text={startConfig?.text || "Start Conversation"}
+            text={startConfig?.text || "Start Practice"}
             variant={startConfig?.variant || "primary"}
             animation={startConfig?.animation || "breathe"}
             showAvatarPreview={startConfig?.showAvatarPreview}
-            avatarImage={avatar?.appearance?.avatarImage}
+            avatarImage={avatar?.profileImage || avatar?.appearance?.avatarImage}
             avatarName={avatar?.name}
             onClick={handleStart}
           />

@@ -160,6 +160,7 @@ export const getByShareToken = query({
             _id: avatar._id,
             name: avatar.name,
             appearance: avatar.appearance,
+            profileImage: avatar.profileImage,
           }
         : null,
       isAuthenticated: !!identity,
