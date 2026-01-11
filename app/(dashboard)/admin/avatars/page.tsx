@@ -39,6 +39,7 @@ import {
   AlertTriangle,
   Clock,
   XCircle,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRef } from "react";
@@ -1939,7 +1940,10 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
   const updateAvatar = useMutation(api.avatars.updateAvatar);
   const updateLifeStory = useMutation(api.avatars.updateLifeStory);
   const updateSessionStartConfig = useMutation(api.avatars.updateSessionStartConfig);
+  const generateUploadUrl = useMutation(api.avatars.generateProfileImageUploadUrl);
+  const saveProfileImage = useMutation(api.avatars.saveProfileImage);
   const knowledgeBases = useQuery(api.knowledgeBases.list);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [activeTab, setActiveTab] = useState<"basic" | "voice" | "avatar" | "llm" | "vision" | "behavior" | "personality" | "identity" | "knowledge" | "memory" | "lifeStory" | "sessionStart" | "sessionTimer">("basic");
   const [modelSearch, setModelSearch] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -2242,17 +2246,71 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">Profile Image URL</label>
-                  <input
-                    type="url"
-                    value={formData.profileImage}
-                    onChange={(e) => setFormData({ ...formData, profileImage: e.target.value })}
-                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
-                    placeholder="https://example.com/avatar.jpg"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Image shown in the loading circle before avatar connects
-                  </p>
+                  <label className="text-sm font-medium">Profile Image</label>
+                  <div className="mt-1 flex items-center gap-3">
+                    {/* Preview */}
+                    {formData.profileImage && (
+                      <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-muted flex-shrink-0">
+                        <img
+                          src={formData.profileImage}
+                          alt="Profile preview"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
+                    {/* Upload Button */}
+                    <div className="flex-1">
+                      <label className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg cursor-pointer hover:bg-primary/90 transition-colors">
+                        <Upload className="w-4 h-4" />
+                        {isUploadingImage ? "Uploading..." : "Upload Image"}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={isUploadingImage}
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+
+                            setIsUploadingImage(true);
+                            try {
+                              // Get upload URL from Convex
+                              const uploadUrl = await generateUploadUrl();
+
+                              // Upload file to Convex storage
+                              const result = await fetch(uploadUrl, {
+                                method: "POST",
+                                headers: { "Content-Type": file.type },
+                                body: file,
+                              });
+
+                              if (!result.ok) throw new Error("Upload failed");
+
+                              const { storageId } = await result.json();
+
+                              // Save the profile image to the avatar
+                              const saveResult = await saveProfileImage({
+                                avatarId,
+                                storageId,
+                              });
+
+                              // Update local form state
+                              setFormData({ ...formData, profileImage: saveResult.url });
+                              toast.success("Profile image uploaded!");
+                            } catch (error) {
+                              console.error("Upload error:", error);
+                              toast.error("Failed to upload image");
+                            } finally {
+                              setIsUploadingImage(false);
+                            }
+                          }}
+                        />
+                      </label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Image shown in the loading circle before avatar connects
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

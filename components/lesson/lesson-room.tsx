@@ -514,13 +514,30 @@ function RoomContent({
         </div>
       </div>
 
-      {/* ===== LANDSCAPE MODE (Horizontal) ===== */}
-      <div className="hidden landscape:flex h-full">
-        {/* Left Side - Video */}
-        <div className="flex-[2] flex items-center justify-center p-4">
+      {/* ===== LANDSCAPE MODE (Desktop) ===== */}
+      <div className="hidden landscape:flex landscape:flex-col h-full p-4">
+        {/* Timer - Top Center */}
+        <div
+          className={cn(
+            "flex-none flex justify-center pb-4",
+            "transition-opacity duration-[3000ms]",
+            isFadingOut && "opacity-0"
+          )}
+        >
+          <div className="bg-white/10 backdrop-blur-xl rounded-full px-4 py-2 border border-white/20">
+            <SessionTimer
+              durationMinutes={durationMinutes}
+              startTime={sessionStartTime}
+              onExpired={handleTimerExpiry}
+            />
+          </div>
+        </div>
+
+        {/* Video Container - Centered with controls at bottom */}
+        <div className="flex-1 flex items-center justify-center min-h-0 relative">
           <div
             className={cn(
-              "relative w-full h-full max-h-[90vh] aspect-video rounded-3xl overflow-hidden",
+              "relative h-full max-h-[80vh] aspect-video rounded-3xl overflow-hidden",
               "border-2 border-white/10",
               "shadow-[0_0_60px_rgba(255,255,255,0.1)]",
               "transition-opacity duration-[3000ms]",
@@ -562,54 +579,45 @@ function RoomContent({
                 <Loader2 className="w-8 h-8 animate-spin text-white/60" />
               </div>
             )}
-          </div>
-        </div>
 
-        {/* Right Side - Logo, Timer, Controls, Preview */}
-        <div
-          className={cn(
-            "flex-1 flex flex-col items-center justify-between py-6 px-4",
-            "transition-opacity duration-[3000ms]",
-            isFadingOut && "opacity-0"
-          )}
-        >
-          {/* Logo */}
-          <img
-            src="/sls-logo-green.jpg"
-            alt="SLS"
-            className="h-12 object-contain"
-          />
-
-          {/* Timer */}
-          <div className="bg-white/10 backdrop-blur-xl rounded-full px-4 py-2 border border-white/20">
-            <SessionTimer
-              durationMinutes={durationMinutes}
-              startTime={sessionStartTime}
-              onExpired={handleTimerExpiry}
-            />
-          </div>
-
-          {/* Controls */}
-          <MinimalControls
-            isPaused={isMuted}
-            isEnding={isEnding}
-            onPause={toggleMute}
-            onResume={toggleMute}
-            onRestart={restartSession}
-            onStop={() => endLesson(false)}
-          />
-
-          {/* Student Preview */}
-          {localVideoTrack ? (
-            <div className="w-28 h-36 rounded-2xl overflow-hidden border-2 border-white/20 shadow-lg">
-              <VideoTrack
-                trackRef={localVideoTrack}
-                className="w-full h-full object-cover mirror"
+            {/* Controls - Bottom of Video, Centered */}
+            <div
+              className={cn(
+                "absolute bottom-4 left-1/2 -translate-x-1/2",
+                "transition-opacity duration-[3000ms]",
+                isFadingOut && "opacity-0"
+              )}
+            >
+              <MinimalControls
+                isPaused={isMuted}
+                isEnding={isEnding}
+                onPause={toggleMute}
+                onResume={toggleMute}
+                onRestart={restartSession}
+                onStop={() => endLesson(false)}
               />
             </div>
-          ) : (
-            <div className="w-28 h-36 rounded-2xl bg-white/10 border-2 border-white/20" />
-          )}
+
+            {/* Student Preview - Bottom Right Corner */}
+            <div
+              className={cn(
+                "absolute bottom-4 right-4",
+                "transition-opacity duration-[3000ms]",
+                isFadingOut && "opacity-0"
+              )}
+            >
+              {localVideoTrack ? (
+                <div className="w-24 h-32 rounded-2xl overflow-hidden border-2 border-white/20 shadow-lg">
+                  <VideoTrack
+                    trackRef={localVideoTrack}
+                    className="w-full h-full object-cover mirror"
+                  />
+                </div>
+              ) : (
+                <div className="w-24 h-32 rounded-2xl bg-white/10 border-2 border-white/20" />
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

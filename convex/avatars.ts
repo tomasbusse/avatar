@@ -638,3 +638,41 @@ export const deleteAvatar = mutation({
     };
   },
 });
+
+// ============================================
+// PROFILE IMAGE UPLOAD
+// ============================================
+
+export const generateProfileImageUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const saveProfileImage = mutation({
+  args: {
+    avatarId: v.id("avatars"),
+    storageId: v.id("_storage"),
+  },
+  handler: async (ctx, args) => {
+    const avatar = await ctx.db.get(args.avatarId);
+    if (!avatar) {
+      throw new Error("Avatar not found");
+    }
+
+    // Get the URL for the uploaded file
+    const url = await ctx.storage.getUrl(args.storageId);
+    if (!url) {
+      throw new Error("Failed to get storage URL");
+    }
+
+    // Update the avatar with the new profile image URL
+    await ctx.db.patch(args.avatarId, {
+      profileImage: url,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true, url };
+  },
+});
