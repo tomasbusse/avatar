@@ -324,6 +324,21 @@ export default defineSchema({
       voiceId: v.string(),
       language: v.string(),
       model: v.optional(v.string()),
+      // Language mode: english (default), german, or bilingual
+      languageMode: v.optional(
+        v.union(
+          v.literal("english"),    // English only (STT: en, TTS: en)
+          v.literal("german"),     // German only (STT: de, TTS: de)
+          v.literal("bilingual")   // German + English (STT: multi, TTS: switches)
+        )
+      ),
+      // Default language for bilingual mode (which language TTS starts in)
+      bilingualDefault: v.optional(
+        v.union(
+          v.literal("en"),  // Start in English, can switch to German
+          v.literal("de")   // Start in German, can switch to English
+        )
+      ),
       settings: v.object({
         speed: v.number(),
         pitch: v.optional(v.number()),
@@ -333,6 +348,23 @@ export default defineSchema({
           v.array(v.string())  // New: ["positivity:medium"]
         )),
       }),
+      // Per-language TTS settings (used when languageMode is "bilingual")
+      languageSettings: v.optional(
+        v.object({
+          en: v.optional(
+            v.object({
+              speed: v.optional(v.number()),
+              emotion: v.optional(v.string()),
+            })
+          ),
+          de: v.optional(
+            v.object({
+              speed: v.optional(v.number()),
+              emotion: v.optional(v.string()),
+            })
+          ),
+        })
+      ),
       languageVoices: v.optional(
         v.object({
           en: v.optional(v.string()),

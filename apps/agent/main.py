@@ -1895,19 +1895,38 @@ async def entrypoint(ctx: JobContext):
     # Initialize STT - configurable via avatar sttConfig (nested object in schema)
     stt_config = avatar_config.get("sttConfig", {})
     stt_model = stt_config.get("model", "nova-3")
-    stt_language = stt_config.get("language", "en")
     stt_settings = stt_config.get("settings", {})
     stt_endpointing = stt_settings.get("endpointing", 300)  # Default reduced from 600 to 300ms for faster response
     stt_smart_format = stt_settings.get("smartFormat", True)
 
-    logger.info(f"🎤 STT Config from avatar: model={stt_model}, language={stt_language}, endpointing={stt_endpointing}ms")
+    # Get language mode from voiceProvider (english, german, or bilingual)
+    voice_provider_config = avatar_config.get("voiceProvider", {})
+    language_mode = voice_provider_config.get("languageMode", "english")
+
+    # Map language mode to STT language setting
+    # - "english" → "en" (English only)
+    # - "german" → "de" (German only)
+    # - "bilingual" → "multi" (auto-detect German + English with per-word language tags)
+    stt_language_map = {
+        "english": "en",
+        "german": "de",
+        "bilingual": "multi"
+    }
+    stt_language = stt_language_map.get(language_mode, "en")
+
+    # Use lower endpointing for bilingual mode (better for code-switching)
+    if language_mode == "bilingual" and stt_endpointing > 200:
+        stt_endpointing = 200  # Faster turn detection for code-switching
+
+    logger.info(f"🎤 STT Config: mode={language_mode}, language={stt_language}, model={stt_model}, endpointing={stt_endpointing}ms")
 
     stt = deepgram.STT(
         model=stt_model,
-        language=stt_language if stt_language != "en" else "multi",  # Use multi for bilingual support
+        language=stt_language,
         smart_format=stt_smart_format,
         interim_results=True,
         endpointing_ms=stt_endpointing,
+        filler_words=language_mode == "bilingual",  # Capture "um", "ähm" for better turn detection in bilingual mode
     )
     
     # Initialize TTS - handle BOTH formats:
@@ -1951,22 +1970,51 @@ async def entrypoint(ctx: JobContext):
         except Exception as e:
             logger.error(f"❌ [SLIDE] Failed to send command: {e}")
 
+    # Map language mode to TTS language setting
+    # - "english" → "en"
+    # - "german" → "de"
+    # - "bilingual" → uses bilingualDefault (en or de), can switch at runtime
+    bilingual_default = voice_provider.get("bilingualDefault", "en")  # Default to English if not specified
+
+    tts_language_map = {
+        "english": "en",
+        "german": "de",
+        "bilingual": bilingual_default  # Use the configured default for bilingual mode
+    }
+    tts_language = tts_language_map.get(language_mode, "en")
+
+    # Get per-language settings for bilingual mode
+    language_settings = voice_provider.get("languageSettings", {})
+    en_settings = language_settings.get("en", {})
+    de_settings = language_settings.get("de", {})
+
     if voice_id.startswith("aura-"):
         logger.info(f"🔊 Using Deepgram TTS: {voice_id}")
         base_tts = deepgram.TTS(model=voice_id)
     else:
         cartesia_voice = voice_id or "1463a4e1-56a1-4b41-b257-728d56e93605"
-        logger.info(f"🔊 Using Cartesia TTS: model={tts_model}, voice={cartesia_voice}")
+        logger.info(f"🔊 Using Cartesia TTS: model={tts_model}, voice={cartesia_voice}, language={tts_language}, mode={language_mode}")
         base_tts = cartesia.TTS(
             model=tts_model,
             voice=cartesia_voice,
-            language="en",
+            language=tts_language,
             sample_rate=24000,
         )
 
     # Use base TTS directly (slide navigation handled via LLM tool calls)
     tts = base_tts
-    logger.info("🔊 TTS initialized (slide nav via tool calls)")
+
+    # Store language mode and settings for runtime language switching (bilingual mode)
+    ctx.proc.userdata["language_mode"] = language_mode
+    ctx.proc.userdata["bilingual_default"] = bilingual_default
+    ctx.proc.userdata["language_settings"] = {
+        "en": {"speed": en_settings.get("speed", tts_speed), "emotion": en_settings.get("emotion", "Enthusiastic")},
+        "de": {"speed": de_settings.get("speed", tts_speed * 0.95), "emotion": de_settings.get("emotion", "Calm")},
+    }
+    if language_mode == "bilingual":
+        logger.info(f"🔊 TTS initialized: mode={language_mode}, default={bilingual_default}, can switch at runtime")
+    else:
+        logger.info(f"🔊 TTS initialized: language={tts_language}, mode={language_mode}")
     
     # Initialize LLM (for conversation) - support multiple providers
     # Latency comparison: Groq ~40ms, Cerebras ~35ms, OpenRouter ~200-400ms

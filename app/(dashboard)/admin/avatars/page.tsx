@@ -1047,6 +1047,9 @@ function AvatarCreator({ onClose, allVoices, llmModels }: { onClose: () => void;
     cartesiaEmotion: "neutral",
     cartesiaEmotionValue: ["positivity:medium"] as string[],
     cartesiaLanguage: "en",
+    // Language mode: english, german, or bilingual
+    languageMode: "english" as "english" | "german" | "bilingual",
+    bilingualDefault: "en" as "en" | "de",
     // STT Config
     sttModel: "nova-3",
     sttLanguage: "en",
@@ -1110,6 +1113,8 @@ function AvatarCreator({ onClose, allVoices, llmModels }: { onClose: () => void;
           voiceId: formData.cartesiaVoiceId,
           language: formData.cartesiaLanguage,
           model: formData.cartesiaModel,
+          languageMode: formData.languageMode,
+          bilingualDefault: formData.bilingualDefault,
           settings: {
             speed: formData.cartesiaSpeed,
             emotion: formData.cartesiaEmotionValue,  // Array format for Cartesia
@@ -1648,6 +1653,41 @@ function AvatarCreator({ onClose, allVoices, llmModels }: { onClose: () => void;
                   </div>
                 </div>
 
+                {/* Language Mode Selection */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium">Language Mode</label>
+                    <select
+                      value={formData.languageMode}
+                      onChange={(e) => setFormData({ ...formData, languageMode: e.target.value as "english" | "german" | "bilingual" })}
+                      className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                    >
+                      <option value="english">English Only</option>
+                      <option value="german">German Only</option>
+                      <option value="bilingual">Bilingual (EN + DE)</option>
+                    </select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Controls STT and TTS language detection
+                    </p>
+                  </div>
+                  {formData.languageMode === "bilingual" && (
+                    <div>
+                      <label className="text-sm font-medium">Bilingual Default</label>
+                      <select
+                        value={formData.bilingualDefault}
+                        onChange={(e) => setFormData({ ...formData, bilingualDefault: e.target.value as "en" | "de" })}
+                        className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                      >
+                        <option value="en">Start in English</option>
+                        <option value="de">Start in German</option>
+                      </select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Default language for TTS (can switch at runtime)
+                      </p>
+                    </div>
+                  )}
+                </div>
+
                 <div>
                   <label className="text-sm font-medium">Custom Voice ID</label>
                   <input
@@ -2028,6 +2068,9 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
     cartesiaEmotion: string;
     cartesiaEmotionValue: string[];
     cartesiaLanguage: string;
+    // Language mode
+    languageMode: "english" | "german" | "bilingual";
+    bilingualDefault: "en" | "de";
     // STT Config
     sttModel: string;
     sttLanguage: string;
@@ -2087,6 +2130,9 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
           ? avatar.voiceProvider.settings.emotion
           : ["positivity:medium"],
         cartesiaLanguage: avatar.voiceProvider.language,
+        // Language mode
+        languageMode: (avatar.voiceProvider as any).languageMode || "english",
+        bilingualDefault: (avatar.voiceProvider as any).bilingualDefault || "en",
         // STT Config
         sttModel: avatar.sttConfig?.model || "nova-3",
         sttLanguage: avatar.sttConfig?.language || "en",
@@ -2151,6 +2197,8 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
             voiceId: formData.cartesiaVoiceId,
             language: formData.cartesiaLanguage,
             model: formData.cartesiaModel,
+            languageMode: formData.languageMode,
+            bilingualDefault: formData.bilingualDefault,
             settings: {
               speed: formData.cartesiaSpeed,
               emotion: formData.cartesiaEmotionValue,  // Array format for Cartesia
@@ -2709,6 +2757,41 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
                       <option value="de">German</option>
                     </select>
                   </div>
+                </div>
+
+                {/* Language Mode Selection */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium">Language Mode</label>
+                    <select
+                      value={formData.languageMode}
+                      onChange={(e) => setFormData({ ...formData, languageMode: e.target.value as "english" | "german" | "bilingual" })}
+                      className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                    >
+                      <option value="english">English Only</option>
+                      <option value="german">German Only</option>
+                      <option value="bilingual">Bilingual (EN + DE)</option>
+                    </select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Controls STT and TTS language detection
+                    </p>
+                  </div>
+                  {formData.languageMode === "bilingual" && (
+                    <div>
+                      <label className="text-sm font-medium">Bilingual Default</label>
+                      <select
+                        value={formData.bilingualDefault}
+                        onChange={(e) => setFormData({ ...formData, bilingualDefault: e.target.value as "en" | "de" })}
+                        className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                      >
+                        <option value="en">Start in English</option>
+                        <option value="de">Start in German</option>
+                      </select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Default language for TTS (can switch at runtime)
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div>
