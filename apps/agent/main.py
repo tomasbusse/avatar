@@ -874,6 +874,39 @@ IMPORTANT:
 - Never repeat yourself or rephrase what you just said
 - Listen carefully and respond to what was actually said""")
 
+    # Add bilingual instructions if configured
+    voice_provider = avatar_config.get("voiceProvider", {})
+    language_mode = voice_provider.get("languageMode", "english")
+    bilingual_default = voice_provider.get("bilingualDefault", "en")
+    bilingual_config = avatar_config.get("bilingualConfig", {})
+
+    if language_mode == "bilingual":
+        # Use custom bilingual prompt if configured, otherwise use default
+        custom_bilingual_prompt = bilingual_config.get("systemPrompt")
+        if custom_bilingual_prompt:
+            prompt_parts.append(custom_bilingual_prompt)
+            logger.info(f"🌍 Added custom bilingual instructions ({len(custom_bilingual_prompt)} chars)")
+        else:
+            # Fallback to default bilingual instructions
+            default_lang = "German" if bilingual_default == "de" else "English"
+            other_lang = "English" if bilingual_default == "de" else "German"
+            prompt_parts.append(f"""
+# Language - BILINGUAL MODE
+You are fluent in both German and English. Your default language is {default_lang}.
+- START the conversation in {default_lang}
+- If the student speaks {other_lang}, switch to {other_lang}
+- If the student asks you to speak German, respond in German immediately
+- If the student asks you to speak English, respond in English immediately
+- You can naturally code-switch between languages when it helps explain something
+- When correcting mistakes, you may explain in German if the student seems to struggle with English explanations""")
+            logger.info(f"🌍 Added default bilingual instructions: default={default_lang}, mode={language_mode}")
+    elif language_mode == "german":
+        prompt_parts.append("""
+# Language - GERMAN MODE
+Speak only in German. All your responses should be in German.
+Du sprichst nur Deutsch. Alle deine Antworten sollten auf Deutsch sein.""")
+        logger.info(f"🇩🇪 Added German-only instructions")
+
     # Add memory context if available (student-specific knowledge)
     if memory_context:
         prompt_parts.append(f"""

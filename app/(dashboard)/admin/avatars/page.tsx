@@ -1050,6 +1050,14 @@ function AvatarCreator({ onClose, allVoices, llmModels }: { onClose: () => void;
     // Language mode: english, german, or bilingual
     languageMode: "english" as "english" | "german" | "bilingual",
     bilingualDefault: "en" as "en" | "de",
+    bilingualSystemPrompt: `# Language - BILINGUAL MODE
+You are fluent in both German and English.
+- If your default is German: START conversations in German, switch to English when asked
+- If your default is English: START conversations in English, switch to German when asked
+- When the student speaks German, respond in German
+- When the student speaks English, respond in English
+- You can naturally code-switch between languages when it helps explain something
+- When correcting mistakes, you may explain in German if the student struggles with English`,
     // STT Config
     sttModel: "nova-3",
     sttLanguage: "en",
@@ -1151,6 +1159,7 @@ function AvatarCreator({ onClose, allVoices, llmModels }: { onClose: () => void;
           supportedLanguages: ["en", "de"],
           defaultMode: "adaptive",
           germanThresholds: { A1: 70, A2: 50, B1: 20, B2: 5, C1: 0, C2: 0 },
+          systemPrompt: formData.languageMode === "bilingual" ? formData.bilingualSystemPrompt : undefined,
         },
         systemPrompts: {
           base: `You are ${formData.name}, a ${formData.role}. ${formData.personaDescription}. Help students improve their English through conversation.`,
@@ -1688,6 +1697,23 @@ function AvatarCreator({ onClose, allVoices, llmModels }: { onClose: () => void;
                   )}
                 </div>
 
+                {/* Bilingual System Prompt */}
+                {formData.languageMode === "bilingual" && (
+                  <div>
+                    <label className="text-sm font-medium">Bilingual System Prompt</label>
+                    <textarea
+                      value={formData.bilingualSystemPrompt}
+                      onChange={(e) => setFormData({ ...formData, bilingualSystemPrompt: e.target.value })}
+                      className="w-full mt-1 px-3 py-2 border rounded-lg bg-background font-mono text-sm"
+                      rows={8}
+                      placeholder="Instructions for how the avatar should handle German/English switching..."
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Custom instructions for bilingual behavior (injected into system prompt)
+                    </p>
+                  </div>
+                )}
+
                 <div>
                   <label className="text-sm font-medium">Custom Voice ID</label>
                   <input
@@ -2071,6 +2097,7 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
     // Language mode
     languageMode: "english" | "german" | "bilingual";
     bilingualDefault: "en" | "de";
+    bilingualSystemPrompt: string;
     // STT Config
     sttModel: string;
     sttLanguage: string;
@@ -2133,6 +2160,14 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
         // Language mode
         languageMode: (avatar.voiceProvider as any).languageMode || "english",
         bilingualDefault: (avatar.voiceProvider as any).bilingualDefault || "en",
+        bilingualSystemPrompt: avatar.bilingualConfig?.systemPrompt || `# Language - BILINGUAL MODE
+You are fluent in both German and English.
+- If your default is German: START conversations in German, switch to English when asked
+- If your default is English: START conversations in English, switch to German when asked
+- When the student speaks German, respond in German
+- When the student speaks English, respond in English
+- You can naturally code-switch between languages when it helps explain something
+- When correcting mistakes, you may explain in German if the student struggles with English`,
         // STT Config
         sttModel: avatar.sttConfig?.model || "nova-3",
         sttLanguage: avatar.sttConfig?.language || "en",
@@ -2226,6 +2261,12 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
           },
           systemPrompts: {
             base: formData.systemPrompt,
+          },
+          bilingualConfig: {
+            supportedLanguages: ["en", "de"],
+            defaultMode: "adaptive",
+            germanThresholds: { A1: 70, A2: 50, B1: 20, B2: 5, C1: 0, C2: 0 },
+            systemPrompt: formData.languageMode === "bilingual" ? formData.bilingualSystemPrompt : undefined,
           },
           behaviorRules: {
             maxResponseLength: formData.maxResponseLength,
@@ -2793,6 +2834,23 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
                     </div>
                   )}
                 </div>
+
+                {/* Bilingual System Prompt */}
+                {formData.languageMode === "bilingual" && (
+                  <div>
+                    <label className="text-sm font-medium">Bilingual System Prompt</label>
+                    <textarea
+                      value={formData.bilingualSystemPrompt}
+                      onChange={(e) => setFormData({ ...formData, bilingualSystemPrompt: e.target.value })}
+                      className="w-full mt-1 px-3 py-2 border rounded-lg bg-background font-mono text-sm"
+                      rows={8}
+                      placeholder="Instructions for how the avatar should handle German/English switching..."
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Custom instructions for bilingual behavior (injected into system prompt)
+                    </p>
+                  </div>
+                )}
 
                 <div>
                   <label className="text-sm font-medium">Custom Voice ID</label>

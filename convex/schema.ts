@@ -442,6 +442,8 @@ export default defineSchema({
         C1: v.number(),
         C2: v.number(),
       }),
+      // Custom system prompt for bilingual mode (injected when languageMode is "bilingual")
+      systemPrompt: v.optional(v.string()),
     }),
     systemPrompts: v.object({
       base: v.string(),
