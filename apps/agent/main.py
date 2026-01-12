@@ -42,7 +42,13 @@ from livekit import rtc
 from livekit.agents import AutoSubscribe, JobContext, JobProcess, WorkerOptions, cli, llm, function_tool, RunContext
 from livekit.agents.voice import AgentSession, Agent, room_io
 from livekit.agents.llm import ChatMessage, ChatRole
-from livekit.plugins import deepgram, cartesia, bey, silero, noise_cancellation
+from livekit.plugins import deepgram, cartesia, bey, silero
+try:
+    from livekit.plugins import noise_cancellation
+    NOISE_CANCELLATION_AVAILABLE = True
+except ImportError:
+    noise_cancellation = None
+    NOISE_CANCELLATION_AVAILABLE = False
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 from src.utils.config import Config
@@ -2677,15 +2683,17 @@ You are conducting a structured lesson from this presentation.
         agent = Agent(instructions=final_prompt)
     
     # Start the session FIRST (before avatar, so audio pipeline is ready)
-    # With noise cancellation and optimized room options
+    # With noise cancellation (if available) and optimized room options
+    room_opts_kwargs = {}
+    if NOISE_CANCELLATION_AVAILABLE and noise_cancellation:
+        room_opts_kwargs["audio_input"] = room_io.AudioInputOptions(
+            noise_cancellation=noise_cancellation.BVC(),  # Background Voice Cancellation
+        )
+
     await session.start(
         room=ctx.room,
         agent=agent,
-        room_options=room_io.RoomOptions(
-            audio_input=room_io.AudioInputOptions(
-                noise_cancellation=noise_cancellation.BVC(),  # Background Voice Cancellation
-            ),
-        ),
+        room_options=room_io.RoomOptions(**room_opts_kwargs) if room_opts_kwargs else None,
     )
 
     logger.info(f"✨ Session started (Vision: {'ON' if vision_enabled else 'OFF'})")
