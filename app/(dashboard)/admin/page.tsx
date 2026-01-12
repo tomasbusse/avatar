@@ -35,8 +35,6 @@ export default function AdminPage() {
   const [liveKitRooms, setLiveKitRooms] = useState<LiveKitRoom[]>([]);
   const [isLoadingRooms, setIsLoadingRooms] = useState(false);
   const [endingSessionId, setEndingSessionId] = useState<string | null>(null);
-  const [isRestartingAgent, setIsRestartingAgent] = useState(false);
-  const [agentStatus, setAgentStatus] = useState<{ running: boolean; pid: string | null } | null>(null);
 
   const users = useQuery(api.users.listUsers, { paginationOpts: { numItems: 100 } });
   const avatars = useQuery(api.avatars.listActiveAvatars);
@@ -63,47 +61,11 @@ export default function AdminPage() {
   // Fetch rooms on mount and every 30 seconds
   useEffect(() => {
     fetchLiveKitRooms();
-    fetchAgentStatus();
     const interval = setInterval(fetchLiveKitRooms, 30000);
-    const agentInterval = setInterval(fetchAgentStatus, 10000);
     return () => {
       clearInterval(interval);
-      clearInterval(agentInterval);
     };
   }, []);
-
-  // Check agent status
-  const fetchAgentStatus = async () => {
-    try {
-      const res = await fetch("/api/agent/restart");
-      if (res.ok) {
-        const data = await res.json();
-        setAgentStatus({ running: data.running, pid: data.pid });
-      }
-    } catch (error) {
-      console.error("Failed to check agent status:", error);
-    }
-  };
-
-  // Restart agent
-  const handleRestartAgent = async () => {
-    setIsRestartingAgent(true);
-    try {
-      const res = await fetch("/api/agent/restart", { method: "POST" });
-      const data = await res.json();
-      if (res.ok) {
-        toast.success(data.message);
-        // Wait and refresh status
-        setTimeout(fetchAgentStatus, 2000);
-      } else {
-        toast.error(data.error || "Failed to restart agent");
-      }
-    } catch (error: any) {
-      toast.error(error.message || "Failed to restart agent");
-    } finally {
-      setIsRestartingAgent(false);
-    }
-  };
 
   // Force end a session
   const handleForceEndSession = async (sessionId: string, roomName: string) => {
@@ -253,34 +215,14 @@ export default function AdminPage() {
             {/* Agent Control */}
             <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border">
               <div className="flex items-center gap-3">
-                <div className={`w-3 h-3 rounded-full ${agentStatus?.running ? 'bg-green-500' : 'bg-red-500'}`} />
+                <div className="w-3 h-3 rounded-full bg-gray-400" />
                 <div>
                   <p className="font-medium text-sm">Python Agent</p>
                   <p className="text-xs text-muted-foreground">
-                    {agentStatus?.running
-                      ? `Running (PID: ${agentStatus.pid})`
-                      : 'Not running'}
+                    Restart from terminal: <code className="bg-muted px-1 rounded">cd apps/agent && python main.py dev</code>
                   </p>
                 </div>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRestartAgent}
-                disabled={isRestartingAgent}
-              >
-                {isRestartingAgent ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                    Restarting...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-1" />
-                    Restart Agent
-                  </>
-                )}
-              </Button>
             </div>
 
             {/* Session Cleanup */}

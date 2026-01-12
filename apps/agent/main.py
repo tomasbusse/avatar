@@ -947,10 +947,25 @@ IMPORTANT:
 - Listen carefully and respond to what was actually said""")
 
     # Add bilingual instructions if configured
+    # Check both voice_config (Convex client format) and voiceProvider (room metadata format)
+    voice_config = avatar_config.get("voice_config", {})
     voice_provider = avatar_config.get("voiceProvider", {})
-    language_mode = voice_provider.get("languageMode", "english")
-    bilingual_default = voice_provider.get("bilingualDefault", "en")
+    language_mode = voice_config.get("language_mode") or voice_provider.get("languageMode") or "english"
+    bilingual_default = voice_config.get("bilingual_default") or voice_provider.get("bilingualDefault") or "en"
     bilingual_config = avatar_config.get("bilingualConfig", {})
+
+    # LOG BILINGUAL CONFIG FOR DEBUGGING
+    logger.info("=" * 60)
+    logger.info(f"🌍 BILINGUAL CONFIG DEBUG:")
+    logger.info(f"   voice_config keys: {list(voice_config.keys())}")
+    logger.info(f"   voiceProvider keys: {list(voice_provider.keys())}")
+    logger.info(f"   languageMode: {language_mode}")
+    logger.info(f"   bilingualDefault: {bilingual_default}")
+    logger.info(f"   bilingualConfig keys: {list(bilingual_config.keys())}")
+    logger.info(f"   bilingualConfig.systemPrompt exists: {'systemPrompt' in bilingual_config}")
+    if 'systemPrompt' in bilingual_config:
+        logger.info(f"   Custom systemPrompt length: {len(bilingual_config.get('systemPrompt', ''))}")
+    logger.info("=" * 60)
 
     if language_mode == "bilingual":
         # Use custom bilingual prompt if configured, otherwise use default
@@ -1019,6 +1034,16 @@ If they've struggled with something before, gently revisit it. If they have pers
 
     full_prompt = "\n\n".join(prompt_parts)
     logger.info(f"📝 System prompt: {len(full_prompt)} chars (simplified)")
+
+    # LOG FULL PROMPT FOR DEBUGGING - shows exactly what Helena receives
+    logger.info("=" * 80)
+    logger.info("📋 FULL SYSTEM PROMPT GIVEN TO LLM:")
+    logger.info("=" * 80)
+    for i, line in enumerate(full_prompt.split('\n')):
+        logger.info(f"  {line}")
+    logger.info("=" * 80)
+    logger.info("📋 END OF SYSTEM PROMPT")
+    logger.info("=" * 80)
 
     return full_prompt.strip()
 
@@ -1362,6 +1387,15 @@ def get_opening_greeting(
             # Default greeting - personalize for returning students
             avatar_name = avatar_config.get("name", "Emma")
 
+            # Check bilingual config - use German greetings if bilingual_default is "de"
+            voice_config = avatar_config.get("voice_config", {})
+            voice_provider = avatar_config.get("voiceProvider", {})
+            language_mode = voice_config.get("language_mode") or voice_provider.get("languageMode") or "english"
+            bilingual_default = voice_config.get("bilingual_default") or voice_provider.get("bilingualDefault") or "en"
+            use_german = (language_mode == "bilingual" and bilingual_default == "de") or language_mode == "german"
+
+            logger.info(f"🎤 Greeting language check: mode={language_mode}, default={bilingual_default}, use_german={use_german}")
+
             # Check for past-due events to ask about (e.g., "How was your holiday?")
             if past_due_events and len(past_due_events) > 0:
                 event = past_due_events[0]
@@ -1371,22 +1405,43 @@ def get_opening_greeting(
                 # Generate contextual follow-up question based on the event type
                 event_lower = event_content.lower()
                 if any(word in event_lower for word in ["holiday", "vacation", "trip", "travel", "urlaub", "reise"]):
-                    greeting = f"Welcome back! I remember you mentioned {event_content}. How was it? I'd love to hear about your trip!"
+                    if use_german:
+                        greeting = f"Willkommen zurück! Du hattest erwähnt: {event_content}. Wie war es? Erzähl mir davon!"
+                    else:
+                        greeting = f"Welcome back! I remember you mentioned {event_content}. How was it? I'd love to hear about your trip!"
                 elif any(word in event_lower for word in ["presentation", "meeting", "conference", "vortrag"]):
-                    greeting = f"Welcome back! You mentioned {event_content} last time. How did it go?"
+                    if use_german:
+                        greeting = f"Willkommen zurück! Du hattest {event_content} erwähnt. Wie ist es gelaufen?"
+                    else:
+                        greeting = f"Welcome back! You mentioned {event_content} last time. How did it go?"
                 elif any(word in event_lower for word in ["exam", "test", "prüfung"]):
-                    greeting = f"Welcome back! I hope your exam went well. How did {event_content} go?"
+                    if use_german:
+                        greeting = f"Willkommen zurück! Wie ist deine Prüfung gelaufen? Wie war {event_content}?"
+                    else:
+                        greeting = f"Welcome back! I hope your exam went well. How did {event_content} go?"
                 elif any(word in event_lower for word in ["birthday", "anniversary", "celebration", "geburtstag"]):
-                    greeting = f"Welcome back! How was {event_content}? I hope you had a wonderful celebration!"
+                    if use_german:
+                        greeting = f"Willkommen zurück! Wie war {event_content}? Ich hoffe, du hattest eine tolle Feier!"
+                    else:
+                        greeting = f"Welcome back! How was {event_content}? I hope you had a wonderful celebration!"
                 else:
                     # Generic follow-up
-                    greeting = f"Welcome back! Last time you mentioned {event_content}. How did that go?"
+                    if use_german:
+                        greeting = f"Willkommen zurück! Letztes Mal hast du {event_content} erwähnt. Wie ist es gelaufen?"
+                    else:
+                        greeting = f"Welcome back! Last time you mentioned {event_content}. How did that go?"
             elif has_history:
                 # Personalized greeting for returning student (no specific event to ask about)
-                greeting = f"Welcome back! Great to see you again. How have you been since our last session?"
+                if use_german:
+                    greeting = f"Willkommen zurück! Schön dich wiederzusehen. Wie geht es dir seit unserem letzten Gespräch?"
+                else:
+                    greeting = f"Welcome back! Great to see you again. How have you been since our last session?"
             else:
                 # First-time student greeting
-                greeting = f"Hello! I'm {avatar_name}. Great to see you today. How are you doing?"
+                if use_german:
+                    greeting = f"Hallo! Ich bin {avatar_name}. Schön dich kennenzulernen! Wie geht es dir heute?"
+                else:
+                    greeting = f"Hello! I'm {avatar_name}. Great to see you today. How are you doing?"
 
     # Replace variables
     student_name = ""
