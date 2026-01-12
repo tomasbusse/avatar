@@ -150,6 +150,78 @@ _latency_tracker = LatencyTracker()
 
 
 # =============================================================================
+# BILINGUAL LANGUAGE DETECTION - Detect German/English from transcript
+# =============================================================================
+def detect_language(text: str) -> str:
+    """
+    Detect language from text using simple heuristics.
+    Returns "de" for German, "en" for English.
+
+    For production, consider using STT's language tags or langdetect library.
+    """
+    text_lower = text.lower()
+
+    # German indicators (common words, umlauts, patterns)
+    german_words = [
+        'ich', 'du', 'wir', 'sie', 'er', 'es', 'ist', 'sind', 'haben', 'habe',
+        'was', 'wie', 'warum', 'wann', 'wo', 'der', 'die', 'das', 'ein', 'eine',
+        'und', 'oder', 'aber', 'nicht', 'kann', 'kannst', 'muss', 'müssen',
+        'verstehe', 'verstehen', 'bitte', 'danke', 'ja', 'nein', 'gut', 'schlecht',
+        'sehr', 'auch', 'noch', 'schon', 'immer', 'nie', 'heute', 'morgen', 'gestern',
+        'hallo', 'guten', 'tag', 'auf', 'wiedersehen', 'tschüss', 'sprechen', 'deutsch',
+        'englisch', 'lernen', 'üben', 'hilfe', 'frage', 'antwort', 'richtig', 'falsch',
+        'ähm', 'äh', 'hmm', 'öhm',  # German filler words
+    ]
+
+    german_score = 0
+    words = text_lower.split()
+
+    # Check for German words
+    for word in words:
+        # Strip punctuation
+        clean_word = ''.join(c for c in word if c.isalnum() or c in 'äöüß')
+        if clean_word in german_words:
+            german_score += 2
+
+    # Check for German-specific characters (umlauts, ß)
+    if any(c in text_lower for c in 'äöüß'):
+        german_score += 3
+
+    # Calculate ratio
+    word_count = len(words)
+    if word_count > 0:
+        german_ratio = german_score / word_count
+        # If significant German detected (>30% score or 3+ indicators)
+        if german_ratio > 0.3 or german_score >= 3:
+            return "de"
+
+    return "en"
+
+
+def switch_tts_language(tts, language: str, language_settings: dict) -> bool:
+    """
+    Switch TTS language using update_options().
+    Returns True if language was switched.
+    """
+    try:
+        settings = language_settings.get(language, {})
+        speed = settings.get("speed", 1.0)
+        emotion = settings.get("emotion", "Enthusiastic" if language == "en" else "Calm")
+
+        # Use update_options to switch language without recreating connection
+        tts.update_options(
+            language=language,
+            speed=speed,
+            emotion=[emotion] if emotion else None,
+        )
+        logger.info(f"🌍 TTS language switched to: {language} (speed={speed}, emotion={emotion})")
+        return True
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to switch TTS language: {e}")
+        return False
+
+
+# =============================================================================
 # SESSION TIMER - Auto wrap-up and session end management
 # =============================================================================
 class SessionTimer:
@@ -2161,12 +2233,27 @@ async def entrypoint(ctx: JobContext):
         preemptive_generation=True,      # Start TTS/LLM before turn ends (saves 150-300ms)
     )
     
-    # Event logging with latency tracking
+    # Track current TTS language for bilingual mode
+    current_tts_language = {"lang": tts_language}  # Use dict for mutability in closure
+
+    # Event logging with latency tracking + BILINGUAL LANGUAGE SWITCHING
     @session.on("user_input_transcribed")
     def on_speech(event):
         if event.is_final and event.transcript:
             _latency_tracker.mark("stt_transcript_final")
             logger.info(f"🎯 HEARD: '{event.transcript}'")
+
+            # BILINGUAL MODE: Detect language and switch TTS if needed
+            if language_mode == "bilingual":
+                detected_lang = detect_language(event.transcript)
+                if detected_lang != current_tts_language["lang"]:
+                    logger.info(f"🌍 Language detected: {detected_lang} (was: {current_tts_language['lang']})")
+                    language_settings = ctx.proc.userdata.get("language_settings", {})
+                    if switch_tts_language(tts, detected_lang, language_settings):
+                        current_tts_language["lang"] = detected_lang
+                else:
+                    logger.debug(f"🌍 Language unchanged: {detected_lang}")
+
         elif not event.is_final:
             # First interim result marks when user started speaking
             if "user_speech_start" not in _latency_tracker._timings:
