@@ -201,6 +201,7 @@ export const createAvatar = mutation({
         C1: v.number(),
         C2: v.number(),
       }),
+      systemPrompt: v.optional(v.string()),
     }),
     systemPrompts: v.object({
       base: v.string(),
