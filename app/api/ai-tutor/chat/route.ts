@@ -25,8 +25,8 @@ export async function POST(request: NextRequest) {
     }
 
     const genAI = new GoogleGenerativeAI(geminiKey);
-    // Using Gemini 1.5 Pro for reliable educational responses
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+    // Using Gemini 3 Pro Preview for best educational responses
+    const model = genAI.getGenerativeModel({ model: "gemini-3-pro-preview" });
 
     // Build conversation history for context
     const conversationHistory = (history || [])
