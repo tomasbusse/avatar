@@ -16,7 +16,8 @@ export type GameType =
   | "multiple_choice"
   | "flashcards"
   | "hangman"
-  | "crossword";
+  | "crossword"
+  | "vocabulary_matching";
 
 export type CEFRLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
 
@@ -253,6 +254,25 @@ export interface CrosswordConfig {
   items?: CrosswordPuzzleItem[];
 }
 
+// Vocabulary Matching Configuration
+export interface VocabularyTerm {
+  id: string;
+  term: string;              // The vocabulary word/phrase
+  definition: string;        // Clear definition
+  category?: string;         // Optional category (e.g., "Ingredient", "Property")
+  example?: string;          // Example sentence using the term
+  audioUrl?: string;         // Pre-generated audio URL (optional, can generate on-demand)
+}
+
+export interface VocabularyMatchingConfig {
+  type: "vocabulary_matching";
+  terms: VocabularyTerm[];   // Array of vocabulary terms
+  enableAudio: boolean;      // Enable TTS pronunciation feature
+  timeLimit?: number;        // Optional time limit in seconds
+  shuffleTerms: boolean;     // Shuffle the order of terms
+  showCategories: boolean;   // Group/display by category
+}
+
 // Union type for all game configs
 export type GameConfig =
   | SentenceBuilderConfig
@@ -263,7 +283,8 @@ export type GameConfig =
   | MultipleChoiceConfig
   | FlashcardsConfig
   | HangmanConfig
-  | CrosswordConfig;
+  | CrosswordConfig
+  | VocabularyMatchingConfig;
 
 // ============================================
 // DIFFICULTY CONFIGURATION
@@ -365,6 +386,15 @@ export interface HangmanState {
   mistakes: Record<string, number>;
 }
 
+// Vocabulary Matching Session State
+export interface VocabularyMatchingState {
+  matchedTerms: string[];       // IDs of matched term-definition pairs
+  selectedTerm: string | null;  // Currently selected term ID
+  selectedDefinition: string | null; // Currently selected definition ID
+  wrongAttempts: number;
+  audioPlayed: string[];        // IDs of terms where audio was played
+}
+
 // Union type for game states
 export type GameState =
   | SentenceBuilderState
@@ -374,7 +404,8 @@ export type GameState =
   | WordScrambleState
   | MultipleChoiceState
   | FlashcardsState
-  | HangmanState;
+  | HangmanState
+  | VocabularyMatchingState;
 
 // ============================================
 // GAME SESSION EVENTS
@@ -563,6 +594,7 @@ export function getGameTypeDisplayName(type: GameType): string {
     flashcards: "Flashcards",
     hangman: "Hangman",
     crossword: "Crossword",
+    vocabulary_matching: "Vocabulary Matching",
   };
   return names[type];
 }
@@ -581,6 +613,7 @@ export function getGameTypeIcon(type: GameType): string {
     flashcards: "🃏",
     hangman: "🎯",
     crossword: "🔠",
+    vocabulary_matching: "📚",
   };
   return icons[type];
 }
@@ -612,6 +645,9 @@ export function getTotalItems(config: GameConfig): number {
     case "crossword":
       // Support both single puzzle and multi-puzzle mode
       return config.items?.length ?? 1;
+    case "vocabulary_matching":
+      // Vocabulary matching is a single game with multiple terms
+      return 1;
     default:
       return 0;
   }
@@ -687,6 +723,13 @@ export function getItemConfig(
       // Crossword is a single puzzle - return full config
       if (index === 0) {
         return { id: "crossword-0", data: config as unknown as Record<string, unknown> };
+      }
+      return null;
+    }
+    case "vocabulary_matching": {
+      // Vocabulary matching is a single game - return full config
+      if (index === 0) {
+        return { id: "vocab-matching-0", data: config as unknown as Record<string, unknown> };
       }
       return null;
     }

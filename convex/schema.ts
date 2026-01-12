@@ -1510,6 +1510,7 @@ export default defineSchema({
       v.literal("fill_in_blank"),
       v.literal("word_ordering"),
       v.literal("matching_pairs"),
+      v.literal("vocabulary_matching"),
       v.literal("word_scramble"),
       v.literal("multiple_choice"),
       v.literal("flashcards"),

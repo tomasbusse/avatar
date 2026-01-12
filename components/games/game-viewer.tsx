@@ -13,6 +13,7 @@ import {
   MultipleChoiceConfig,
   MatchingPairsConfig,
   CrosswordConfig,
+  VocabularyMatchingConfig,
 } from "@/types/word-games";
 import { SentenceBuilder } from "./sentence-builder";
 import { WordScramble } from "./word-scramble";
@@ -22,6 +23,7 @@ import { WordOrdering, WordOrderingConfig } from "./word-ordering";
 import { MatchingPairs } from "./matching-pairs";
 import { FillInBlank } from "./fill-in-blank";
 import { Crossword } from "./crossword";
+import { VocabularyMatching } from "./vocabulary-matching";
 import html2canvas from "html2canvas";
 
 // ============================================
@@ -221,6 +223,10 @@ function getSingleItemConfig(
       }
       return null;
     }
+
+    case "vocabulary_matching":
+      // Vocabulary matching shows all terms at once
+      return index === 0 ? config : null;
 
     default:
       return null;
@@ -487,6 +493,17 @@ export function GameViewer({
             onGridChange={onCrosswordChange}
             syncedGrid={syncedCrosswordGrid}
             isViewOnly={interactionDisabled}
+          />
+        );
+
+      case "vocabulary_matching":
+        return (
+          <VocabularyMatching
+            key={`vm-${currentIndex}-${resetTrigger}`}
+            config={currentItemConfig as VocabularyMatchingConfig}
+            instructions={game.instructions}
+            hints={game.hints || []}
+            onComplete={handleItemComplete}
           />
         );
 

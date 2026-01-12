@@ -267,6 +267,7 @@ function getDefaultItemCount(gameType: GameType): number {
     flashcards: 10,
     hangman: 5,
     crossword: 6,
+    vocabulary_matching: 8,
   };
   return defaults[gameType] || 5;
 }
@@ -284,6 +285,7 @@ function getItemCountDescription(gameType: GameType, count: number): string {
     flashcards: "flashcards",
     hangman: "words to guess",
     crossword: "words in the puzzle",
+    vocabulary_matching: "terms to match",
   };
 
   return `${count} ${itemNames[gameType] || "items"}`;
@@ -533,6 +535,7 @@ function CreateGameDialog({
                         "fill_in_blank",
                         "word_ordering",
                         "matching_pairs",
+                        "vocabulary_matching",
                         "word_scramble",
                         "multiple_choice",
                         "flashcards",
@@ -738,6 +741,7 @@ function CreateGameDialog({
                       "fill_in_blank",
                       "word_ordering",
                       "matching_pairs",
+                      "vocabulary_matching",
                       "word_scramble",
                       "multiple_choice",
                       "flashcards",
@@ -942,6 +946,37 @@ function getDefaultConfig(type: GameType) {
           Array(7).fill({ letter: null, wordIds: [] })
         ),
       };
+    case "vocabulary_matching":
+      // Config matches VocabularyMatchingConfig interface
+      return {
+        type: "vocabulary_matching",
+        terms: [
+          {
+            id: "term1",
+            term: "purchase",
+            definition: "to buy something, especially something expensive",
+            category: "Business",
+            example: "We need to purchase new equipment for the office.",
+          },
+          {
+            id: "term2",
+            term: "deadline",
+            definition: "the latest time by which something must be completed",
+            category: "Business",
+            example: "The deadline for the report is Friday.",
+          },
+          {
+            id: "term3",
+            term: "appointment",
+            definition: "a scheduled meeting or arrangement",
+            category: "General",
+            example: "I have a doctor's appointment at 3pm.",
+          },
+        ],
+        enableAudio: true,
+        shuffleTerms: true,
+        showCategories: true,
+      };
     default:
       return {};
   }
@@ -1050,10 +1085,12 @@ export default function AdminGamesPage() {
             <SelectItem value="fill_in_blank">Fill in the Blank</SelectItem>
             <SelectItem value="word_ordering">Word Ordering</SelectItem>
             <SelectItem value="matching_pairs">Matching Pairs</SelectItem>
+            <SelectItem value="vocabulary_matching">Vocabulary Matching</SelectItem>
             <SelectItem value="word_scramble">Word Scramble</SelectItem>
             <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
             <SelectItem value="flashcards">Flashcards</SelectItem>
             <SelectItem value="hangman">Hangman</SelectItem>
+            <SelectItem value="crossword">Crossword</SelectItem>
           </SelectContent>
         </Select>
 

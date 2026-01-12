@@ -543,6 +543,97 @@ Create one variation object for each level in: ${targetLevels.join(", ")}`;
 }
 
 // ============================================
+// VOCABULARY MATCHING PROMPT
+// ============================================
+
+export function getVocabularyMatchingPrompt(topic: string, level: CEFRLevel, itemCount: number = 8): string {
+  return `${BASE_SYSTEM_PROMPT}
+
+Create a Vocabulary Matching game about "${topic}" for ${level} level learners.
+
+Students will match vocabulary terms with their definitions. This game includes audio pronunciation for each term.
+
+Create ${itemCount} vocabulary terms with clear definitions.
+
+OUTPUT FORMAT (JSON only):
+{
+  "title": "Short descriptive title",
+  "instructions": "Match each term with its correct definition. Click the speaker icon to hear the pronunciation.",
+  "config": {
+    "type": "vocabulary_matching",
+    "terms": [
+      {
+        "id": "term1",
+        "term": "vocabulary word",
+        "definition": "clear, concise definition appropriate for ${level} level",
+        "category": "Category Name",
+        "example": "Example sentence using the term naturally."
+      }
+    ],
+    "enableAudio": true,
+    "timeLimit": 180,
+    "shuffleTerms": true,
+    "showCategories": true
+  },
+  "hints": ["Hint 1 about vocabulary strategies", "Hint 2 about word families", "Hint 3 more specific"],
+  "category": "vocabulary"
+}
+
+REQUIREMENTS:
+- Create exactly ${itemCount} terms in the terms array
+- Each term ID must be unique (term1, term2, term3...)
+- term: The vocabulary word or phrase to learn (correctly spelled)
+- definition: Clear definition appropriate for ${level} level (no jargon, accessible language)
+- category: Group related terms (e.g., "Ingredient", "Action", "Property", "Business", "Travel")
+- example: A natural sentence showing how the word is used in context
+- Definitions should be distinct and unambiguous (only one correct match possible)
+- For ${level}: ${getLevelSpecificGuidance(level)}`;
+}
+
+export function getVocabularyFromDocumentPrompt(documentContent: string, level: CEFRLevel): string {
+  return `${BASE_SYSTEM_PROMPT}
+
+Extract vocabulary terms from the following document and create a Vocabulary Matching game for ${level} level learners.
+
+DOCUMENT CONTENT:
+${documentContent}
+
+Identify 8-15 key terms, technical vocabulary, and important concepts from the document.
+
+OUTPUT FORMAT (JSON only):
+{
+  "title": "Vocabulary from [Document Topic]",
+  "instructions": "Match each term with its correct definition. Click the speaker icon to hear the pronunciation.",
+  "config": {
+    "type": "vocabulary_matching",
+    "terms": [
+      {
+        "id": "term1",
+        "term": "extracted term from document",
+        "definition": "definition based on document context, adapted for ${level} level",
+        "category": "Category based on document content",
+        "example": "Example from or inspired by the document"
+      }
+    ],
+    "enableAudio": true,
+    "shuffleTerms": true,
+    "showCategories": true
+  },
+  "hints": ["Hint about the document topic", "Hint about word relationships", "More specific hint"],
+  "category": "vocabulary"
+}
+
+REQUIREMENTS:
+- Extract 8-15 meaningful vocabulary terms from the document
+- Focus on key technical terms, important concepts, and specialized vocabulary
+- Definitions should match the document context but be accessible for ${level} level
+- Group terms into logical categories based on the document content
+- Examples should relate to the document's subject matter
+- Ensure definitions are unambiguous (only one correct match possible)
+- For ${level}: ${getLevelSpecificGuidance(level)}`;
+}
+
+// ============================================
 // HELPER FUNCTIONS
 // ============================================
 
@@ -597,6 +688,9 @@ export function getPromptForGameType(
     case "crossword":
       basePrompt = getCrosswordPrompt(topic, level, count, puzzleCount || 1);
       break;
+    case "vocabulary_matching":
+      basePrompt = getVocabularyMatchingPrompt(topic, level, count);
+      break;
     default:
       throw new Error(`Unknown game type: ${gameType}`);
   }
@@ -620,6 +714,7 @@ function getDefaultItemCount(gameType: GameType): number {
     flashcards: 10,
     hangman: 5,
     crossword: 6,  // 6 words in the puzzle
+    vocabulary_matching: 8,  // 8 terms by default
   };
   return defaults[gameType] || 5;
 }
