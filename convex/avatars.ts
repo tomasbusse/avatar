@@ -69,6 +69,21 @@ export const createAvatar = mutation({
       voiceId: v.string(),
       language: v.string(),
       model: v.optional(v.string()),
+      // Language mode: english (default), german, or bilingual
+      languageMode: v.optional(
+        v.union(
+          v.literal("english"),
+          v.literal("german"),
+          v.literal("bilingual")
+        )
+      ),
+      // Default language for bilingual mode
+      bilingualDefault: v.optional(
+        v.union(
+          v.literal("en"),
+          v.literal("de")
+        )
+      ),
       settings: v.object({
         speed: v.number(),
         pitch: v.optional(v.number()),
@@ -78,6 +93,23 @@ export const createAvatar = mutation({
           v.array(v.string())  // New: ["positivity:medium"]
         )),
       }),
+      // Per-language TTS settings (used when languageMode is "bilingual")
+      languageSettings: v.optional(
+        v.object({
+          en: v.optional(
+            v.object({
+              speed: v.optional(v.number()),
+              emotion: v.optional(v.string()),
+            })
+          ),
+          de: v.optional(
+            v.object({
+              speed: v.optional(v.number()),
+              emotion: v.optional(v.string()),
+            })
+          ),
+        })
+      ),
       languageVoices: v.optional(
         v.object({
           en: v.optional(v.string()),
