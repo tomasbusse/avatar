@@ -299,8 +299,16 @@ export default function AvatarsPage() {
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Bot className="w-6 h-6 text-primary" />
+                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                        {avatar.profileImage ? (
+                          <img
+                            src={avatar.profileImage}
+                            alt={avatar.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <Bot className="w-6 h-6 text-primary" />
+                        )}
                       </div>
                       <div>
                         <CardTitle>{avatar.name}</CardTitle>
