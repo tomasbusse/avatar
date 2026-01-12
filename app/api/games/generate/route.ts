@@ -12,6 +12,7 @@ import {
   getPromptForGameType,
   getEnhancePrompt,
   getVariationsPrompt,
+  getVocabularyFromDocumentPrompt,
 } from "@/lib/game-generation/prompts";
 import { GameType, CEFRLevel, GameCategory } from "@/types/word-games";
 
@@ -177,6 +178,14 @@ function buildPrompt(request: GameGenerationRequest): string {
           request.customPrompt,
           request.puzzleCount || 1
         );
+      }
+      // For vocabulary_matching with document content, use specialized prompt
+      if (request.gameType === "vocabulary_matching" && request.documentContent) {
+        let prompt = getVocabularyFromDocumentPrompt(request.documentContent, request.level);
+        if (request.customPrompt && request.customPrompt.trim()) {
+          prompt += `\n\nADDITIONAL INSTRUCTIONS FROM USER:\n${request.customPrompt.trim()}`;
+        }
+        return prompt;
       }
       return getPromptForGameType(
         request.gameType,

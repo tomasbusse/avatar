@@ -48,6 +48,9 @@ import {
   Loader2,
   Send,
   Share2,
+  Upload,
+  FileText,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -321,6 +324,10 @@ function CreateGameDialog({
   const [generationState, setGenerationState] = useState<GenerationStatus>({ status: "idle" });
   const [generatedResult, setGeneratedResult] = useState<FullGenerationResult | null>(null);
   const [generatedUsage, setGeneratedUsage] = useState<TokenUsage | null>(null);
+  // Document upload state (for vocabulary_matching)
+  const [documentContent, setDocumentContent] = useState("");
+  const [documentFileName, setDocumentFileName] = useState("");
+  const [isExtractingText, setIsExtractingText] = useState(false);
 
   const createGame = useMutation(api.wordGames.createGame);
 
@@ -367,9 +374,56 @@ function CreateGameDialog({
     }
   };
 
+  // Handle document file upload for vocabulary extraction
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsExtractingText(true);
+    setDocumentFileName(file.name);
+
+    try {
+      // For text files, read directly
+      if (file.type === "text/plain" || file.name.endsWith(".txt")) {
+        const text = await file.text();
+        setDocumentContent(text);
+        toast.success("Text file loaded successfully");
+      }
+      // For PDFs, use the extraction API
+      else if (file.type === "application/pdf" || file.name.endsWith(".pdf")) {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const response = await fetch("/api/games/extract-text", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to extract text from PDF");
+        }
+
+        const data = await response.json();
+        setDocumentContent(data.text);
+        toast.success("PDF text extracted successfully");
+      } else {
+        toast.error("Please upload a PDF or text file");
+        setDocumentFileName("");
+      }
+    } catch (error) {
+      console.error("File upload error:", error);
+      toast.error("Failed to process file");
+      setDocumentFileName("");
+      setDocumentContent("");
+    } finally {
+      setIsExtractingText(false);
+    }
+  };
+
   const handleGenerate = async () => {
-    if (!topic.trim()) {
-      toast.error("Please enter a topic");
+    // For vocabulary_matching with document, topic is optional
+    if (!topic.trim() && !(gameType === "vocabulary_matching" && documentContent)) {
+      toast.error("Please enter a topic or upload a document");
       return;
     }
 
@@ -389,7 +443,7 @@ function CreateGameDialog({
           type: "full",
           gameType,
           level,
-          topic,
+          topic: topic || `Vocabulary from ${documentFileName}`,
           model,
           category,
           // For crossword, pass both params; for others, pass itemCount
@@ -397,6 +451,10 @@ function CreateGameDialog({
             ? { wordsPerPuzzle: crosswordWordsPerPuzzle, puzzleCount: crosswordPuzzleCount }
             : { itemCount }),
           customPrompt: customPrompt.trim() || undefined,
+          // Pass document content for vocabulary extraction
+          ...(gameType === "vocabulary_matching" && documentContent
+            ? { documentContent }
+            : {}),
         }),
       });
 
@@ -477,6 +535,8 @@ function CreateGameDialog({
     setGeneratedResult(null);
     setGeneratedUsage(null);
     setGenerationState({ status: "idle" });
+    setDocumentContent("");
+    setDocumentFileName("");
   };
 
   const isGenerating = generationState.status === "generating";
@@ -504,17 +564,75 @@ function CreateGameDialog({
           <TabsContent value="ai" className="space-y-4 mt-4">
             {/* Topic */}
             <div className="space-y-2">
-              <Label>Topic / Grammar Point</Label>
+              <Label>Topic / Grammar Point {gameType === "vocabulary_matching" && "(or upload document)"}</Label>
               <Input
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
-                placeholder="e.g., Present Perfect Tense, Business Vocabulary, Travel Phrases"
+                placeholder={gameType === "vocabulary_matching"
+                  ? "e.g., Business Vocabulary, or upload a document below"
+                  : "e.g., Present Perfect Tense, Business Vocabulary, Travel Phrases"}
                 disabled={isGenerating}
               />
               <p className="text-xs text-muted-foreground">
-                Describe what the game should teach or practice
+                {gameType === "vocabulary_matching"
+                  ? "Enter a topic OR upload a PDF/text document to extract vocabulary from"
+                  : "Describe what the game should teach or practice"}
               </p>
             </div>
+
+            {/* Document Upload - Only for vocabulary_matching */}
+            {gameType === "vocabulary_matching" && (
+              <div className="space-y-2">
+                <Label>Upload Document (Optional)</Label>
+                <div className="border-2 border-dashed border-gray-200 rounded-lg p-4">
+                  {documentFileName ? (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-5 w-5 text-sls-teal" />
+                        <span className="text-sm font-medium">{documentFileName}</span>
+                        {documentContent && (
+                          <span className="text-xs text-muted-foreground">
+                            ({documentContent.length.toLocaleString()} chars)
+                          </span>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setDocumentFileName("");
+                          setDocumentContent("");
+                        }}
+                        disabled={isGenerating}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center cursor-pointer">
+                      {isExtractingText ? (
+                        <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
+                      ) : (
+                        <Upload className="h-8 w-8 text-muted-foreground" />
+                      )}
+                      <span className="mt-2 text-sm text-muted-foreground">
+                        {isExtractingText ? "Extracting text..." : "Click to upload PDF or text file"}
+                      </span>
+                      <input
+                        type="file"
+                        accept=".pdf,.txt,text/plain,application/pdf"
+                        className="hidden"
+                        onChange={handleFileUpload}
+                        disabled={isGenerating || isExtractingText}
+                      />
+                    </label>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Upload a fact sheet, product spec, or any document to extract vocabulary terms
+                </p>
+              </div>
+            )}
 
             {/* Game Type and Level */}
             <div className="grid grid-cols-2 gap-4">

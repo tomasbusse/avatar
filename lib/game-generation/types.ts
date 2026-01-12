@@ -18,6 +18,8 @@ export interface FullGenerationRequest {
   wordsPerPuzzle?: number;
   puzzleCount?: number;
   customPrompt?: string;
+  // Vocabulary matching - extract from document
+  documentContent?: string;
 }
 
 export interface EnhancementOptions {
