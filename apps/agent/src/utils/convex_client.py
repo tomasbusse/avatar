@@ -74,6 +74,9 @@ class ConvexClient:
                     "language": voice_provider.get("language", "en"),
                     "speed": voice_provider.get("settings", {}).get("speed", 1.0),
                     "emotion": voice_provider.get("settings", {}).get("emotion", ["positivity:medium"]),
+                    # Language mode: english, german, or bilingual
+                    "language_mode": voice_provider.get("languageMode", "english"),
+                    "bilingual_default": voice_provider.get("bilingualDefault", "en"),
                 },
                 "avatar_provider": {
                     "type": avatar_provider.get("type", "beyond_presence"),
@@ -138,6 +141,9 @@ class ConvexClient:
                     "language": voice_provider.get("language", "en"),
                     "speed": voice_provider.get("settings", {}).get("speed", 1.0),
                     "emotion": voice_provider.get("settings", {}).get("emotion", ["positivity:medium"]),
+                    # Language mode: english, german, or bilingual
+                    "language_mode": voice_provider.get("languageMode", "english"),
+                    "bilingual_default": voice_provider.get("bilingualDefault", "en"),
                 },
                 "avatar_provider": {
                     "type": avatar_provider.get("type", "beyond_presence"),

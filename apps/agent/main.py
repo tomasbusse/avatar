@@ -1899,9 +1899,14 @@ async def entrypoint(ctx: JobContext):
     stt_endpointing = stt_settings.get("endpointing", 300)  # Default reduced from 600 to 300ms for faster response
     stt_smart_format = stt_settings.get("smartFormat", True)
 
-    # Get language mode from voiceProvider (english, german, or bilingual)
-    voice_provider_config = avatar_config.get("voiceProvider", {})
-    language_mode = voice_provider_config.get("languageMode", "english")
+    # Get language mode from voice_config (mapped from voiceProvider by convex_client)
+    # Also check voiceProvider for room metadata format
+    voice_config_for_lang = avatar_config.get("voice_config", {})
+    voice_provider_for_lang = avatar_config.get("voiceProvider", {})
+
+    # Try voice_config first (Convex client format), then voiceProvider (room metadata format)
+    language_mode = voice_config_for_lang.get("language_mode") or voice_provider_for_lang.get("languageMode") or "english"
+    bilingual_default = voice_config_for_lang.get("bilingual_default") or voice_provider_for_lang.get("bilingualDefault") or "en"
 
     # Map language mode to STT language setting
     # - "english" → "en" (English only)
@@ -1973,8 +1978,8 @@ async def entrypoint(ctx: JobContext):
     # Map language mode to TTS language setting
     # - "english" → "en"
     # - "german" → "de"
-    # - "bilingual" → uses bilingualDefault (en or de), can switch at runtime
-    bilingual_default = voice_provider.get("bilingualDefault", "en")  # Default to English if not specified
+    # - "bilingual" → uses bilingual_default (en or de), can switch at runtime
+    # Note: bilingual_default is already defined above in the STT section
 
     tts_language_map = {
         "english": "en",
@@ -1983,8 +1988,8 @@ async def entrypoint(ctx: JobContext):
     }
     tts_language = tts_language_map.get(language_mode, "en")
 
-    # Get per-language settings for bilingual mode
-    language_settings = voice_provider.get("languageSettings", {})
+    # Get per-language settings for bilingual mode (check both voice_config and voiceProvider)
+    language_settings = voice_config_for_lang.get("language_settings") or voice_provider.get("languageSettings") or {}
     en_settings = language_settings.get("en", {})
     de_settings = language_settings.get("de", {})
 
