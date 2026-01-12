@@ -330,6 +330,36 @@ export const linkKnowledgeBase = mutation({
   },
 });
 
+// Dev helper: Clear custom bilingual prompt (no auth for dev)
+export const clearBilingualPrompt = mutation({
+  args: {
+    avatarId: v.id("avatars"),
+  },
+  handler: async (ctx, args) => {
+    const avatar = await ctx.db.get(args.avatarId);
+    if (!avatar) throw new Error("Avatar not found");
+
+    const existingConfig = avatar.bilingualConfig ?? {
+      supportedLanguages: ["en", "de"],
+      defaultMode: "adaptive",
+      germanThresholds: { A1: 70, A2: 50, B1: 20, B2: 5, C1: 0, C2: 0 },
+    };
+
+    // Remove custom systemPrompt to use default German-first prompt
+    await ctx.db.patch(args.avatarId, {
+      bilingualConfig: {
+        supportedLanguages: existingConfig.supportedLanguages,
+        defaultMode: existingConfig.defaultMode,
+        germanThresholds: existingConfig.germanThresholds,
+        // systemPrompt intentionally omitted to use default
+      },
+      updatedAt: Date.now(),
+    });
+
+    return { success: true, message: "Custom bilingual prompt cleared - will use default German-first prompt" };
+  },
+});
+
 // ============================================
 // LIFE STORY & SESSION START MUTATIONS
 // ============================================
