@@ -51,6 +51,7 @@ import {
   Upload,
   FileText,
   X,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -191,7 +192,7 @@ function GameCard({
         )}
 
         {/* Actions */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button
             variant="outline"
             size="sm"
@@ -201,6 +202,17 @@ function GameCard({
             <Eye className="h-4 w-4 mr-1" />
             Preview
           </Button>
+          {(game.type === "vocabulary_matching" || game.type === "matching_pairs") && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.open(`/vocabulary/${game._id}`, "_blank")}
+              className="flex-1 text-sls-teal border-sls-teal/30 hover:bg-sls-teal/10"
+            >
+              <ExternalLink className="h-4 w-4 mr-1" />
+              Suite
+            </Button>
+          )}
           {game.status === "published" && userId && userDisplayName ? (
             <ShareGameDialog
               gameId={game._id}
