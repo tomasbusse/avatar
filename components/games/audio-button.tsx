@@ -7,6 +7,8 @@ import { Volume2, Loader2, AlertCircle } from "lucide-react";
 interface AudioButtonProps {
   /** The text to pronounce */
   text: string;
+  /** Optional example sentence to speak after the word */
+  example?: string;
   /** Language for pronunciation (default: "en" for English) */
   language?: "en" | "de";
   /** Size variant */
@@ -26,6 +28,7 @@ const audioCache = new Map<string, string>();
 
 export function AudioButton({
   text,
+  example,
   language = "en",
   size = "md",
   className,
@@ -50,7 +53,7 @@ export function AudioButton({
     lg: "h-6 w-6",
   };
 
-  const getCacheKey = useCallback(() => `${language}:${text}`, [language, text]);
+  const getCacheKey = useCallback(() => `${language}:${text}:${example || ""}`, [language, text, example]);
 
   const playAudio = useCallback(async () => {
     if (isLoading || isPlaying) return;
@@ -67,7 +70,7 @@ export function AudioButton({
         const response = await fetch("/api/tts/pronunciation", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text, language }),
+          body: JSON.stringify({ text, example, language }),
         });
 
         if (!response.ok) {
@@ -114,7 +117,7 @@ export function AudioButton({
       setHasError(true);
       onEnd?.(false);
     }
-  }, [text, language, isLoading, isPlaying, getCacheKey, onPlay, onEnd]);
+  }, [text, example, language, isLoading, isPlaying, getCacheKey, onPlay, onEnd]);
 
   // Clear error after a few seconds
   React.useEffect(() => {

@@ -9,10 +9,17 @@ interface OverviewProps {
   onStart: () => void;
 }
 
+// Clean up title by removing (Copy) patterns
+function cleanTitle(title: string): string {
+  return title.replace(/\s*\(Copy\)\s*/gi, " ").trim();
+}
+
 const VocabularySuiteOverview: React.FC<OverviewProps> = ({
   gameData,
   onStart,
 }) => {
+  const displayTitle = cleanTitle(gameData.title);
+
   // Get unique categories from terms
   const categories = Array.from(
     new Set(gameData.terms.map((t) => t.category).filter((c): c is string => !!c))
@@ -26,7 +33,7 @@ const VocabularySuiteOverview: React.FC<OverviewProps> = ({
       {/* Hero Section with SLS Teal Gradient */}
       <div className="p-8 md:p-12 text-center bg-gradient-to-br from-sls-teal to-sls-olive text-white">
         <h2 className="text-3xl md:text-4xl font-extrabold mb-4">
-          {gameData.title}
+          {displayTitle}
         </h2>
         <p className="text-white/90 text-lg max-w-2xl mx-auto mb-8">
           {gameData.description || (
@@ -108,7 +115,7 @@ const VocabularySuiteOverview: React.FC<OverviewProps> = ({
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-700 rounded-full text-sm font-medium border border-slate-200"
               >
                 <span>{term.term}</span>
-                <AudioButton text={term.term} size="sm" />
+                <AudioButton text={term.term} example={term.example} size="sm" />
               </div>
             ))}
             {gameData.terms.length > 7 && (

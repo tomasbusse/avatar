@@ -10,11 +10,17 @@ interface HeaderProps {
   title?: string;
 }
 
+// Clean up title by removing (Copy) patterns
+function cleanTitle(title: string): string {
+  return title.replace(/\s*\(Copy\)\s*/gi, " ").trim();
+}
+
 const VocabularySuiteHeader: React.FC<HeaderProps> = ({
   activeMode,
   setMode,
   title = "Vocabulary Suite",
 }) => {
+  const displayTitle = cleanTitle(title);
   const navItems = [
     { mode: VocabSuiteMode.OVERVIEW, label: "Overview", icon: "📋" },
     { mode: VocabSuiteMode.FLASHCARDS, label: "Flashcards", icon: "📇" },
@@ -45,7 +51,7 @@ const VocabularySuiteHeader: React.FC<HeaderProps> = ({
           </div>
           <div>
             <h1 className="font-bold text-lg leading-none tracking-tight text-slate-800">
-              {title}
+              {displayTitle}
             </h1>
             <p className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold">
               Vocabulary Suite

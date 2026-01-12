@@ -137,6 +137,7 @@ const VocabularySuiteFlashcards: React.FC<FlashcardsProps> = ({ gameData }) => {
                     </span>
                     <AudioButton
                       text={currentTerm.term}
+                      example={currentTerm.example}
                       size="lg"
                       className={
                         knownCards.has(currentTerm.id)

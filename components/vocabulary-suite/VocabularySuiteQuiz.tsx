@@ -167,7 +167,7 @@ const VocabularySuiteQuiz: React.FC<QuizProps> = ({ gameData }) => {
                 <h3 className="text-2xl font-bold text-slate-800">
                   {currentQuestion.term.term}
                 </h3>
-                <AudioButton text={currentQuestion.term.term} size="md" />
+                <AudioButton text={currentQuestion.term.term} example={currentQuestion.term.example} size="md" />
               </div>
               {currentQuestion.term.category && (
                 <span className="mt-2 inline-block px-3 py-1 bg-sls-chartreuse/20 text-sls-olive rounded-full text-xs font-medium">

@@ -11,7 +11,7 @@ interface MatchingProps {
 
 const VocabularySuiteMatching: React.FC<MatchingProps> = ({ gameData }) => {
   const [shuffledTerms, setShuffledTerms] = useState<
-    { id: string; text: string }[]
+    { id: string; text: string; example?: string }[]
   >([]);
   const [shuffledDefs, setShuffledDefs] = useState<
     { id: string; text: string }[]
@@ -23,7 +23,7 @@ const VocabularySuiteMatching: React.FC<MatchingProps> = ({ gameData }) => {
 
   // Shuffle on mount
   useEffect(() => {
-    const terms = gameData.terms.map((t) => ({ id: t.id, text: t.term }));
+    const terms = gameData.terms.map((t) => ({ id: t.id, text: t.term, example: t.example }));
     const defs = gameData.terms.map((t) => ({ id: t.id, text: t.definition }));
     setShuffledTerms([...terms].sort(() => Math.random() - 0.5));
     setShuffledDefs([...defs].sort(() => Math.random() - 0.5));
@@ -126,7 +126,7 @@ const VocabularySuiteMatching: React.FC<MatchingProps> = ({ gameData }) => {
                 >
                   <span className="font-medium">{item.text}</span>
                   {!isMatched && (
-                    <AudioButton text={item.text} size="sm" />
+                    <AudioButton text={item.text} example={item.example} size="sm" />
                   )}
                 </button>
               );
