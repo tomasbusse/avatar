@@ -34,40 +34,60 @@ ${conversationHistory ? `Previous Conversation:\n${conversationHistory}\n\n` : "
 
 Please provide a helpful, educational response about the vocabulary. Keep your response concise but informative (2-4 sentences for simple questions, more for complex explanations). Use examples from the vocabulary list when relevant.`;
 
-    console.log("[AI Tutor] Sending request to OpenRouter (Gemini 3 Pro)...");
+    // Try primary model first, then fallback
+    const models = ["google/gemini-2.5-pro", "google/gemini-2.5-flash"];
+    let aiResponse = "";
+    let lastError = "";
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-Title": "Beethoven AI Vocabulary Tutor",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-pro-preview",
-        messages: [
-          {
-            role: "user",
-            content: fullPrompt,
+    for (const model of models) {
+      console.log(`[AI Tutor] Trying model: ${model}...`);
+
+      try {
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+            "X-Title": "Beethoven AI Vocabulary Tutor",
           },
-        ],
-        temperature: 0.7,
-        max_tokens: 1000,
-      }),
-    });
+          body: JSON.stringify({
+            model,
+            messages: [
+              {
+                role: "user",
+                content: fullPrompt,
+              },
+            ],
+            temperature: 0.7,
+            max_tokens: 1000,
+          }),
+        });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[AI Tutor] OpenRouter error:", errorText);
+        if (response.ok) {
+          const data = await response.json();
+          aiResponse = data.choices?.[0]?.message?.content || "";
+          if (aiResponse) {
+            console.log(`[AI Tutor] Success with model: ${model}`);
+            break;
+          }
+        } else {
+          lastError = await response.text();
+          console.error(`[AI Tutor] Model ${model} failed:`, lastError);
+        }
+      } catch (err) {
+        lastError = err instanceof Error ? err.message : "Unknown error";
+        console.error(`[AI Tutor] Model ${model} error:`, lastError);
+      }
+    }
+
+    if (!aiResponse) {
+      console.error("[AI Tutor] All models failed. Last error:", lastError);
       return NextResponse.json(
         { error: "Failed to generate response" },
         { status: 500 }
       );
     }
-
-    const data = await response.json();
-    const aiResponse = data.choices?.[0]?.message?.content || "I'm sorry, I couldn't generate a response.";
 
     console.log("[AI Tutor] Response received successfully");
 
