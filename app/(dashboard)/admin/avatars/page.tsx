@@ -1072,8 +1072,11 @@ function AvatarCreator({ onClose, allVoices, llmModels }: { onClose: () => void;
     sessionAutoEnd: true,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const createAvatar = useMutation(api.avatars.createAvatar);
+  const generateUploadUrl = useMutation(api.avatars.generateProfileImageUploadUrl);
+  const getStorageUrl = useMutation(api.avatars.getStorageUrl);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1256,17 +1259,68 @@ function AvatarCreator({ onClose, allVoices, llmModels }: { onClose: () => void;
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">Profile Image URL</label>
-                  <input
-                    type="url"
-                    value={formData.profileImage}
-                    onChange={(e) => setFormData({ ...formData, profileImage: e.target.value })}
-                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
-                    placeholder="https://example.com/avatar.jpg"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Image shown in the loading circle before avatar connects
-                  </p>
+                  <label className="text-sm font-medium">Profile Image</label>
+                  <div className="mt-1 flex items-center gap-3">
+                    {/* Preview */}
+                    {formData.profileImage && (
+                      <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-muted flex-shrink-0">
+                        <img
+                          src={formData.profileImage}
+                          alt="Profile preview"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
+                    {/* Upload Button */}
+                    <div className="flex-1">
+                      <label className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg cursor-pointer hover:bg-primary/90 transition-colors">
+                        <Upload className="w-4 h-4" />
+                        {isUploadingImage ? "Uploading..." : "Upload Image"}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={isUploadingImage}
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+
+                            setIsUploadingImage(true);
+                            try {
+                              // Get upload URL from Convex
+                              const uploadUrl = await generateUploadUrl();
+
+                              // Upload file to Convex storage
+                              const result = await fetch(uploadUrl, {
+                                method: "POST",
+                                headers: { "Content-Type": file.type },
+                                body: file,
+                              });
+
+                              if (!result.ok) throw new Error("Upload failed");
+
+                              const { storageId } = await result.json();
+
+                              // Get the URL for the uploaded file
+                              const url = await getStorageUrl({ storageId });
+
+                              // Update local form state
+                              setFormData({ ...formData, profileImage: url });
+                              toast.success("Profile image uploaded!");
+                            } catch (error) {
+                              console.error("Upload error:", error);
+                              toast.error("Failed to upload image");
+                            } finally {
+                              setIsUploadingImage(false);
+                            }
+                          }}
+                        />
+                      </label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Image shown in the loading circle before avatar connects
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

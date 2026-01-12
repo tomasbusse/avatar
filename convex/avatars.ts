@@ -676,3 +676,17 @@ export const saveProfileImage = mutation({
     return { success: true, url };
   },
 });
+
+// Get storage URL for uploaded file (used during avatar creation before avatar exists)
+export const getStorageUrl = mutation({
+  args: {
+    storageId: v.id("_storage"),
+  },
+  handler: async (ctx, args) => {
+    const url = await ctx.storage.getUrl(args.storageId);
+    if (!url) {
+      throw new Error("Failed to get storage URL");
+    }
+    return url;
+  },
+});
