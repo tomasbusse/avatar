@@ -3,6 +3,7 @@ export enum VocabSuiteMode {
   FLASHCARDS = "flashcards",
   MATCHING = "matching",
   QUIZ = "quiz",
+  AI_TUTOR = "ai_tutor",
 }
 
 export interface VocabTerm {

@@ -4,4 +4,5 @@ export { default as VocabularySuiteOverview } from "./VocabularySuiteOverview";
 export { default as VocabularySuiteFlashcards } from "./VocabularySuiteFlashcards";
 export { default as VocabularySuiteMatching } from "./VocabularySuiteMatching";
 export { default as VocabularySuiteQuiz } from "./VocabularySuiteQuiz";
+export { default as VocabularySuiteAITutor } from "./VocabularySuiteAITutor";
 export * from "./types";

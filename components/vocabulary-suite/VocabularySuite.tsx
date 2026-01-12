@@ -7,6 +7,7 @@ import VocabularySuiteOverview from "./VocabularySuiteOverview";
 import VocabularySuiteFlashcards from "./VocabularySuiteFlashcards";
 import VocabularySuiteMatching from "./VocabularySuiteMatching";
 import VocabularySuiteQuiz from "./VocabularySuiteQuiz";
+import VocabularySuiteAITutor from "./VocabularySuiteAITutor";
 
 interface VocabularySuiteProps {
   gameData: VocabGameData;
@@ -30,6 +31,8 @@ const VocabularySuite: React.FC<VocabularySuiteProps> = ({ gameData }) => {
         return <VocabularySuiteMatching gameData={gameData} />;
       case VocabSuiteMode.QUIZ:
         return <VocabularySuiteQuiz gameData={gameData} />;
+      case VocabSuiteMode.AI_TUTOR:
+        return <VocabularySuiteAITutor gameData={gameData} />;
       default:
         return (
           <VocabularySuiteOverview

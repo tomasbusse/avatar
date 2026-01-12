@@ -26,6 +26,7 @@ const VocabularySuiteHeader: React.FC<HeaderProps> = ({
     { mode: VocabSuiteMode.FLASHCARDS, label: "Flashcards", icon: "📇" },
     { mode: VocabSuiteMode.MATCHING, label: "Matching", icon: "🧩" },
     { mode: VocabSuiteMode.QUIZ, label: "Quiz", icon: "📝" },
+    { mode: VocabSuiteMode.AI_TUTOR, label: "AI Tutor", icon: "🤖" },
   ];
 
   return (
