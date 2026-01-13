@@ -1881,9 +1881,12 @@ async def entrypoint(ctx: JobContext):
     avatar_config = None
     room_metadata_str = ctx.room.metadata
 
+    logger.info(f"🔍 Room metadata string length: {len(room_metadata_str) if room_metadata_str else 0}")
     if room_metadata_str:
         try:
             room_metadata = json.loads(room_metadata_str)
+            logger.info(f"🔍 Room metadata keys: {list(room_metadata.keys())}")
+            logger.info(f"🔍 Has 'avatar' key: {bool(room_metadata.get('avatar'))}")
             if room_metadata.get("avatar"):
                 avatar_config = room_metadata["avatar"]
                 logger.info(f"✅ Got avatar config from room metadata: {avatar_config.get('name', 'Unknown')}")
@@ -2489,9 +2492,13 @@ async def entrypoint(ctx: JobContext):
         asyncio.create_task(_handle_session_close_async(event))
 
     # Get Beyond Presence avatar settings
-    avatar_provider = avatar_config.get("avatar_provider", {})
-    avatar_id = avatar_provider.get("avatar_id")
+    # Check both camelCase (from room metadata) and snake_case formats
+    avatar_provider = avatar_config.get("avatar_provider") or avatar_config.get("avatarProvider") or {}
+    # Avatar ID can be avatarId (camelCase from frontend) or avatar_id (snake_case)
+    avatar_id = avatar_provider.get("avatarId") or avatar_provider.get("avatar_id")
     avatar_name = avatar_config.get("name", "Ludwig")
+
+    logger.info(f"🔍 Avatar provider lookup: avatar_provider keys={list(avatar_provider.keys()) if avatar_provider else 'None'}, avatar_id={avatar_id}")
 
     logger.info(f"📺 Avatar configured: {avatar_name} (will start after session)")
 
