@@ -1,0 +1,243 @@
+{
+  "meta": {
+    "title": "Simmonds Language Services | Business English & Language Training",
+    "description": "Professional language training for over 20 years. Business English, German for foreigners, and copy editing in Hannover and Berlin."
+  },
+  "nav": {
+    "services": "Services",
+    "allServices": "All Services",
+    "businessEnglish": "Business English",
+    "germanCourses": "German Courses",
+    "copyEditing": "Copy Editing",
+    "pricing": "Pricing",
+    "about": "About",
+    "faq": "FAQ",
+    "contact": "Contact",
+    "blog": "Blog",
+    "getStarted": "Get Started"
+  },
+  "hero": {
+    "badge": "Over 20 Years Experience",
+    "headline": "Master English",
+    "headlineAccent": "for your career.",
+    "subheadline": "Tailored business English training that delivers real results. In person in Hannover and Berlin, or online worldwide.",
+    "benefit1": "Personalized 1:1 sessions focused on your goals",
+    "benefit2": "Real-world practice with meetings, emails & presentations",
+    "benefit3": "Flexible scheduling – online or face-to-face",
+    "ctaPrimary": "Free Consultation",
+    "ctaSecondary": "Our Services",
+    "years": "Years Experience",
+    "students": "Happy Students",
+    "satisfaction": "Satisfaction",
+    "loadingAvatar": "Loading avatar...",
+    "avatarGreeting": "Hello! I'm Emma, your AI language assistant. How can I help you today?",
+    "avatarPlaceholder": "AI avatar will appear here"
+  },
+  "services": {
+    "badge": "What We Offer",
+    "headline": "Language Services That Deliver",
+    "subheadline": "Professional training solutions tailored to your specific needs and goals",
+    "businessEnglish": {
+      "title": "Business English",
+      "description": "Master the English you need for meetings, presentations, negotiations, and everyday workplace communication."
+    },
+    "germanCourses": {
+      "title": "German for Foreigners",
+      "description": "Integration through language – helping international employees succeed in German-speaking environments."
+    },
+    "copyEditing": {
+      "title": "Copy Editing",
+      "description": "Professional text editing that transforms your documents into clear, impactful communication."
+    },
+    "learnMore": "Learn More",
+    "viewAll": "View All Services"
+  },
+  "usp": {
+    "badge": "Why Choose Us",
+    "headline": "The Simmonds Difference",
+    "subheadline": "What sets our language training apart from the rest",
+    "flexibility": {
+      "title": "Complete Flexibility",
+      "description": "Online or face-to-face, morning or evening – training that fits your schedule."
+    },
+    "personalized": {
+      "title": "Truly Personalized",
+      "description": "No generic courses. Every session is built around your specific goals and challenges."
+    },
+    "experience": {
+      "title": "20+ Years Expertise",
+      "description": "Proven methods refined over two decades of helping professionals succeed."
+    },
+    "methodology": {
+      "title": "The Questions Method",
+      "description": "Our unique approach focuses on what you actually need to say and do."
+    },
+    "bilingual": {
+      "title": "Native Expertise",
+      "description": "Native speakers who understand both languages and cultures deeply."
+    },
+    "support": {
+      "title": "Ongoing Support",
+      "description": "We're here for you between sessions with feedback and resources."
+    }
+  },
+  "testimonials": {
+    "badge": "Success Stories",
+    "headline": "What Our Clients Say",
+    "items": {
+      "0": {
+        "quote": "The training completely transformed how I communicate in meetings. I feel confident presenting to international stakeholders now."
+      },
+      "1": {
+        "quote": "Finally, English training that's actually relevant to my job. James understands what business professionals need."
+      },
+      "2": {
+        "quote": "The flexibility of online sessions combined with personalized content made all the difference for our team."
+      }
+    }
+  },
+  "faq": {
+    "badge": "Got Questions?",
+    "headline": "Frequently Asked Questions",
+    "subheadline": "Find answers to common questions about our language services",
+    "viewAll": "View All FAQs",
+    "items": {
+      "0": {
+        "question": "How long does it take to see results?",
+        "answer": "Most clients notice improved confidence within 4-6 sessions. Significant fluency gains typically occur within 3-6 months of regular training."
+      },
+      "1": {
+        "question": "Do you offer online training?",
+        "answer": "Yes! Online training is available via video call and works just as effectively as face-to-face sessions. Many of our clients prefer this format for its flexibility."
+      },
+      "2": {
+        "question": "What is the Questions Method?",
+        "answer": "The Questions Method is our unique approach where we build each session around real questions and situations you face at work, making the training immediately applicable."
+      },
+      "3": {
+        "question": "Can you train our whole team?",
+        "answer": "Absolutely. We offer group training for corporate teams, with content customized to your industry and company needs."
+      },
+      "4": {
+        "question": "What's your cancellation policy?",
+        "answer": "We ask for 24 hours notice for cancellations. Lessons cancelled with less notice may be charged at the full rate."
+      }
+    }
+  },
+  "pricing": {
+    "badge": "Transparent Pricing",
+    "headline": "Simple, Fair Pricing",
+    "subheadline": "No hidden fees. Choose the format that works best for you.",
+    "popular": "Most Popular",
+    "perPerson": "Per Person",
+    "online": {
+      "title": "Online Training",
+      "description": "Flexible video sessions from anywhere in the world",
+      "features": {
+        "0": "1:1 personalized sessions",
+        "1": "Flexible scheduling",
+        "2": "Session recordings available",
+        "3": "Resources & materials included"
+      }
+    },
+    "faceToFace": {
+      "title": "Face-to-Face",
+      "description": "In-person training in Hannover or Berlin",
+      "features": {
+        "0": "1:1 personalized sessions",
+        "1": "Meet at your office or our location",
+        "2": "Intensive focus environment",
+        "3": "All materials provided"
+      }
+    },
+    "group": {
+      "title": "Group Training",
+      "description": "Team training for corporate clients",
+      "features": {
+        "0": "2-6 participants per group",
+        "1": "Custom content for your company",
+        "2": "Online or in-person",
+        "3": "Progress tracking included"
+      }
+    },
+    "getStarted": "Get Started",
+    "vatNote": "Language training is VAT-exempt",
+    "travelNote": "Travel costs may apply for face-to-face",
+    "cancellationNote": "24h cancellation policy"
+  },
+  "cta": {
+    "headline": "Ready to Transform Your English?",
+    "subheadline": "Book a free consultation and discover how we can help you achieve your language goals.",
+    "buttonPrimary": "Book Free Consultation",
+    "buttonSecondary": "Call Us",
+    "trustBadge": "No commitment required • Usually respond within 24 hours"
+  },
+  "contact": {
+    "badge": "Get in Touch",
+    "headline": "Contact Us",
+    "subheadline": "We'd love to hear from you. Send us a message and we'll respond as soon as possible.",
+    "name": "Full Name",
+    "namePlaceholder": "Your name",
+    "email": "Email Address",
+    "emailPlaceholder": "your@email.com",
+    "phone": "Phone Number",
+    "phonePlaceholder": "+49 ...",
+    "company": "Company",
+    "companyPlaceholder": "Your company (optional)",
+    "message": "Message",
+    "messagePlaceholder": "Tell us about your language goals...",
+    "send": "Send Message",
+    "sending": "Sending...",
+    "successTitle": "Message Sent!",
+    "successMessage": "Thank you for your message. We'll get back to you within 24 hours.",
+    "error": "Something went wrong. Please try again.",
+    "infoTitle": "Contact Information",
+    "hours": "Monday – Friday: 9:00 – 18:00"
+  },
+  "footer": {
+    "tagline": "Professional language training for over 20 years. Helping professionals communicate with confidence.",
+    "yearsExperience": "Years of Excellence",
+    "services": "Services",
+    "businessEnglish": "Business English",
+    "germanCourses": "German Courses",
+    "copyEditing": "Copy Editing",
+    "pricing": "Pricing",
+    "company": "Company",
+    "about": "About Us",
+    "faq": "FAQ",
+    "blog": "Blog",
+    "contact": "Contact",
+    "hannover": "Hannover",
+    "berlin": "Berlin",
+    "allRightsReserved": "All rights reserved.",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service",
+    "imprint": "Imprint"
+  },
+  "about": {
+    "badge": "Our Story",
+    "headline": "About Simmonds Language Services",
+    "subheadline": "Over 20 years of helping professionals communicate with confidence",
+    "storyTitle": "Our Story",
+    "storyContent": "Founded in Hannover over two decades ago, Simmonds Language Services has grown from a small English training practice into a trusted partner for businesses and individuals across Germany.",
+    "methodTitle": "The Questions Method",
+    "methodContent": "Our unique teaching approach focuses on what you actually need to communicate. We build each session around real questions and situations from your work life.",
+    "locationsTitle": "Our Locations",
+    "hannover": "Hannover Office",
+    "berlin": "Berlin Office",
+    "online": "Online Worldwide"
+  },
+  "blog": {
+    "badge": "Latest Insights",
+    "headline": "Our Blog",
+    "subheadline": "Tips, insights, and updates on language learning and professional communication",
+    "readMore": "Read Article",
+    "backToBlog": "Back to Blog",
+    "publishedOn": "Published on",
+    "byAuthor": "by",
+    "minRead": "min read",
+    "categories": "Categories",
+    "recentPosts": "Recent Posts",
+    "noPosts": "No blog posts yet. Check back soon!"
+  }
+}

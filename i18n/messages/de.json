@@ -1,0 +1,243 @@
+{
+  "meta": {
+    "title": "Simmonds Language Services | Business English & Sprachtraining",
+    "description": "Professionelles Sprachtraining seit über 20 Jahren. Business English, Deutsch für Ausländer und Lektorat in Hannover und Berlin."
+  },
+  "nav": {
+    "services": "Leistungen",
+    "allServices": "Alle Leistungen",
+    "businessEnglish": "Business English",
+    "germanCourses": "Deutsch Kurse",
+    "copyEditing": "Lektorat",
+    "pricing": "Preise",
+    "about": "Über uns",
+    "faq": "FAQ",
+    "contact": "Kontakt",
+    "blog": "Blog",
+    "getStarted": "Jetzt starten"
+  },
+  "hero": {
+    "badge": "Über 20 Jahre Erfahrung",
+    "headline": "Business English",
+    "headlineAccent": "für Ihre Karriere.",
+    "subheadline": "Maßgeschneidertes Business English Training mit echten Ergebnissen. Persönlich in Hannover und Berlin oder online weltweit.",
+    "benefit1": "Personalisierte 1:1-Sitzungen auf Ihre Ziele ausgerichtet",
+    "benefit2": "Praxisnahes Training für Meetings, E-Mails & Präsentationen",
+    "benefit3": "Flexible Terminplanung – online oder persönlich",
+    "ctaPrimary": "Kostenlose Beratung",
+    "ctaSecondary": "Unsere Leistungen",
+    "years": "Jahre Erfahrung",
+    "students": "Zufriedene Kunden",
+    "satisfaction": "Zufriedenheit",
+    "loadingAvatar": "Avatar wird geladen...",
+    "avatarGreeting": "Hallo! Ich bin Emma, Ihre KI-Sprachassistentin. Wie kann ich Ihnen heute helfen?",
+    "avatarPlaceholder": "KI-Avatar erscheint hier"
+  },
+  "services": {
+    "badge": "Unsere Leistungen",
+    "headline": "Sprachdienstleistungen die wirken",
+    "subheadline": "Professionelle Trainingslösungen auf Ihre spezifischen Bedürfnisse und Ziele zugeschnitten",
+    "businessEnglish": {
+      "title": "Business English",
+      "description": "Beherrschen Sie das Englisch, das Sie für Meetings, Präsentationen, Verhandlungen und die tägliche Kommunikation am Arbeitsplatz brauchen."
+    },
+    "germanCourses": {
+      "title": "Deutsch für Ausländer",
+      "description": "Integration durch Sprache – wir helfen internationalen Mitarbeitern im deutschsprachigen Umfeld erfolgreich zu sein."
+    },
+    "copyEditing": {
+      "title": "Lektorat",
+      "description": "Professionelles Textlektorat, das Ihre Dokumente in klare, wirkungsvolle Kommunikation verwandelt."
+    },
+    "learnMore": "Mehr erfahren",
+    "viewAll": "Alle Leistungen"
+  },
+  "usp": {
+    "badge": "Warum wir",
+    "headline": "Der Simmonds Unterschied",
+    "subheadline": "Was unser Sprachtraining von anderen unterscheidet",
+    "flexibility": {
+      "title": "Maximale Flexibilität",
+      "description": "Online oder persönlich, morgens oder abends – Training das in Ihren Zeitplan passt."
+    },
+    "personalized": {
+      "title": "Wirklich Individuell",
+      "description": "Keine Standard-Kurse. Jede Sitzung wird um Ihre spezifischen Ziele und Herausforderungen gebaut."
+    },
+    "experience": {
+      "title": "20+ Jahre Expertise",
+      "description": "Bewährte Methoden, verfeinert über zwei Jahrzehnte Erfahrung mit Fach- und Führungskräften."
+    },
+    "methodology": {
+      "title": "Die Fragen-Methode",
+      "description": "Unser einzigartiger Ansatz konzentriert sich auf das, was Sie tatsächlich sagen und tun müssen."
+    },
+    "bilingual": {
+      "title": "Muttersprachliche Expertise",
+      "description": "Muttersprachler, die beide Sprachen und Kulturen tiefgreifend verstehen."
+    },
+    "support": {
+      "title": "Kontinuierliche Betreuung",
+      "description": "Wir sind auch zwischen den Sitzungen mit Feedback und Materialien für Sie da."
+    }
+  },
+  "testimonials": {
+    "badge": "Erfolgsgeschichten",
+    "headline": "Was unsere Kunden sagen",
+    "items": {
+      "0": {
+        "quote": "Das Training hat meine Kommunikation in Meetings komplett transformiert. Ich präsentiere jetzt selbstbewusst vor internationalen Stakeholdern."
+      },
+      "1": {
+        "quote": "Endlich Englischtraining, das wirklich relevant für meinen Job ist. James versteht, was Business-Profis brauchen."
+      },
+      "2": {
+        "quote": "Die Flexibilität der Online-Sitzungen kombiniert mit personalisierten Inhalten hat für unser Team den Unterschied gemacht."
+      }
+    }
+  },
+  "faq": {
+    "badge": "Fragen?",
+    "headline": "Häufig gestellte Fragen",
+    "subheadline": "Antworten auf häufige Fragen zu unseren Sprachdienstleistungen",
+    "viewAll": "Alle FAQs ansehen",
+    "items": {
+      "0": {
+        "question": "Wie lange dauert es, bis man Ergebnisse sieht?",
+        "answer": "Die meisten Kunden bemerken nach 4-6 Sitzungen ein verbessertes Selbstvertrauen. Deutliche Fortschritte in der Sprachgewandtheit zeigen sich typischerweise nach 3-6 Monaten regelmäßigem Training."
+      },
+      "1": {
+        "question": "Bieten Sie Online-Training an?",
+        "answer": "Ja! Online-Training ist per Videoanruf verfügbar und funktioniert genauso effektiv wie persönliche Sitzungen. Viele unserer Kunden bevorzugen dieses Format wegen seiner Flexibilität."
+      },
+      "2": {
+        "question": "Was ist die Fragen-Methode?",
+        "answer": "Die Fragen-Methode ist unser einzigartiger Ansatz, bei dem wir jede Sitzung um echte Fragen und Situationen aus Ihrem Arbeitsalltag aufbauen, was das Training sofort anwendbar macht."
+      },
+      "3": {
+        "question": "Können Sie unser gesamtes Team trainieren?",
+        "answer": "Absolut. Wir bieten Gruppentraining für Unternehmensteams an, mit Inhalten, die auf Ihre Branche und Ihre Unternehmensbedürfnisse zugeschnitten sind."
+      },
+      "4": {
+        "question": "Wie ist Ihre Stornierungsrichtlinie?",
+        "answer": "Wir bitten um 24 Stunden Vorankündigung bei Stornierungen. Kurzfristiger abgesagte Unterrichtsstunden können vollständig berechnet werden."
+      }
+    }
+  },
+  "pricing": {
+    "badge": "Transparente Preise",
+    "headline": "Einfache, faire Preise",
+    "subheadline": "Keine versteckten Gebühren. Wählen Sie das Format, das am besten zu Ihnen passt.",
+    "popular": "Beliebteste Wahl",
+    "perPerson": "Pro Person",
+    "online": {
+      "title": "Online Training",
+      "description": "Flexible Video-Sitzungen von überall auf der Welt",
+      "features": {
+        "0": "1:1 personalisierte Sitzungen",
+        "1": "Flexible Terminplanung",
+        "2": "Sitzungsaufnahmen verfügbar",
+        "3": "Ressourcen & Materialien inklusive"
+      }
+    },
+    "faceToFace": {
+      "title": "Präsenztraining",
+      "description": "Persönliches Training in Hannover oder Berlin",
+      "features": {
+        "0": "1:1 personalisierte Sitzungen",
+        "1": "Bei Ihnen im Büro oder bei uns",
+        "2": "Intensive Lernumgebung",
+        "3": "Alle Materialien inklusive"
+      }
+    },
+    "group": {
+      "title": "Gruppentraining",
+      "description": "Teamtraining für Firmenkunden",
+      "features": {
+        "0": "2-6 Teilnehmer pro Gruppe",
+        "1": "Maßgeschneiderte Inhalte für Ihr Unternehmen",
+        "2": "Online oder persönlich",
+        "3": "Fortschrittsverfolgung inklusive"
+      }
+    },
+    "getStarted": "Jetzt starten",
+    "vatNote": "Sprachtraining ist umsatzsteuerbefreit",
+    "travelNote": "Fahrtkosten können für Präsenztraining anfallen",
+    "cancellationNote": "24 Std. Stornierungsrichtlinie"
+  },
+  "cta": {
+    "headline": "Bereit Ihr Englisch zu transformieren?",
+    "subheadline": "Buchen Sie eine kostenlose Beratung und entdecken Sie, wie wir Ihnen helfen können, Ihre Sprachziele zu erreichen.",
+    "buttonPrimary": "Kostenlose Beratung buchen",
+    "buttonSecondary": "Rufen Sie uns an",
+    "trustBadge": "Keine Verpflichtung • Antwort innerhalb von 24 Stunden"
+  },
+  "contact": {
+    "badge": "Kontaktieren Sie uns",
+    "headline": "Kontakt",
+    "subheadline": "Wir freuen uns von Ihnen zu hören. Senden Sie uns eine Nachricht und wir melden uns so schnell wie möglich.",
+    "name": "Vollständiger Name",
+    "namePlaceholder": "Ihr Name",
+    "email": "E-Mail-Adresse",
+    "emailPlaceholder": "ihre@email.de",
+    "phone": "Telefonnummer",
+    "phonePlaceholder": "+49 ...",
+    "company": "Unternehmen",
+    "companyPlaceholder": "Ihr Unternehmen (optional)",
+    "message": "Nachricht",
+    "messagePlaceholder": "Erzählen Sie uns von Ihren Sprachzielen...",
+    "send": "Nachricht senden",
+    "sending": "Wird gesendet...",
+    "successTitle": "Nachricht gesendet!",
+    "successMessage": "Vielen Dank für Ihre Nachricht. Wir melden uns innerhalb von 24 Stunden.",
+    "error": "Etwas ist schief gelaufen. Bitte versuchen Sie es erneut.",
+    "infoTitle": "Kontaktinformationen",
+    "hours": "Montag – Freitag: 9:00 – 18:00"
+  },
+  "footer": {
+    "tagline": "Professionelles Sprachtraining seit über 20 Jahren. Wir helfen Fachleuten, selbstbewusst zu kommunizieren.",
+    "yearsExperience": "Jahre Exzellenz",
+    "services": "Leistungen",
+    "businessEnglish": "Business English",
+    "germanCourses": "Deutsch Kurse",
+    "copyEditing": "Lektorat",
+    "pricing": "Preise",
+    "company": "Unternehmen",
+    "about": "Über uns",
+    "faq": "FAQ",
+    "blog": "Blog",
+    "contact": "Kontakt",
+    "hannover": "Hannover",
+    "berlin": "Berlin",
+    "allRightsReserved": "Alle Rechte vorbehalten.",
+    "privacy": "Datenschutz",
+    "terms": "AGB",
+    "imprint": "Impressum"
+  },
+  "about": {
+    "badge": "Unsere Geschichte",
+    "headline": "Über Simmonds Language Services",
+    "subheadline": "Über 20 Jahre Erfahrung darin, Fachleuten zu selbstbewusster Kommunikation zu verhelfen",
+    "storyTitle": "Unsere Geschichte",
+    "storyContent": "Vor über zwei Jahrzehnten in Hannover gegründet, hat sich Simmonds Language Services von einer kleinen Englischtraining-Praxis zu einem vertrauenswürdigen Partner für Unternehmen und Privatpersonen in ganz Deutschland entwickelt.",
+    "methodTitle": "Die Fragen-Methode",
+    "methodContent": "Unser einzigartiger Lehransatz konzentriert sich auf das, was Sie tatsächlich kommunizieren müssen. Wir bauen jede Sitzung um echte Fragen und Situationen aus Ihrem Berufsleben auf.",
+    "locationsTitle": "Unsere Standorte",
+    "hannover": "Büro Hannover",
+    "berlin": "Büro Berlin",
+    "online": "Online Weltweit"
+  },
+  "blog": {
+    "badge": "Aktuelle Einblicke",
+    "headline": "Unser Blog",
+    "subheadline": "Tipps, Einblicke und Updates zum Sprachenlernen und professioneller Kommunikation",
+    "readMore": "Artikel lesen",
+    "backToBlog": "Zurück zum Blog",
+    "publishedOn": "Veröffentlicht am",
+    "byAuthor": "von",
+    "minRead": "Min. Lesezeit",
+    "categories": "Kategorien",
+    "recentPosts": "Neueste Beiträge",
+    "noPosts": "Noch keine Blog-Beiträge. Schauen Sie bald wieder vorbei!"
+  }
+}

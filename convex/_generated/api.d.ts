@@ -22,6 +22,7 @@ import type * as exerciseProgress from "../exerciseProgress.js";
 import type * as groups from "../groups.js";
 import type * as http from "../http.js";
 import type * as knowledgeBases from "../knowledgeBases.js";
+import type * as landing from "../landing.js";
 import type * as lessonEnrollments from "../lessonEnrollments.js";
 import type * as memories from "../memories.js";
 import type * as pdfWorksheets from "../pdfWorksheets.js";
@@ -57,6 +58,7 @@ declare const fullApi: ApiFromModules<{
   groups: typeof groups;
   http: typeof http;
   knowledgeBases: typeof knowledgeBases;
+  landing: typeof landing;
   lessonEnrollments: typeof lessonEnrollments;
   memories: typeof memories;
   pdfWorksheets: typeof pdfWorksheets;

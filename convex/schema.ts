@@ -2663,4 +2663,104 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_template", ["targetTemplateId"])
     .index("by_created", ["createdAt"]),
+
+  // ============================================
+  // LANDING PAGE / MARKETING SITE CONTENT
+  // ============================================
+
+  // Site configuration (global settings, featured avatar, etc.)
+  siteConfig: defineTable({
+    key: v.string(), // e.g., "landing_hero_avatar", "default_locale"
+    value: v.any(),
+    updatedAt: v.number(),
+  }).index("by_key", ["key"]),
+
+  // Page content sections (hero, services, USPs, etc.)
+  landingContent: defineTable({
+    locale: v.string(), // "de" | "en"
+    page: v.string(), // "home" | "about" | "services" | "pricing" | "contact"
+    section: v.string(), // "hero" | "services" | "usps" | "cta" | etc.
+    content: v.any(), // Section-specific content object
+    order: v.optional(v.number()), // For ordering sections
+    isPublished: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_locale_page", ["locale", "page"])
+    .index("by_locale_page_section", ["locale", "page", "section"]),
+
+  // FAQ items for landing pages
+  landingFaq: defineTable({
+    locale: v.string(), // "de" | "en"
+    question: v.string(),
+    answer: v.string(),
+    category: v.string(), // "general" | "services" | "pricing" | "methodology"
+    order: v.number(),
+    isPublished: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_locale", ["locale"])
+    .index("by_locale_category", ["locale", "category"]),
+
+  // Testimonials
+  landingTestimonials: defineTable({
+    locale: v.string(),
+    name: v.string(),
+    company: v.optional(v.string()),
+    role: v.optional(v.string()),
+    quote: v.string(),
+    imageUrl: v.optional(v.string()),
+    rating: v.optional(v.number()), // 1-5
+    isFeatured: v.boolean(),
+    order: v.number(),
+    isPublished: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_locale", ["locale"])
+    .index("by_featured", ["isFeatured"]),
+
+  // Blog posts
+  blogPosts: defineTable({
+    locale: v.string(),
+    slug: v.string(),
+    title: v.string(),
+    excerpt: v.string(),
+    content: v.string(), // Markdown content
+    author: v.string(),
+    authorImageUrl: v.optional(v.string()),
+    category: v.string(),
+    tags: v.array(v.string()),
+    featuredImageUrl: v.optional(v.string()),
+    readTimeMinutes: v.optional(v.number()),
+    status: v.union(v.literal("draft"), v.literal("published"), v.literal("archived")),
+    publishedAt: v.optional(v.number()),
+    seoTitle: v.optional(v.string()),
+    seoDescription: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_locale_slug", ["locale", "slug"])
+    .index("by_locale_status", ["locale", "status"])
+    .index("by_locale_category", ["locale", "category"])
+    .index("by_published", ["publishedAt"]),
+
+  // Contact form submissions
+  contactSubmissions: defineTable({
+    name: v.string(),
+    email: v.string(),
+    phone: v.optional(v.string()),
+    company: v.optional(v.string()),
+    message: v.string(),
+    locale: v.string(),
+    source: v.optional(v.string()), // Page where form was submitted
+    status: v.union(v.literal("new"), v.literal("read"), v.literal("replied"), v.literal("archived")),
+    notes: v.optional(v.string()), // Internal notes
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_status", ["status"])
+    .index("by_email", ["email"])
+    .index("by_created", ["createdAt"]),
 });
