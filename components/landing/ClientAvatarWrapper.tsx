@@ -25,12 +25,17 @@ export function ClientAvatarWrapper({ avatarId }: ClientAvatarWrapperProps) {
   // Extract avatar greeting from hero content
   const avatarGreeting = (heroContent as { avatarGreeting?: string } | null)?.avatarGreeting;
 
+  // Show avatar display even while loading - it has its own fallback states
+  // Pass isLoading to show loading indicator if needed
+  const isLoading = landingAvatar === undefined;
+
   return (
     <AvatarDisplay
       avatarId={avatarId || landingAvatar?._id}
       profileImage={landingAvatar?.profileImage}
-      avatarName={landingAvatar?.name}
+      avatarName={landingAvatar?.name || "Helena"}
       avatarGreeting={avatarGreeting}
+      isLoading={isLoading}
     />
   );
 }

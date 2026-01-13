@@ -12,6 +12,7 @@ interface AvatarDisplayProps {
   profileImage?: string;
   avatarName?: string;
   avatarGreeting?: string;
+  isLoading?: boolean;
 }
 
 export function AvatarDisplay({
@@ -20,10 +21,11 @@ export function AvatarDisplay({
   profileImage,
   avatarName = "Emma",
   avatarGreeting,
+  isLoading: dataLoading = false,
 }: AvatarDisplayProps) {
   const t = useTranslations("hero");
   const [isActivated, setIsActivated] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isActivating, setIsActivating] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -32,13 +34,16 @@ export function AvatarDisplay({
 
   // Handle play button click to activate live avatar
   const handleActivate = () => {
-    setIsLoading(true);
+    setIsActivating(true);
     // Simulate avatar loading - in production this would connect to LiveKit
     setTimeout(() => {
-      setIsLoading(false);
+      setIsActivating(false);
       setIsActivated(true);
     }, 1500);
   };
+
+  // Show loading state while data is being fetched
+  const isLoading = dataLoading || isActivating;
 
   return (
     <div
@@ -53,7 +58,7 @@ export function AvatarDisplay({
       <div className="relative aspect-[3/4] rounded-3xl overflow-hidden bg-gradient-to-br from-sls-teal to-sls-olive shadow-2xl shadow-sls-teal/20">
 
         {/* Initial State: Profile Image with Play Button */}
-        {!isActivated && !isLoading && (
+        {!isActivated && !isActivating && (
           <>
             {/* Profile Image Background */}
             <div className="absolute inset-0 bg-gradient-to-br from-sls-teal via-sls-olive to-sls-teal" />
@@ -113,14 +118,23 @@ export function AvatarDisplay({
 
             {/* Click to Start Badge */}
             <div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/90 text-sls-teal text-xs font-semibold">
-              <Play className="w-3 h-3" />
-              {t("clickToStart") || "Click to Start"}
+              {dataLoading ? (
+                <>
+                  <div className="w-3 h-3 border-2 border-sls-teal/30 border-t-sls-teal rounded-full animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                <>
+                  <Play className="w-3 h-3" />
+                  {t("clickToStart") || "Click to Start"}
+                </>
+              )}
             </div>
           </>
         )}
 
-        {/* Loading State */}
-        {isLoading && (
+        {/* Loading State (when clicking play to activate) */}
+        {isActivating && (
           <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-sls-teal to-sls-olive">
             <div className="text-center text-white">
               <div className="w-16 h-16 border-4 border-white/30 border-t-white rounded-full animate-spin mb-4 mx-auto" />
@@ -197,8 +211,8 @@ export function AvatarDisplay({
           </>
         )}
 
-        {/* Speech Bubble - Always visible once not loading */}
-        {!isLoading && (
+        {/* Speech Bubble - Always visible except during activation */}
+        {!isActivating && (
           <div
             className={cn(
               "absolute bottom-6 left-6 right-6 p-4 rounded-2xl bg-white/95 backdrop-blur-sm shadow-lg transition-all duration-300",
