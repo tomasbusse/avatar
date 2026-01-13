@@ -244,7 +244,7 @@ const PAGE_DEFINITIONS = [
     name: "Homepage",
     path: "/",
     sections: [
-      { id: "hero", name: "Hero Section", fields: ["headline", "subheadline", "ctaText", "ctaLink"] },
+      { id: "hero", name: "Hero Section", fields: ["headline", "subheadline", "ctaText", "ctaLink", "avatarName", "avatarGreeting"] },
       { id: "services", name: "Services Overview", fields: ["headline", "subheadline", "items"] },
       { id: "usps", name: "Why Choose Us", fields: ["headline", "items"] },
       { id: "cta", name: "Call to Action", fields: ["headline", "subheadline", "buttonText", "buttonLink"] },
@@ -764,59 +764,193 @@ function SiteConfigTab() {
   const siteConfig = useQuery(api.landing.getFullSiteConfig);
   const avatars = useQuery(api.avatars.listActiveAvatars);
   const updateConfig = useMutation(api.landing.updateSiteConfig);
+  const upsertSection = useMutation(api.landing.upsertSectionContent);
+
+  // Fetch hero content for both locales
+  const heroContentEN = useQuery(api.landing.getSectionContent, { locale: "en", page: "home", section: "hero" });
+  const heroContentDE = useQuery(api.landing.getSectionContent, { locale: "de", page: "home", section: "hero" });
 
   const [selectedAvatar, setSelectedAvatar] = useState<string>("");
+  const [avatarNameEN, setAvatarNameEN] = useState("");
+  const [avatarGreetingEN, setAvatarGreetingEN] = useState("");
+  const [avatarNameDE, setAvatarNameDE] = useState("");
+  const [avatarGreetingDE, setAvatarGreetingDE] = useState("");
+  const [isLoaded, setIsLoaded] = useState(false);
 
-  const handleSave = async () => {
+  // Load current values when data is available
+  if (!isLoaded && heroContentEN && heroContentDE) {
+    const enContent = heroContentEN as Record<string, unknown>;
+    const deContent = heroContentDE as Record<string, unknown>;
+    setAvatarNameEN((enContent.avatarName as string) || "Emma");
+    setAvatarGreetingEN((enContent.avatarGreeting as string) || "");
+    setAvatarNameDE((deContent.avatarName as string) || "Emma");
+    setAvatarGreetingDE((deContent.avatarGreeting as string) || "");
+    setIsLoaded(true);
+  }
+
+  const handleSaveAvatar = async () => {
     if (!selectedAvatar) return;
 
     try {
       await updateConfig({
         heroAvatarId: selectedAvatar as Id<"avatars">
       });
-      toast.success("Site configuration updated");
+      toast.success("Avatar selection updated");
     } catch (error) {
       toast.error("Failed to update configuration");
     }
   };
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Site Configuration</CardTitle>
-        <CardDescription>
-          Configure global settings for your marketing website
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="space-y-2">
-          <Label>Hero Avatar</Label>
-          <p className="text-sm text-muted-foreground mb-2">
-            Select the avatar that appears on the homepage hero section
-          </p>
-          <Select
-            value={selectedAvatar || siteConfig?.heroAvatarId || ""}
-            onValueChange={setSelectedAvatar}
-          >
-            <SelectTrigger className="w-full max-w-md">
-              <SelectValue placeholder="Select an avatar" />
-            </SelectTrigger>
-            <SelectContent>
-              {avatars?.map((avatar) => (
-                <SelectItem key={avatar._id} value={avatar._id}>
-                  {avatar.name} - {avatar.persona?.role || "Teacher"}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+  const handleSaveGreeting = async () => {
+    try {
+      // Update English content
+      if (heroContentEN) {
+        await upsertSection({
+          locale: "en",
+          page: "home",
+          section: "hero",
+          content: {
+            ...(heroContentEN as Record<string, unknown>),
+            avatarName: avatarNameEN,
+            avatarGreeting: avatarGreetingEN,
+          },
+        });
+      }
+      // Update German content
+      if (heroContentDE) {
+        await upsertSection({
+          locale: "de",
+          page: "home",
+          section: "hero",
+          content: {
+            ...(heroContentDE as Record<string, unknown>),
+            avatarName: avatarNameDE,
+            avatarGreeting: avatarGreetingDE,
+          },
+        });
+      }
+      toast.success("Avatar greeting updated for both languages");
+    } catch (error) {
+      toast.error("Failed to update greeting");
+    }
+  };
 
-        <Button onClick={handleSave} disabled={!selectedAvatar}>
-          <Save className="w-4 h-4 mr-2" />
-          Save Configuration
-        </Button>
-      </CardContent>
-    </Card>
+  // Get currently selected avatar details
+  const currentAvatar = avatars?.find(a => a._id === (selectedAvatar || siteConfig?.heroAvatarId));
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Hero Avatar Selection</CardTitle>
+          <CardDescription>
+            Select the avatar that appears on the homepage hero section
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-2">
+            <Label>Select Avatar</Label>
+            <Select
+              value={selectedAvatar || siteConfig?.heroAvatarId || ""}
+              onValueChange={setSelectedAvatar}
+            >
+              <SelectTrigger className="w-full max-w-md">
+                <SelectValue placeholder="Select an avatar" />
+              </SelectTrigger>
+              <SelectContent>
+                {avatars?.map((avatar) => (
+                  <SelectItem key={avatar._id} value={avatar._id}>
+                    {avatar.name} - {avatar.persona?.role || "Teacher"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {currentAvatar && (
+              <div className="mt-2 p-3 bg-muted rounded-lg">
+                <p className="text-sm font-medium">Currently selected: {currentAvatar.name}</p>
+                {currentAvatar.profileImage && (
+                  <p className="text-xs text-muted-foreground mt-1">Has profile image ✓</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <Button onClick={handleSaveAvatar} disabled={!selectedAvatar}>
+            <Save className="w-4 h-4 mr-2" />
+            Save Avatar Selection
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Avatar Greeting Text</CardTitle>
+          <CardDescription>
+            Customize the greeting message shown in the avatar speech bubble on the homepage
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* English */}
+          <div className="space-y-4 p-4 border rounded-lg">
+            <div className="flex items-center gap-2">
+              <Globe className="w-4 h-4" />
+              <Label className="text-base font-semibold">English (EN)</Label>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="avatarNameEN">Avatar Name</Label>
+              <Input
+                id="avatarNameEN"
+                value={avatarNameEN}
+                onChange={(e) => setAvatarNameEN(e.target.value)}
+                placeholder="e.g., Emma, Helena"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="avatarGreetingEN">Greeting Message</Label>
+              <Textarea
+                id="avatarGreetingEN"
+                value={avatarGreetingEN}
+                onChange={(e) => setAvatarGreetingEN(e.target.value)}
+                placeholder="Hi! I'm Emma, your AI language assistant..."
+                rows={3}
+              />
+            </div>
+          </div>
+
+          {/* German */}
+          <div className="space-y-4 p-4 border rounded-lg">
+            <div className="flex items-center gap-2">
+              <Globe className="w-4 h-4" />
+              <Label className="text-base font-semibold">Deutsch (DE)</Label>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="avatarNameDE">Avatar Name</Label>
+              <Input
+                id="avatarNameDE"
+                value={avatarNameDE}
+                onChange={(e) => setAvatarNameDE(e.target.value)}
+                placeholder="z.B. Emma, Helena"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="avatarGreetingDE">Begrüßungstext</Label>
+              <Textarea
+                id="avatarGreetingDE"
+                value={avatarGreetingDE}
+                onChange={(e) => setAvatarGreetingDE(e.target.value)}
+                placeholder="Hallo! Ich bin Emma, Ihre KI-Sprachassistentin..."
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <Button onClick={handleSaveGreeting}>
+            <Save className="w-4 h-4 mr-2" />
+            Save Greeting Text
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 

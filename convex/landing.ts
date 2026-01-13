@@ -756,8 +756,8 @@ export const seedPageContent = mutation({
           ctaPrimary: "Free Consultation",
           ctaSecondary: "Our Services",
           ctaLink: "/contact",
-          avatarName: "Emma",
-          avatarGreeting: "Hi! I'm Emma, your AI language assistant. Click the play button to start a conversation with me!",
+          avatarName: "Helena Clarke",
+          avatarGreeting: "Hi! I'm Helena, your AI English teacher. Click the play button to start a conversation with me!",
         },
         services: {
           badge: "What We Offer",
@@ -882,8 +882,8 @@ export const seedPageContent = mutation({
           ctaPrimary: "Kostenlose Beratung",
           ctaSecondary: "Unsere Leistungen",
           ctaLink: "/contact",
-          avatarName: "Emma",
-          avatarGreeting: "Hallo! Ich bin Emma, Ihre KI-Sprachassistentin. Klicken Sie auf den Play-Button, um ein Gespräch mit mir zu starten!",
+          avatarName: "Helena Clarke",
+          avatarGreeting: "Hallo! Ich bin Helena, Ihre KI-Englischlehrerin. Klicken Sie auf den Play-Button, um ein Gespräch mit mir zu starten!",
         },
         services: {
           badge: "Unsere Leistungen",
