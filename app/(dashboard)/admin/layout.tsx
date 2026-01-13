@@ -18,6 +18,7 @@ const adminNavItems = [
   { title: "Knowledge", href: "/admin/knowledge" },
   { title: "Lessons", href: "/admin/lessons" },
   { title: "Entry Tests", href: "/admin/entry-tests" },
+  { title: "Landing CMS", href: "/admin/landing" },
   { title: "Tools", href: "/admin/tools" },
 ];
 

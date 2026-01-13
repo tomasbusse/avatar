@@ -40,6 +40,50 @@ export const setSiteConfig = mutation({
   },
 });
 
+// Get all site config for admin page
+export const getFullSiteConfig = query({
+  args: {},
+  handler: async (ctx) => {
+    const configs = await ctx.db.query("siteConfig").collect();
+    const configMap: Record<string, any> = {};
+    for (const config of configs) {
+      configMap[config.key] = config.value;
+    }
+    return {
+      heroAvatarId: configMap["landing_hero_avatar"] || null,
+    };
+  },
+});
+
+// Update site config from admin
+export const updateSiteConfig = mutation({
+  args: {
+    heroAvatarId: v.optional(v.id("avatars")),
+  },
+  handler: async (ctx, args) => {
+    if (args.heroAvatarId) {
+      const existing = await ctx.db
+        .query("siteConfig")
+        .withIndex("by_key", (q) => q.eq("key", "landing_hero_avatar"))
+        .first();
+
+      if (existing) {
+        await ctx.db.patch(existing._id, {
+          value: args.heroAvatarId,
+          updatedAt: Date.now(),
+        });
+      } else {
+        await ctx.db.insert("siteConfig", {
+          key: "landing_hero_avatar",
+          value: args.heroAvatarId,
+          updatedAt: Date.now(),
+        });
+      }
+    }
+    return { success: true };
+  },
+});
+
 // Get landing page avatar configuration
 export const getLandingAvatar = query({
   args: {},
@@ -248,6 +292,41 @@ export const deleteFaq = mutation({
 // TESTIMONIALS
 // ============================================
 
+export const updateTestimonial = mutation({
+  args: {
+    id: v.id("landingTestimonials"),
+    name: v.optional(v.string()),
+    company: v.optional(v.string()),
+    role: v.optional(v.string()),
+    quote: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+    rating: v.optional(v.number()),
+    featured: v.optional(v.boolean()),
+    order: v.optional(v.number()),
+    isPublished: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const { id, featured, ...updates } = args;
+    const patchData: any = {
+      ...updates,
+      updatedAt: Date.now(),
+    };
+    if (featured !== undefined) {
+      patchData.isFeatured = featured;
+    }
+    await ctx.db.patch(id, patchData);
+    return { success: true };
+  },
+});
+
+export const deleteTestimonial = mutation({
+  args: { id: v.id("landingTestimonials") },
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.id);
+    return { success: true };
+  },
+});
+
 export const getTestimonials = query({
   args: {
     locale: v.string(),
@@ -453,6 +532,14 @@ export const updateBlogPost = mutation({
     }
 
     await ctx.db.patch(id, updateData);
+    return { success: true };
+  },
+});
+
+export const deleteBlogPost = mutation({
+  args: { id: v.id("blogPosts") },
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.id);
     return { success: true };
   },
 });
