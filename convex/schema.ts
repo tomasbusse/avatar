@@ -2701,7 +2701,8 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_locale", ["locale"])
-    .index("by_locale_category", ["locale", "category"]),
+    .index("by_locale_category", ["locale", "category"])
+    .index("by_locale_published", ["locale", "isPublished"]),
 
   // Testimonials
   landingTestimonials: defineTable({
