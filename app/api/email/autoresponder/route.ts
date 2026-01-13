@@ -19,6 +19,7 @@ interface AutoresponderRequest {
   mode: "preview" | "generate";
   knowledgeBaseIds?: string[];
   includeFaqs?: boolean;
+  customPrompt?: string; // Custom AI instructions to override the default
 }
 
 const BASE_SYSTEM_PROMPT = `You are James Simmonds, the founder of Simmonds Language Services (SLS), a professional language training company based in Hannover, Germany since 1999. You're writing personalized email responses to contact form inquiries.
@@ -94,7 +95,7 @@ function buildKnowledgeContext(knowledge: {
 export async function POST(request: NextRequest) {
   try {
     const body: AutoresponderRequest = await request.json();
-    const { name, email, company, message, locale, mode, knowledgeBaseIds, includeFaqs } = body;
+    const { name, email, company, message, locale, mode, knowledgeBaseIds, includeFaqs, customPrompt } = body;
 
     // Validate required fields
     if (!name || !email || !message) {
@@ -124,7 +125,9 @@ export async function POST(request: NextRequest) {
       // Continue without knowledge context
     }
 
-    const systemPrompt = BASE_SYSTEM_PROMPT + knowledgeContext;
+    // Use custom prompt if provided, otherwise use the base prompt
+    const basePrompt = customPrompt || BASE_SYSTEM_PROMPT;
+    const systemPrompt = basePrompt + knowledgeContext;
 
     const userPrompt = `
 Write a personalized email response for this contact form submission:

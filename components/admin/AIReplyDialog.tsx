@@ -17,7 +17,21 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Sparkles, Send, Loader2, RefreshCw, Edit3, Check, Database, HelpCircle } from "lucide-react";
+import {
+  Sparkles,
+  Send,
+  Loader2,
+  RefreshCw,
+  Edit3,
+  Check,
+  Database,
+  HelpCircle,
+  PenLine,
+  Settings2,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ContactSubmission {
   _id: Id<"contactSubmissions">;
@@ -40,27 +54,37 @@ interface AIReplyDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+type ReplyMode = "ai" | "manual";
+
+const DEFAULT_AI_PROMPT = `You are James Simmonds, the founder of Simmonds Language Services (SLS). Write personalized, professional yet warm email responses. Be helpful and direct, never salesy. Match the language of the inquiry (German or English). Reference specific details from their message. Keep it concise (2-4 short paragraphs).`;
+
 export function AIReplyDialog({ submission, open, onOpenChange }: AIReplyDialogProps) {
   const recordReply = useMutation(api.landing.recordContactReply);
   const knowledgeBases = useQuery(api.knowledgeBases.getActive);
 
-  const [isGenerating, setIsGenerating] = useState(false);
+  // Mode selection
+  const [replyMode, setReplyMode] = useState<ReplyMode>("ai");
+
+  // Common state
   const [isSending, setIsSending] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [generatedEmail, setGeneratedEmail] = useState("");
   const [subject, setSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
   const [detectedLanguage, setDetectedLanguage] = useState("en");
+
+  // AI mode state
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [hasKnowledgeContext, setHasKnowledgeContext] = useState(false);
+  const [showAiSettings, setShowAiSettings] = useState(false);
+  const [customPrompt, setCustomPrompt] = useState(DEFAULT_AI_PROMPT);
 
   // Knowledge base settings
   const [selectedKnowledgeBases, setSelectedKnowledgeBases] = useState<string[]>([]);
   const [includeFaqs, setIncludeFaqs] = useState(true);
-  const [hasKnowledgeContext, setHasKnowledgeContext] = useState(false);
 
   const handleGenerateReply = async () => {
     if (!submission) return;
 
     setIsGenerating(true);
-    setIsEditing(false);
 
     try {
       const response = await fetch("/api/email/autoresponder", {
@@ -75,6 +99,7 @@ export function AIReplyDialog({ submission, open, onOpenChange }: AIReplyDialogP
           mode: "generate",
           knowledgeBaseIds: selectedKnowledgeBases,
           includeFaqs,
+          customPrompt: customPrompt !== DEFAULT_AI_PROMPT ? customPrompt : undefined,
         }),
       });
 
@@ -83,7 +108,7 @@ export function AIReplyDialog({ submission, open, onOpenChange }: AIReplyDialogP
       }
 
       const data = await response.json();
-      setGeneratedEmail(data.generatedEmail);
+      setEmailBody(data.generatedEmail);
       setSubject(data.suggestedSubject);
       setDetectedLanguage(data.detectedLanguage);
       setHasKnowledgeContext(data.hasKnowledgeContext);
@@ -97,8 +122,8 @@ export function AIReplyDialog({ submission, open, onOpenChange }: AIReplyDialogP
   };
 
   const handleSendReply = async () => {
-    if (!submission || !generatedEmail || !subject) {
-      toast.error("Please generate a response first");
+    if (!submission || !emailBody || !subject) {
+      toast.error("Please fill in subject and message");
       return;
     }
 
@@ -113,7 +138,7 @@ export function AIReplyDialog({ submission, open, onOpenChange }: AIReplyDialogP
           to: submission.email,
           toName: submission.name,
           subject: subject,
-          body: generatedEmail,
+          body: emailBody,
           locale: detectedLanguage,
           originalMessage: submission.message,
         }),
@@ -127,14 +152,13 @@ export function AIReplyDialog({ submission, open, onOpenChange }: AIReplyDialogP
       await recordReply({
         id: submission._id,
         subject: subject,
-        body: generatedEmail,
-        method: "ai",
+        body: emailBody,
+        method: replyMode,
       });
 
       toast.success("Email sent successfully!");
       onOpenChange(false);
-      setGeneratedEmail("");
-      setSubject("");
+      resetState();
     } catch (error) {
       console.error("Error sending reply:", error);
       toast.error("Failed to send email");
@@ -143,15 +167,22 @@ export function AIReplyDialog({ submission, open, onOpenChange }: AIReplyDialogP
     }
   };
 
+  const resetState = () => {
+    setEmailBody("");
+    setSubject("");
+    setHasKnowledgeContext(false);
+    setDetectedLanguage("en");
+  };
+
   const handleClose = () => {
     onOpenChange(false);
-    // Reset state after a delay to avoid flicker
-    setTimeout(() => {
-      setGeneratedEmail("");
-      setSubject("");
-      setIsEditing(false);
-      setHasKnowledgeContext(false);
-    }, 200);
+    setTimeout(resetState, 200);
+  };
+
+  const handleModeChange = (mode: ReplyMode) => {
+    setReplyMode(mode);
+    // Reset email content when switching modes
+    resetState();
   };
 
   const toggleKnowledgeBase = (kbId: string) => {
@@ -169,15 +200,43 @@ export function AIReplyDialog({ submission, open, onOpenChange }: AIReplyDialogP
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-amber-500" />
-            AI Reply to {submission.name}
+            {replyMode === "ai" ? (
+              <Sparkles className="w-5 h-5 text-amber-500" />
+            ) : (
+              <PenLine className="w-5 h-5 text-blue-500" />
+            )}
+            Reply to {submission.name}
           </DialogTitle>
           <DialogDescription>
-            Generate a personalized reply using Claude Opus 4.5, review, edit, and send.
+            {replyMode === "ai"
+              ? "Generate a personalized reply using Claude Opus 4.5, review, edit, and send."
+              : "Write and send a manual reply."}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          {/* Mode Toggle */}
+          <div className="flex gap-2 p-1 bg-muted rounded-lg w-fit">
+            <Button
+              variant={replyMode === "ai" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => handleModeChange("ai")}
+              className="gap-2"
+            >
+              <Sparkles className="w-4 h-4" />
+              AI Reply
+            </Button>
+            <Button
+              variant={replyMode === "manual" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => handleModeChange("manual")}
+              className="gap-2"
+            >
+              <PenLine className="w-4 h-4" />
+              Manual Reply
+            </Button>
+          </div>
+
           {/* Original Message */}
           <div className="space-y-2">
             <Label className="text-sm font-medium">Original Message</Label>
@@ -191,121 +250,152 @@ export function AIReplyDialog({ submission, open, onOpenChange }: AIReplyDialogP
             </div>
           </div>
 
-          {/* Knowledge Base Selection */}
-          <div className="space-y-3 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
-            <div className="flex items-center gap-2 text-sm font-medium text-blue-700 dark:text-blue-300">
-              <Database className="w-4 h-4" />
-              Knowledge Sources
-            </div>
+          {/* AI Mode Settings */}
+          {replyMode === "ai" && (
+            <>
+              {/* Knowledge Base Selection */}
+              <div className="space-y-3 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center gap-2 text-sm font-medium text-blue-700 dark:text-blue-300">
+                  <Database className="w-4 h-4" />
+                  Knowledge Sources
+                </div>
 
-            <div className="space-y-2">
-              {/* Include FAQs */}
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="include-faqs"
-                  checked={includeFaqs}
-                  onCheckedChange={(checked) => setIncludeFaqs(checked === true)}
-                />
-                <label
-                  htmlFor="include-faqs"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-1"
-                >
-                  <HelpCircle className="w-3 h-3" />
-                  Include FAQs from website
-                </label>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="include-faqs"
+                      checked={includeFaqs}
+                      onCheckedChange={(checked) => setIncludeFaqs(checked === true)}
+                    />
+                    <label
+                      htmlFor="include-faqs"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-1"
+                    >
+                      <HelpCircle className="w-3 h-3" />
+                      Include FAQs from website
+                    </label>
+                  </div>
+
+                  {knowledgeBases && knowledgeBases.length > 0 && (
+                    <div className="pt-2 border-t border-blue-200 dark:border-blue-700 mt-2">
+                      <p className="text-xs text-muted-foreground mb-2">Additional Knowledge Bases:</p>
+                      <div className="space-y-2">
+                        {knowledgeBases.map((kb) => (
+                          <div key={kb._id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`kb-${kb._id}`}
+                              checked={selectedKnowledgeBases.includes(kb._id)}
+                              onCheckedChange={() => toggleKnowledgeBase(kb._id)}
+                            />
+                            <label
+                              htmlFor={`kb-${kb._id}`}
+                              className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            >
+                              {kb.name}
+                              <span className="text-xs text-muted-foreground ml-2">
+                                ({kb.sources?.length || 0} sources)
+                              </span>
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {(!knowledgeBases || knowledgeBases.length === 0) && (
+                    <p className="text-xs text-muted-foreground">
+                      No additional knowledge bases available. FAQs from the website will be used.
+                    </p>
+                  )}
+                </div>
               </div>
 
-              {/* Knowledge Bases */}
-              {knowledgeBases && knowledgeBases.length > 0 && (
-                <div className="pt-2 border-t border-blue-200 dark:border-blue-700 mt-2">
-                  <p className="text-xs text-muted-foreground mb-2">Additional Knowledge Bases:</p>
-                  <div className="space-y-2">
-                    {knowledgeBases.map((kb) => (
-                      <div key={kb._id} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`kb-${kb._id}`}
-                          checked={selectedKnowledgeBases.includes(kb._id)}
-                          onCheckedChange={() => toggleKnowledgeBase(kb._id)}
-                        />
-                        <label
-                          htmlFor={`kb-${kb._id}`}
-                          className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                        >
-                          {kb.name}
-                          <span className="text-xs text-muted-foreground ml-2">
-                            ({kb.sources?.length || 0} sources)
-                          </span>
-                        </label>
-                      </div>
-                    ))}
+              {/* AI Prompt Settings (Collapsible) */}
+              <div className="border rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setShowAiSettings(!showAiSettings)}
+                  className="w-full flex items-center justify-between p-3 text-sm font-medium hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Settings2 className="w-4 h-4" />
+                    AI Prompt Settings
                   </div>
+                  {showAiSettings ? (
+                    <ChevronUp className="w-4 h-4" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4" />
+                  )}
+                </button>
+                {showAiSettings && (
+                  <div className="p-4 border-t space-y-3">
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">
+                        Custom AI Instructions (persona, tone, style)
+                      </Label>
+                      <Textarea
+                        value={customPrompt}
+                        onChange={(e) => setCustomPrompt(e.target.value)}
+                        rows={6}
+                        placeholder="Enter custom instructions for the AI..."
+                        className="text-sm"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCustomPrompt(DEFAULT_AI_PROMPT)}
+                      >
+                        Reset to Default
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Generate Button */}
+              {!emailBody && (
+                <div className="flex justify-center py-4">
+                  <Button
+                    onClick={handleGenerateReply}
+                    disabled={isGenerating}
+                    size="lg"
+                    className="gap-2"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Generating with Claude Opus 4.5...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-5 h-5" />
+                        Generate AI Reply
+                      </>
+                    )}
+                  </Button>
                 </div>
               )}
-
-              {(!knowledgeBases || knowledgeBases.length === 0) && (
-                <p className="text-xs text-muted-foreground">
-                  No additional knowledge bases available. FAQs from the website will be used.
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Generate Button */}
-          {!generatedEmail && (
-            <div className="flex justify-center py-4">
-              <Button
-                onClick={handleGenerateReply}
-                disabled={isGenerating}
-                size="lg"
-                className="gap-2"
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Generating with Claude Opus 4.5...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-5 h-5" />
-                    Generate AI Reply
-                  </>
-                )}
-              </Button>
-            </div>
+            </>
           )}
 
-          {/* Generated Response */}
-          {generatedEmail && (
+          {/* Email Composer (shown for manual mode OR after AI generation) */}
+          {(replyMode === "manual" || emailBody) && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Label className="text-sm font-medium">Generated Response</Label>
-                  {hasKnowledgeContext && (
+                  <Label className="text-sm font-medium">
+                    {replyMode === "ai" ? "Generated Response" : "Your Reply"}
+                  </Label>
+                  {replyMode === "ai" && hasKnowledgeContext && (
                     <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full flex items-center gap-1">
                       <Database className="w-3 h-3" />
                       Knowledge-enhanced
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsEditing(!isEditing)}
-                    className="gap-1"
-                  >
-                    {isEditing ? (
-                      <>
-                        <Check className="w-4 h-4" />
-                        Done Editing
-                      </>
-                    ) : (
-                      <>
-                        <Edit3 className="w-4 h-4" />
-                        Edit
-                      </>
-                    )}
-                  </Button>
+                {replyMode === "ai" && emailBody && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -313,10 +403,10 @@ export function AIReplyDialog({ submission, open, onOpenChange }: AIReplyDialogP
                     disabled={isGenerating}
                     className="gap-1"
                   >
-                    <RefreshCw className={`w-4 h-4 ${isGenerating ? "animate-spin" : ""}`} />
+                    <RefreshCw className={cn("w-4 h-4", isGenerating && "animate-spin")} />
                     Regenerate
                   </Button>
-                </div>
+                )}
               </div>
 
               {/* Subject Line */}
@@ -326,28 +416,21 @@ export function AIReplyDialog({ submission, open, onOpenChange }: AIReplyDialogP
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   placeholder="Email subject..."
-                  disabled={!isEditing}
-                  className={!isEditing ? "bg-muted" : ""}
                 />
               </div>
 
               {/* Email Body */}
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">
-                  Body ({detectedLanguage === "de" ? "German" : "English"})
+                  Body {detectedLanguage && replyMode === "ai" && `(${detectedLanguage === "de" ? "German" : "English"})`}
                 </Label>
-                {isEditing ? (
-                  <Textarea
-                    value={generatedEmail}
-                    onChange={(e) => setGeneratedEmail(e.target.value)}
-                    rows={12}
-                    className="font-normal"
-                  />
-                ) : (
-                  <div className="p-4 bg-muted rounded-lg text-sm whitespace-pre-wrap min-h-[200px]">
-                    {generatedEmail}
-                  </div>
-                )}
+                <Textarea
+                  value={emailBody}
+                  onChange={(e) => setEmailBody(e.target.value)}
+                  rows={12}
+                  placeholder={replyMode === "manual" ? "Write your reply here..." : ""}
+                  className="font-normal"
+                />
               </div>
 
               {/* Send Button */}
@@ -357,7 +440,7 @@ export function AIReplyDialog({ submission, open, onOpenChange }: AIReplyDialogP
                 </Button>
                 <Button
                   onClick={handleSendReply}
-                  disabled={isSending || !generatedEmail || !subject}
+                  disabled={isSending || !emailBody || !subject}
                   className="gap-2"
                 >
                   {isSending ? (
