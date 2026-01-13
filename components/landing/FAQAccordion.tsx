@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -35,26 +35,36 @@ export function FAQAccordion({
   const locale = useLocale();
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
-  // Fetch FAQs from Convex database
+  // Track if we're on the client to prevent hydration mismatch
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Fetch FAQs from Convex database (only use after client mount)
   const dbFaqs = useQuery(api.landing.getFaqs, {
     locale: locale as string,
     category: category
   });
 
-  // Use provided items, then DB items, then fallback to translations
-  const faqItems: FAQItem[] = items || (dbFaqs && dbFaqs.length > 0
-    ? dbFaqs.map(faq => ({
-        question: faq.question,
-        answer: faq.answer,
-        category: faq.category,
-      }))
-    : [
-        { question: t("items.0.question"), answer: t("items.0.answer") },
-        { question: t("items.1.question"), answer: t("items.1.answer") },
-        { question: t("items.2.question"), answer: t("items.2.answer") },
-        { question: t("items.3.question"), answer: t("items.3.answer") },
-        { question: t("items.4.question"), answer: t("items.4.answer") },
-      ]
+  // Fallback FAQs from translations (used for SSR and initial client render)
+  const fallbackItems: FAQItem[] = [
+    { question: t("items.0.question"), answer: t("items.0.answer") },
+    { question: t("items.1.question"), answer: t("items.1.answer") },
+    { question: t("items.2.question"), answer: t("items.2.answer") },
+    { question: t("items.3.question"), answer: t("items.3.answer") },
+    { question: t("items.4.question"), answer: t("items.4.answer") },
+  ];
+
+  // Use provided items, then DB (only on client), then fallback to translations
+  const faqItems: FAQItem[] = items || (
+    isClient && dbFaqs && dbFaqs.length > 0
+      ? dbFaqs.map(faq => ({
+          question: faq.question,
+          answer: faq.answer,
+          category: faq.category,
+        }))
+      : fallbackItems
   );
 
   const displayItems = faqItems.slice(0, maxItems);

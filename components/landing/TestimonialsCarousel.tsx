@@ -25,43 +25,53 @@ export function TestimonialsCarousel({ testimonials }: TestimonialsCarouselProps
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
 
-  // Fetch testimonials from Convex database
+  // Track if we're on the client to prevent hydration mismatch
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Fetch testimonials from Convex database (only use after client mount)
   const dbTestimonials = useQuery(api.landing.getTestimonials, {
     locale: locale as string,
   });
 
-  // Use provided testimonials, then DB, then fallback to translations
-  const items: Testimonial[] = testimonials || (dbTestimonials && dbTestimonials.length > 0
-    ? dbTestimonials.map(t => ({
-        name: t.name,
-        company: t.company,
-        role: t.role,
-        quote: t.quote,
-        rating: t.rating,
-      }))
-    : [
-        {
-          name: "Dr. Sarah Mueller",
-          company: "Volkswagen AG",
-          role: "Head of International Relations",
-          quote: t("items.0.quote"),
-          rating: 5,
-        },
-        {
-          name: "Michael Schmidt",
-          company: "Deutsche Bank",
-          role: "Senior Manager",
-          quote: t("items.1.quote"),
-          rating: 5,
-        },
-        {
-          name: "Anna Weber",
-          company: "Siemens",
-          role: "Marketing Director",
-          quote: t("items.2.quote"),
-          rating: 5,
-        },
-      ]
+  // Fallback testimonials from translations (used for SSR and initial client render)
+  const fallbackItems: Testimonial[] = [
+    {
+      name: "Dr. Sarah Mueller",
+      company: "Volkswagen AG",
+      role: "Head of International Relations",
+      quote: t("items.0.quote"),
+      rating: 5,
+    },
+    {
+      name: "Michael Schmidt",
+      company: "Deutsche Bank",
+      role: "Senior Manager",
+      quote: t("items.1.quote"),
+      rating: 5,
+    },
+    {
+      name: "Anna Weber",
+      company: "Siemens",
+      role: "Marketing Director",
+      quote: t("items.2.quote"),
+      rating: 5,
+    },
+  ];
+
+  // Use provided testimonials, then DB (only on client), then fallback to translations
+  const items: Testimonial[] = testimonials || (
+    isClient && dbTestimonials && dbTestimonials.length > 0
+      ? dbTestimonials.map(item => ({
+          name: item.name,
+          company: item.company,
+          role: item.role,
+          quote: item.quote,
+          rating: item.rating,
+        }))
+      : fallbackItems
   );
 
   // Auto-advance carousel
