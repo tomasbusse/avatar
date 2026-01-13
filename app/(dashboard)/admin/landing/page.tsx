@@ -46,7 +46,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { BlockEditor } from "@/components/admin/blog/BlockEditor";
+import { AIReplyDialog } from "@/components/admin/AIReplyDialog";
 import type { BlogBlock } from "@/types/blog-blocks";
+import type { Doc } from "@/convex/_generated/dataModel";
 
 // AI Content Generation Hook
 function useAIGeneration() {
@@ -802,6 +804,10 @@ function SiteConfigTab() {
   const [isSendingTestEmail, setIsSendingTestEmail] = useState(false);
   const [testEmailAddress, setTestEmailAddress] = useState("");
 
+  // AI Reply dialog state
+  const [selectedSubmission, setSelectedSubmission] = useState<Doc<"contactSubmissions"> | null>(null);
+  const [aiReplyDialogOpen, setAiReplyDialogOpen] = useState(false);
+
   // Load current values when data is available
   if (!isLoaded && heroContentEN && heroContentDE) {
     const enContent = heroContentEN as Record<string, unknown>;
@@ -1009,21 +1015,41 @@ function SiteConfigTab() {
                         )}
                       </div>
                       <p className="text-sm line-clamp-2">{submission.message}</p>
+                      {submission.repliedAt && (
+                        <div className="mt-2 text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3" />
+                          Replied {new Date(submission.repliedAt).toLocaleDateString()} via {submission.replyMethod === "ai" ? "AI" : "manual"}
+                        </div>
+                      )}
                     </div>
-                    <Select
-                      value={submission.status}
-                      onValueChange={(v) => handleUpdateSubmissionStatus(submission._id, v)}
-                    >
-                      <SelectTrigger className="w-28">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="new">New</SelectItem>
-                        <SelectItem value="read">Read</SelectItem>
-                        <SelectItem value="replied">Replied</SelectItem>
-                        <SelectItem value="archived">Archived</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className="flex flex-col items-end gap-2">
+                      <Select
+                        value={submission.status}
+                        onValueChange={(v) => handleUpdateSubmissionStatus(submission._id, v)}
+                      >
+                        <SelectTrigger className="w-28">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="new">New</SelectItem>
+                          <SelectItem value="read">Read</SelectItem>
+                          <SelectItem value="replied">Replied</SelectItem>
+                          <SelectItem value="archived">Archived</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1"
+                        onClick={() => {
+                          setSelectedSubmission(submission);
+                          setAiReplyDialogOpen(true);
+                        }}
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        Reply with AI
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1031,6 +1057,13 @@ function SiteConfigTab() {
           )}
         </CardContent>
       </Card>
+
+      {/* AI Reply Dialog */}
+      <AIReplyDialog
+        submission={selectedSubmission}
+        open={aiReplyDialogOpen}
+        onOpenChange={setAiReplyDialogOpen}
+      />
 
       {/* Contact Information */}
       <Card>

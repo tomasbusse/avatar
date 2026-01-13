@@ -824,6 +824,107 @@ export const updateContactStatus = mutation({
   },
 });
 
+export const recordContactReply = mutation({
+  args: {
+    id: v.id("contactSubmissions"),
+    subject: v.string(),
+    body: v.string(),
+    method: v.union(v.literal("manual"), v.literal("ai")),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    await ctx.db.patch(args.id, {
+      status: "replied",
+      repliedAt: now,
+      replySubject: args.subject,
+      replyBody: args.body,
+      replyMethod: args.method,
+      updatedAt: now,
+    });
+    return { success: true };
+  },
+});
+
+// Get knowledge context for autoresponder
+export const getAutoresponderKnowledge = query({
+  args: {
+    knowledgeBaseIds: v.optional(v.array(v.id("knowledgeBases"))),
+    includeFaqs: v.optional(v.boolean()),
+    locale: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const result: {
+      knowledgeContent: Array<{ title: string; content: string; category?: string }>;
+      faqs: Array<{ question: string; answer: string; category: string }>;
+      services: Array<{ title: string; description: string }>;
+    } = {
+      knowledgeContent: [],
+      faqs: [],
+      services: [],
+    };
+
+    // 1. Get content from specified knowledge bases
+    if (args.knowledgeBaseIds && args.knowledgeBaseIds.length > 0) {
+      for (const kbId of args.knowledgeBaseIds) {
+        const content = await ctx.db
+          .query("knowledgeContent")
+          .withIndex("by_knowledge_base", (q) => q.eq("knowledgeBaseId", kbId))
+          .filter((q) => q.eq(q.field("processingStatus"), "completed"))
+          .collect();
+
+        for (const item of content) {
+          result.knowledgeContent.push({
+            title: item.title,
+            content: item.content.substring(0, 2000), // Limit content size
+            category: item.contentType,
+          });
+        }
+      }
+    }
+
+    // 2. Get FAQs from landingFaq if requested
+    if (args.includeFaqs !== false) {
+      const locale = args.locale || "en";
+      const faqs = await ctx.db
+        .query("landingFaq")
+        .withIndex("by_locale_published", (q) =>
+          q.eq("locale", locale).eq("isPublished", true)
+        )
+        .collect();
+
+      for (const faq of faqs) {
+        result.faqs.push({
+          question: faq.question,
+          answer: faq.answer,
+          category: faq.category,
+        });
+      }
+    }
+
+    // 3. Get services info from landingContent
+    const servicesContent = await ctx.db
+      .query("landingContent")
+      .withIndex("by_locale_page_section", (q) =>
+        q.eq("locale", args.locale || "en").eq("page", "services")
+      )
+      .collect();
+
+    for (const section of servicesContent) {
+      if (section.content && typeof section.content === "object") {
+        const content = section.content as Record<string, unknown>;
+        if (content.headline && content.subheadline) {
+          result.services.push({
+            title: content.headline as string,
+            description: content.subheadline as string,
+          });
+        }
+      }
+    }
+
+    return result;
+  },
+});
+
 // ============================================
 // SEED PAGE CONTENT
 // ============================================

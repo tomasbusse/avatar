@@ -2777,6 +2777,11 @@ export default defineSchema({
     source: v.optional(v.string()), // Page where form was submitted
     status: v.union(v.literal("new"), v.literal("read"), v.literal("replied"), v.literal("archived")),
     notes: v.optional(v.string()), // Internal notes
+    // Reply tracking
+    repliedAt: v.optional(v.number()),
+    replySubject: v.optional(v.string()),
+    replyBody: v.optional(v.string()),
+    replyMethod: v.optional(v.union(v.literal("manual"), v.literal("ai"))),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
