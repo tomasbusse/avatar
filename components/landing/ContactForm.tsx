@@ -34,6 +34,7 @@ export function ContactForm({ source = "website", className }: ContactFormProps)
     setError(null);
 
     try {
+      // 1. Save to Convex database
       await submitContact({
         name: formData.name,
         email: formData.email,
@@ -43,6 +44,30 @@ export function ContactForm({ source = "website", className }: ContactFormProps)
         locale,
         source,
       });
+
+      // 2. Send email notifications via Resend API
+      try {
+        const emailResponse = await fetch("/api/email/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: formData.name,
+            email: formData.email,
+            phone: formData.phone,
+            company: formData.company,
+            message: formData.message,
+            locale,
+          }),
+        });
+
+        if (!emailResponse.ok) {
+          // Log error but don't fail the submission (data is already saved)
+          console.error("[ContactForm] Email sending failed:", await emailResponse.text());
+        }
+      } catch (emailError) {
+        // Email sending failed, but form submission succeeded - log but don't fail
+        console.error("[ContactForm] Email sending error:", emailError);
+      }
 
       setIsSubmitted(true);
       setFormData({

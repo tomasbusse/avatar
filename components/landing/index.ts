@@ -7,6 +7,7 @@ export { USPSection } from "./USPSection";
 export { FAQAccordion } from "./FAQAccordion";
 export { TestimonialsCarousel } from "./TestimonialsCarousel";
 export { ContactForm } from "./ContactForm";
+export { ContactInfo } from "./ContactInfo";
 export { CTASection } from "./CTASection";
 export { PricingTable } from "./PricingTable";
 export { Breadcrumbs } from "./Breadcrumbs";

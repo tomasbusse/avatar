@@ -51,7 +51,110 @@ export const getFullSiteConfig = query({
     }
     return {
       heroAvatarId: configMap["landing_hero_avatar"] || null,
+      contactInfo: configMap["contact_info"] || null,
     };
+  },
+});
+
+// Get contact information for the contact page
+export const getContactInfo = query({
+  args: {},
+  handler: async (ctx) => {
+    const config = await ctx.db
+      .query("siteConfig")
+      .withIndex("by_key", (q) => q.eq("key", "contact_info"))
+      .first();
+
+    // Return stored config or defaults
+    return config?.value || {
+      // Business info
+      email: "james@englisch-lehrer.com",
+      phone: "+49 511 47 39 339",
+      hours: {
+        en: "Monday – Friday: 9:00 – 18:00",
+        de: "Montag – Freitag: 9:00 – 18:00",
+      },
+      // Locations
+      locations: [
+        {
+          name: { en: "Hannover Office", de: "Büro Hannover" },
+          address: "Im Werkhof, Schaufelder Straße 11, 30167 Hannover",
+          isPrimary: true,
+        },
+        {
+          name: { en: "Berlin Office", de: "Büro Berlin" },
+          address: "Friedrichstraße 123, 10117 Berlin",
+          isPrimary: false,
+        },
+      ],
+      // Email personalization
+      emailSettings: {
+        autoReplyEnabled: true,
+        notificationEmails: ["james@englisch-lehrer.com"],
+        personalizedMessages: {
+          en: {
+            thankYou: "Thank you for your message! We have received your inquiry and will get back to you within 24 hours.",
+            closing: "In the meantime, you can learn more about our services on our website.",
+          },
+          de: {
+            thankYou: "Vielen Dank für Ihre Nachricht! Wir haben Ihre Anfrage erhalten und werden uns innerhalb von 24 Stunden bei Ihnen melden.",
+            closing: "In der Zwischenzeit können Sie mehr über unsere Dienstleistungen auf unserer Website erfahren.",
+          },
+        },
+      },
+    };
+  },
+});
+
+// Update contact information (admin function)
+export const updateContactInfo = mutation({
+  args: {
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    hours: v.optional(v.object({
+      en: v.string(),
+      de: v.string(),
+    })),
+    locations: v.optional(v.array(v.object({
+      name: v.object({ en: v.string(), de: v.string() }),
+      address: v.string(),
+      isPrimary: v.optional(v.boolean()),
+    }))),
+    emailSettings: v.optional(v.object({
+      autoReplyEnabled: v.boolean(),
+      notificationEmails: v.array(v.string()),
+      personalizedMessages: v.object({
+        en: v.object({ thankYou: v.string(), closing: v.string() }),
+        de: v.object({ thankYou: v.string(), closing: v.string() }),
+      }),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("siteConfig")
+      .withIndex("by_key", (q) => q.eq("key", "contact_info"))
+      .first();
+
+    const currentValue = existing?.value || {};
+    const newValue = {
+      ...currentValue,
+      ...args,
+    };
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        value: newValue,
+        updatedAt: Date.now(),
+      });
+    } else {
+      await ctx.db.insert("siteConfig", {
+        key: "contact_info",
+        value: newValue,
+        updatedAt: Date.now(),
+      });
+    }
+
+    return { success: true };
   },
 });
 
