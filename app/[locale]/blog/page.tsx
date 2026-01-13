@@ -1,6 +1,8 @@
 import { setRequestLocale } from "next-intl/server";
 import { getTranslations } from "next-intl/server";
 import { Metadata } from "next";
+import { fetchQuery } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
 import { Breadcrumbs, BlogCard, CTASection } from "@/components/landing";
 
 interface PageProps {
@@ -22,39 +24,22 @@ export default async function BlogPage({ params }: PageProps) {
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: "blog" });
 
-  // Sample blog posts - these would come from Convex in production
-  const posts = [
-    {
-      slug: "mastering-business-english-presentations",
-      title: "Mastering Business English Presentations",
-      excerpt:
-        "Learn the key techniques for delivering confident and persuasive presentations in English.",
-      author: "James Simmonds",
-      category: "Business English",
-      publishedAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
-      readTimeMinutes: 5,
-    },
-    {
-      slug: "email-etiquette-for-professionals",
-      title: "Email Etiquette for International Professionals",
-      excerpt:
-        "Master the art of professional email communication with these essential tips and templates.",
-      author: "James Simmonds",
-      category: "Communication",
-      publishedAt: Date.now() - 14 * 24 * 60 * 60 * 1000,
-      readTimeMinutes: 4,
-    },
-    {
-      slug: "german-business-culture",
-      title: "Understanding German Business Culture",
-      excerpt:
-        "Navigate the nuances of German workplace culture and communication styles.",
-      author: "James Simmonds",
-      category: "Culture",
-      publishedAt: Date.now() - 21 * 24 * 60 * 60 * 1000,
-      readTimeMinutes: 6,
-    },
-  ];
+  // Fetch blog posts from Convex
+  const dbPosts = await fetchQuery(api.landing.getBlogPosts, {
+    locale,
+    status: "published",
+  });
+
+  // Transform DB posts to expected format
+  const posts = dbPosts.map(post => ({
+    slug: post.slug,
+    title: post.title,
+    excerpt: post.excerpt,
+    author: post.author,
+    category: post.category,
+    publishedAt: post.publishedAt || post.createdAt,
+    readTimeMinutes: post.readTimeMinutes || 5,
+  }));
 
   return (
     <div className="pt-20">

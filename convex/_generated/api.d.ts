@@ -30,6 +30,7 @@ import type * as presentations from "../presentations.js";
 import type * as rbac from "../rbac.js";
 import type * as seed from "../seed.js";
 import type * as seedEntryTestQuestions from "../seedEntryTestQuestions.js";
+import type * as seedLanding from "../seedLanding.js";
 import type * as sessions from "../sessions.js";
 import type * as structuredLessons from "../structuredLessons.js";
 import type * as students from "../students.js";
@@ -66,6 +67,7 @@ declare const fullApi: ApiFromModules<{
   rbac: typeof rbac;
   seed: typeof seed;
   seedEntryTestQuestions: typeof seedEntryTestQuestions;
+  seedLanding: typeof seedLanding;
   sessions: typeof sessions;
   structuredLessons: typeof structuredLessons;
   students: typeof students;

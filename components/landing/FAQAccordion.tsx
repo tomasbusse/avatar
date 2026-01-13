@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import Link from "next/link";
 import { ChevronDown, HelpCircle, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -18,6 +20,7 @@ interface FAQAccordionProps {
   showViewAll?: boolean;
   maxItems?: number;
   className?: string;
+  category?: string;
 }
 
 export function FAQAccordion({
@@ -26,34 +29,33 @@ export function FAQAccordion({
   showViewAll = true,
   maxItems = 5,
   className,
+  category,
 }: FAQAccordionProps) {
   const t = useTranslations("faq");
   const locale = useLocale();
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
-  // Use provided items or default FAQ items
-  const faqItems: FAQItem[] = items || [
-    {
-      question: t("items.0.question"),
-      answer: t("items.0.answer"),
-    },
-    {
-      question: t("items.1.question"),
-      answer: t("items.1.answer"),
-    },
-    {
-      question: t("items.2.question"),
-      answer: t("items.2.answer"),
-    },
-    {
-      question: t("items.3.question"),
-      answer: t("items.3.answer"),
-    },
-    {
-      question: t("items.4.question"),
-      answer: t("items.4.answer"),
-    },
-  ];
+  // Fetch FAQs from Convex database
+  const dbFaqs = useQuery(api.landing.getFaqs, {
+    locale: locale as string,
+    category: category
+  });
+
+  // Use provided items, then DB items, then fallback to translations
+  const faqItems: FAQItem[] = items || (dbFaqs && dbFaqs.length > 0
+    ? dbFaqs.map(faq => ({
+        question: faq.question,
+        answer: faq.answer,
+        category: faq.category,
+      }))
+    : [
+        { question: t("items.0.question"), answer: t("items.0.answer") },
+        { question: t("items.1.question"), answer: t("items.1.answer") },
+        { question: t("items.2.question"), answer: t("items.2.answer") },
+        { question: t("items.3.question"), answer: t("items.3.answer") },
+        { question: t("items.4.question"), answer: t("items.4.answer") },
+      ]
+  );
 
   const displayItems = faqItems.slice(0, maxItems);
 

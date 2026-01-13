@@ -1,6 +1,9 @@
 import { setRequestLocale } from "next-intl/server";
 import { getTranslations } from "next-intl/server";
 import { Metadata } from "next";
+import { fetchQuery } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
+import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Calendar, Clock, User } from "lucide-react";
 import { Breadcrumbs, CTASection } from "@/components/landing";
@@ -11,10 +14,18 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { locale, slug } = await params;
-  // In production, fetch the post from Convex
+
+  const post = await fetchQuery(api.landing.getBlogPost, { locale, slug });
+
+  if (!post) {
+    return {
+      title: "Blog Post Not Found | Simmonds Language Services",
+    };
+  }
+
   return {
-    title: `Blog Post | Simmonds Language Services`,
-    description: "Read our latest insights on language learning",
+    title: `${post.title} | Simmonds Language Services`,
+    description: post.excerpt,
   };
 }
 
@@ -23,50 +34,21 @@ export default async function BlogPostPage({ params }: PageProps) {
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: "blog" });
 
-  // Sample post data - would come from Convex in production
+  // Fetch blog post from Convex
+  const dbPost = await fetchQuery(api.landing.getBlogPost, { locale, slug });
+
+  if (!dbPost) {
+    notFound();
+  }
+
   const post = {
-    title: "Mastering Business English Presentations",
-    excerpt:
-      "Learn the key techniques for delivering confident and persuasive presentations in English.",
-    content: `
-## Introduction
-
-Delivering presentations in English can be daunting, especially when it's not your first language. But with the right preparation and techniques, you can present with confidence and impact.
-
-## Key Techniques
-
-### 1. Structure Your Message
-
-A clear structure helps both you and your audience. Use the classic three-part structure:
-- **Opening**: Hook your audience and state your purpose
-- **Body**: Present your main points with supporting evidence
-- **Closing**: Summarize and call to action
-
-### 2. Use Simple, Direct Language
-
-Avoid complex vocabulary and long sentences. Your goal is clarity, not showing off your vocabulary. Simple language is more persuasive and easier for international audiences to follow.
-
-### 3. Practice, Practice, Practice
-
-There's no substitute for rehearsal. Practice out loud, time yourself, and if possible, record yourself to identify areas for improvement.
-
-## Common Phrases for Presentations
-
-Here are some useful phrases to structure your presentation:
-
-- "I'd like to start by..."
-- "Let me move on to..."
-- "To summarize..."
-- "Are there any questions?"
-
-## Conclusion
-
-With these techniques and regular practice, you'll be delivering confident English presentations in no time. Remember, fluency comes with practice, not perfection.
-    `,
-    author: "James Simmonds",
-    category: "Business English",
-    publishedAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
-    readTimeMinutes: 5,
+    title: dbPost.title,
+    excerpt: dbPost.excerpt,
+    content: dbPost.content,
+    author: dbPost.author,
+    category: dbPost.category,
+    publishedAt: dbPost.publishedAt || dbPost.createdAt,
+    readTimeMinutes: dbPost.readTimeMinutes || 5,
   };
 
   const formattedDate = new Date(post.publishedAt).toLocaleDateString(

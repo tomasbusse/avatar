@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { ChevronLeft, ChevronRight, Quote, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,33 +21,48 @@ interface TestimonialsCarouselProps {
 
 export function TestimonialsCarousel({ testimonials }: TestimonialsCarouselProps) {
   const t = useTranslations("testimonials");
+  const locale = useLocale();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
 
-  // Default testimonials if none provided
-  const items: Testimonial[] = testimonials || [
-    {
-      name: "Dr. Sarah Mueller",
-      company: "Volkswagen AG",
-      role: "Head of International Relations",
-      quote: t("items.0.quote"),
-      rating: 5,
-    },
-    {
-      name: "Michael Schmidt",
-      company: "Deutsche Bank",
-      role: "Senior Manager",
-      quote: t("items.1.quote"),
-      rating: 5,
-    },
-    {
-      name: "Anna Weber",
-      company: "Siemens",
-      role: "Marketing Director",
-      quote: t("items.2.quote"),
-      rating: 5,
-    },
-  ];
+  // Fetch testimonials from Convex database
+  const dbTestimonials = useQuery(api.landing.getTestimonials, {
+    locale: locale as string,
+  });
+
+  // Use provided testimonials, then DB, then fallback to translations
+  const items: Testimonial[] = testimonials || (dbTestimonials && dbTestimonials.length > 0
+    ? dbTestimonials.map(t => ({
+        name: t.name,
+        company: t.company,
+        role: t.role,
+        quote: t.quote,
+        rating: t.rating,
+      }))
+    : [
+        {
+          name: "Dr. Sarah Mueller",
+          company: "Volkswagen AG",
+          role: "Head of International Relations",
+          quote: t("items.0.quote"),
+          rating: 5,
+        },
+        {
+          name: "Michael Schmidt",
+          company: "Deutsche Bank",
+          role: "Senior Manager",
+          quote: t("items.1.quote"),
+          rating: 5,
+        },
+        {
+          name: "Anna Weber",
+          company: "Siemens",
+          role: "Marketing Director",
+          quote: t("items.2.quote"),
+          rating: 5,
+        },
+      ]
+  );
 
   // Auto-advance carousel
   useEffect(() => {
