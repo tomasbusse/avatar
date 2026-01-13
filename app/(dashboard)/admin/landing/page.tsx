@@ -36,6 +36,13 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
+  Mail,
+  Phone,
+  MapPin,
+  Clock,
+  Send,
+  Inbox,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -766,6 +773,12 @@ function SiteConfigTab() {
   const updateConfig = useMutation(api.landing.updateSiteConfig);
   const upsertSection = useMutation(api.landing.upsertSectionContent);
 
+  // Contact info queries and mutations
+  const contactInfo = useQuery(api.landing.getContactInfo);
+  const updateContactInfo = useMutation(api.landing.updateContactInfo);
+  const contactSubmissions = useQuery(api.landing.getContactSubmissions, { limit: 20 });
+  const updateContactStatus = useMutation(api.landing.updateContactStatus);
+
   // Fetch hero content for both locales
   const heroContentEN = useQuery(api.landing.getSectionContent, { locale: "en", page: "home", section: "hero" });
   const heroContentDE = useQuery(api.landing.getSectionContent, { locale: "de", page: "home", section: "hero" });
@@ -777,6 +790,16 @@ function SiteConfigTab() {
   const [avatarGreetingDE, setAvatarGreetingDE] = useState("");
   const [isLoaded, setIsLoaded] = useState(false);
 
+  // Contact info state
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [hoursEN, setHoursEN] = useState("");
+  const [hoursDE, setHoursDE] = useState("");
+  const [locations, setLocations] = useState<Array<{ nameEN: string; nameDE: string; address: string }>>([]);
+  const [contactLoaded, setContactLoaded] = useState(false);
+  const [isSendingTestEmail, setIsSendingTestEmail] = useState(false);
+  const [testEmailAddress, setTestEmailAddress] = useState("");
+
   // Load current values when data is available
   if (!isLoaded && heroContentEN && heroContentDE) {
     const enContent = heroContentEN as Record<string, unknown>;
@@ -786,6 +809,22 @@ function SiteConfigTab() {
     setAvatarNameDE((deContent.avatarName as string) || "Emma");
     setAvatarGreetingDE((deContent.avatarGreeting as string) || "");
     setIsLoaded(true);
+  }
+
+  // Load contact info
+  if (!contactLoaded && contactInfo) {
+    setContactEmail(contactInfo.email || "");
+    setContactPhone(contactInfo.phone || "");
+    setHoursEN(contactInfo.hours?.en || "");
+    setHoursDE(contactInfo.hours?.de || "");
+    setLocations(
+      contactInfo.locations?.map((loc: any) => ({
+        nameEN: loc.name?.en || "",
+        nameDE: loc.name?.de || "",
+        address: loc.address || "",
+      })) || []
+    );
+    setContactLoaded(true);
   }
 
   const handleSaveAvatar = async () => {
@@ -835,11 +874,329 @@ function SiteConfigTab() {
     }
   };
 
+  const handleSaveContactInfo = async () => {
+    try {
+      await updateContactInfo({
+        email: contactEmail,
+        phone: contactPhone,
+        hours: { en: hoursEN, de: hoursDE },
+        locations: locations.map((loc) => ({
+          name: { en: loc.nameEN, de: loc.nameDE },
+          address: loc.address,
+        })),
+      });
+      toast.success("Contact information updated");
+    } catch (error) {
+      toast.error("Failed to update contact information");
+    }
+  };
+
+  const handleSendTestEmail = async () => {
+    if (!testEmailAddress) {
+      toast.error("Please enter an email address");
+      return;
+    }
+
+    setIsSendingTestEmail(true);
+    try {
+      const response = await fetch(`/api/email/test?to=${encodeURIComponent(testEmailAddress)}`);
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success(`Test email sent to ${testEmailAddress}`);
+        setTestEmailAddress("");
+      } else {
+        toast.error(data.error || "Failed to send test email");
+      }
+    } catch (error) {
+      toast.error("Failed to send test email");
+    } finally {
+      setIsSendingTestEmail(false);
+    }
+  };
+
+  const handleUpdateSubmissionStatus = async (id: Id<"contactSubmissions">, status: string) => {
+    try {
+      await updateContactStatus({ id, status });
+      toast.success("Status updated");
+    } catch (error) {
+      toast.error("Failed to update status");
+    }
+  };
+
+  const addLocation = () => {
+    setLocations([...locations, { nameEN: "", nameDE: "", address: "" }]);
+  };
+
+  const removeLocation = (index: number) => {
+    setLocations(locations.filter((_, i) => i !== index));
+  };
+
+  const updateLocation = (index: number, field: keyof typeof locations[0], value: string) => {
+    const newLocations = [...locations];
+    newLocations[index][field] = value;
+    setLocations(newLocations);
+  };
+
   // Get currently selected avatar details
   const currentAvatar = avatars?.find(a => a._id === (selectedAvatar || siteConfig?.heroAvatarId));
 
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "new":
+        return <Badge className="bg-blue-500">New</Badge>;
+      case "read":
+        return <Badge variant="secondary">Read</Badge>;
+      case "replied":
+        return <Badge className="bg-green-500">Replied</Badge>;
+      case "archived":
+        return <Badge variant="outline">Archived</Badge>;
+      default:
+        return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* Contact Submissions */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Inbox className="w-5 h-5" />
+            Contact Form Submissions
+          </CardTitle>
+          <CardDescription>
+            View and manage messages received through the contact form
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {contactSubmissions?.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Inbox className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p>No contact submissions yet</p>
+            </div>
+          ) : (
+            <div className="space-y-4 max-h-96 overflow-y-auto">
+              {contactSubmissions?.map((submission) => (
+                <div
+                  key={submission._id}
+                  className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-semibold truncate">{submission.name}</span>
+                        {getStatusBadge(submission.status)}
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(submission.createdAt).toLocaleDateString()} {new Date(submission.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
+                        <a href={`mailto:${submission.email}`} className="flex items-center gap-1 hover:text-primary">
+                          <Mail className="w-3 h-3" />
+                          {submission.email}
+                        </a>
+                        {submission.phone && (
+                          <a href={`tel:${submission.phone}`} className="flex items-center gap-1 hover:text-primary">
+                            <Phone className="w-3 h-3" />
+                            {submission.phone}
+                          </a>
+                        )}
+                        {submission.company && (
+                          <span className="truncate">{submission.company}</span>
+                        )}
+                      </div>
+                      <p className="text-sm line-clamp-2">{submission.message}</p>
+                    </div>
+                    <Select
+                      value={submission.status}
+                      onValueChange={(v) => handleUpdateSubmissionStatus(submission._id, v)}
+                    >
+                      <SelectTrigger className="w-28">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="new">New</SelectItem>
+                        <SelectItem value="read">Read</SelectItem>
+                        <SelectItem value="replied">Replied</SelectItem>
+                        <SelectItem value="archived">Archived</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Contact Information */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Phone className="w-5 h-5" />
+            Contact Information
+          </CardTitle>
+          <CardDescription>
+            Configure your business contact details shown on the contact page
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Email & Phone */}
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Mail className="w-4 h-4" />
+                Email Address
+              </Label>
+              <Input
+                value={contactEmail}
+                onChange={(e) => setContactEmail(e.target.value)}
+                placeholder="contact@example.com"
+                type="email"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Phone className="w-4 h-4" />
+                Phone Number
+              </Label>
+              <Input
+                value={contactPhone}
+                onChange={(e) => setContactPhone(e.target.value)}
+                placeholder="+49 123 456 789"
+              />
+            </div>
+          </div>
+
+          {/* Business Hours */}
+          <div className="space-y-4">
+            <Label className="flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              Business Hours
+            </Label>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">English</Label>
+                <Input
+                  value={hoursEN}
+                  onChange={(e) => setHoursEN(e.target.value)}
+                  placeholder="Monday – Friday: 9:00 – 18:00"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">Deutsch</Label>
+                <Input
+                  value={hoursDE}
+                  onChange={(e) => setHoursDE(e.target.value)}
+                  placeholder="Montag – Freitag: 9:00 – 18:00"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Locations */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-2">
+                <MapPin className="w-4 h-4" />
+                Office Locations
+              </Label>
+              <Button variant="outline" size="sm" onClick={addLocation}>
+                <Plus className="w-4 h-4 mr-1" />
+                Add Location
+              </Button>
+            </div>
+            {locations.map((loc, index) => (
+              <div key={index} className="p-4 border rounded-lg space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Location {index + 1}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeLocation(index)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm text-muted-foreground">Name (English)</Label>
+                    <Input
+                      value={loc.nameEN}
+                      onChange={(e) => updateLocation(index, "nameEN", e.target.value)}
+                      placeholder="Hannover Office"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm text-muted-foreground">Name (Deutsch)</Label>
+                    <Input
+                      value={loc.nameDE}
+                      onChange={(e) => updateLocation(index, "nameDE", e.target.value)}
+                      placeholder="Büro Hannover"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground">Address</Label>
+                  <Input
+                    value={loc.address}
+                    onChange={(e) => updateLocation(index, "address", e.target.value)}
+                    placeholder="Street 123, 12345 City, Germany"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <Button onClick={handleSaveContactInfo}>
+            <Save className="w-4 h-4 mr-2" />
+            Save Contact Information
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Test Email */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Send className="w-5 h-5" />
+            Test Email Integration
+          </CardTitle>
+          <CardDescription>
+            Send a test email to verify Resend is configured correctly
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4">
+            <Input
+              value={testEmailAddress}
+              onChange={(e) => setTestEmailAddress(e.target.value)}
+              placeholder="your@email.com"
+              type="email"
+              className="max-w-sm"
+            />
+            <Button
+              onClick={handleSendTestEmail}
+              disabled={isSendingTestEmail || !testEmailAddress}
+            >
+              {isSendingTestEmail ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4 mr-2" />
+                  Send Test Email
+                </>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Hero Avatar Selection */}
       <Card>
         <CardHeader>
           <CardTitle>Hero Avatar Selection</CardTitle>
@@ -882,6 +1239,7 @@ function SiteConfigTab() {
         </CardContent>
       </Card>
 
+      {/* Avatar Greeting */}
       <Card>
         <CardHeader>
           <CardTitle>Avatar Greeting Text</CardTitle>
