@@ -30,6 +30,12 @@ import {
   BarChart3,
   CheckCircle,
   AlertCircle,
+  Layout,
+  Eye,
+  EyeOff,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -186,10 +192,10 @@ export default function LandingAdminPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4 mb-8">
-          <TabsTrigger value="config" className="flex items-center gap-2">
-            <Settings className="w-4 h-4" />
-            Site Config
+        <TabsList className="grid w-full grid-cols-5 mb-8">
+          <TabsTrigger value="pages" className="flex items-center gap-2">
+            <Layout className="w-4 h-4" />
+            Pages
           </TabsTrigger>
           <TabsTrigger value="faq" className="flex items-center gap-2">
             <HelpCircle className="w-4 h-4" />
@@ -203,10 +209,14 @@ export default function LandingAdminPage() {
             <FileText className="w-4 h-4" />
             Blog
           </TabsTrigger>
+          <TabsTrigger value="config" className="flex items-center gap-2">
+            <Settings className="w-4 h-4" />
+            Config
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="config">
-          <SiteConfigTab />
+        <TabsContent value="pages">
+          <PagesTab />
         </TabsContent>
         <TabsContent value="faq">
           <FAQTab />
@@ -217,7 +227,534 @@ export default function LandingAdminPage() {
         <TabsContent value="blog">
           <BlogTab />
         </TabsContent>
+        <TabsContent value="config">
+          <SiteConfigTab />
+        </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+// ============ Pages Tab ============
+
+// Page configuration with sections
+const PAGE_DEFINITIONS = [
+  {
+    id: "home",
+    name: "Homepage",
+    path: "/",
+    sections: [
+      { id: "hero", name: "Hero Section", fields: ["headline", "subheadline", "ctaText", "ctaLink"] },
+      { id: "services", name: "Services Overview", fields: ["headline", "subheadline", "items"] },
+      { id: "usps", name: "Why Choose Us", fields: ["headline", "items"] },
+      { id: "cta", name: "Call to Action", fields: ["headline", "subheadline", "buttonText", "buttonLink"] },
+    ],
+  },
+  {
+    id: "about",
+    name: "About Us",
+    path: "/about",
+    sections: [
+      { id: "hero", name: "Hero Section", fields: ["headline", "subheadline"] },
+      { id: "story", name: "Our Story", fields: ["headline", "content"] },
+      { id: "methodology", name: "Methodology", fields: ["headline", "content", "items"] },
+      { id: "locations", name: "Locations", fields: ["headline", "items"] },
+    ],
+  },
+  {
+    id: "services",
+    name: "Services",
+    path: "/services",
+    sections: [
+      { id: "hero", name: "Hero Section", fields: ["headline", "subheadline"] },
+      { id: "overview", name: "Services Overview", fields: ["headline", "items"] },
+    ],
+  },
+  {
+    id: "pricing",
+    name: "Pricing",
+    path: "/pricing",
+    sections: [
+      { id: "hero", name: "Hero Section", fields: ["headline", "subheadline"] },
+      { id: "plans", name: "Pricing Plans", fields: ["headline", "items"] },
+      { id: "extras", name: "Additional Info", fields: ["items"] },
+    ],
+  },
+  {
+    id: "contact",
+    name: "Contact",
+    path: "/contact",
+    sections: [
+      { id: "hero", name: "Hero Section", fields: ["headline", "subheadline"] },
+      { id: "form", name: "Contact Form", fields: ["headline", "subheadline"] },
+      { id: "info", name: "Contact Info", fields: ["items"] },
+    ],
+  },
+];
+
+function PagesTab() {
+  const [locale, setLocale] = useState<Locale>("en");
+  const [selectedPage, setSelectedPage] = useState<string | null>(null);
+  const [editingSection, setEditingSection] = useState<string | null>(null);
+  const [isAddingSection, setIsAddingSection] = useState(false);
+  const [aiContext, setAiContext] = useState("");
+
+  const { generateContent, isGenerating } = useAIGeneration();
+
+  const pageSections = useQuery(
+    api.landing.getPageSectionsAdmin,
+    selectedPage ? { locale, page: selectedPage } : "skip"
+  );
+
+  const upsertSection = useMutation(api.landing.upsertSectionContent);
+  const deleteSection = useMutation(api.landing.deleteSection);
+  const updateSectionStatus = useMutation(api.landing.updateSectionStatus);
+
+  const [formData, setFormData] = useState<{
+    section: string;
+    content: Record<string, any>;
+    order: number;
+  }>({
+    section: "",
+    content: {},
+    order: 0,
+  });
+
+  const selectedPageDef = PAGE_DEFINITIONS.find((p) => p.id === selectedPage);
+
+  const handleSaveSection = async () => {
+    if (!selectedPage || !formData.section) return;
+
+    try {
+      await upsertSection({
+        locale,
+        page: selectedPage,
+        section: formData.section,
+        content: formData.content,
+        order: formData.order,
+      });
+      setEditingSection(null);
+      setIsAddingSection(false);
+      setFormData({ section: "", content: {}, order: 0 });
+      toast.success("Section saved");
+    } catch (error) {
+      toast.error("Failed to save section");
+    }
+  };
+
+  const handleDeleteSection = async (id: Id<"landingContent">) => {
+    if (!confirm("Are you sure you want to delete this section?")) return;
+
+    try {
+      await deleteSection({ id });
+      toast.success("Section deleted");
+    } catch (error) {
+      toast.error("Failed to delete section");
+    }
+  };
+
+  const handleTogglePublish = async (id: Id<"landingContent">, currentStatus: boolean) => {
+    try {
+      await updateSectionStatus({ id, isPublished: !currentStatus });
+      toast.success(currentStatus ? "Section unpublished" : "Section published");
+    } catch (error) {
+      toast.error("Failed to update section");
+    }
+  };
+
+  const startEditSection = (section: any) => {
+    setEditingSection(section._id);
+    setFormData({
+      section: section.section,
+      content: section.content || {},
+      order: section.order ?? 0,
+    });
+  };
+
+  const handleAIGenerate = async () => {
+    if (!selectedPage || !formData.section) {
+      toast.error("Please select a section first");
+      return;
+    }
+
+    try {
+      const content = await generateContent(
+        "page_section",
+        locale,
+        `${selectedPageDef?.name} - ${formData.section}`,
+        selectedPage,
+        aiContext
+      );
+      if (content) {
+        setFormData((prev) => ({
+          ...prev,
+          content: content,
+        }));
+        toast.success("Content generated! Review and save.");
+      }
+    } catch (error) {
+      toast.error("Failed to generate content");
+    }
+  };
+
+  // Render content fields based on section type
+  const renderContentFields = () => {
+    const sectionDef = selectedPageDef?.sections.find((s) => s.id === formData.section);
+    if (!sectionDef) return null;
+
+    return (
+      <div className="space-y-4">
+        {sectionDef.fields.map((field) => (
+          <div key={field} className="space-y-2">
+            <Label className="capitalize">{field.replace(/([A-Z])/g, " $1").trim()}</Label>
+            {field === "content" || field === "items" ? (
+              <Textarea
+                value={
+                  typeof formData.content[field] === "object"
+                    ? JSON.stringify(formData.content[field], null, 2)
+                    : formData.content[field] || ""
+                }
+                onChange={(e) => {
+                  let value: any = e.target.value;
+                  try {
+                    value = JSON.parse(e.target.value);
+                  } catch {
+                    // Keep as string if not valid JSON
+                  }
+                  setFormData({
+                    ...formData,
+                    content: { ...formData.content, [field]: value },
+                  });
+                }}
+                rows={field === "items" ? 8 : 4}
+                className="font-mono text-sm"
+                placeholder={field === "items" ? "Enter JSON array of items..." : "Enter content..."}
+              />
+            ) : (
+              <Input
+                value={formData.content[field] || ""}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    content: { ...formData.content, [field]: e.target.value },
+                  })
+                }
+                placeholder={`Enter ${field}...`}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Label>Language:</Label>
+          <Select value={locale} onValueChange={(v) => setLocale(v as Locale)}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="en">
+                <span className="flex items-center gap-2">
+                  <Globe className="w-4 h-4" /> English
+                </span>
+              </SelectItem>
+              <SelectItem value="de">
+                <span className="flex items-center gap-2">
+                  <Globe className="w-4 h-4" /> Deutsch
+                </span>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Page Selection Grid */}
+      {!selectedPage && (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {PAGE_DEFINITIONS.map((page) => (
+            <Card
+              key={page.id}
+              className="cursor-pointer hover:border-primary transition-colors"
+              onClick={() => setSelectedPage(page.id)}
+            >
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  {page.name}
+                  <Badge variant="outline">{page.sections.length} sections</Badge>
+                </CardTitle>
+                <CardDescription className="flex items-center gap-2">
+                  <span className="font-mono text-xs">/{locale}{page.path}</span>
+                  <a
+                    href={`/${locale}${page.path}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-primary hover:text-primary/80"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Page Editor */}
+      {selectedPage && selectedPageDef && (
+        <>
+          {/* Back Button & Add Section */}
+          <div className="flex items-center justify-between">
+            <Button variant="outline" onClick={() => setSelectedPage(null)}>
+              ← Back to Pages
+            </Button>
+            <div className="flex items-center gap-2">
+              <a
+                href={`/${locale}${selectedPageDef.path}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1"
+              >
+                Preview <ExternalLink className="w-3 h-3" />
+              </a>
+              <Button onClick={() => setIsAddingSection(true)} disabled={isAddingSection}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Section
+              </Button>
+            </div>
+          </div>
+
+          {/* Page Title */}
+          <div>
+            <h2 className="text-2xl font-bold">{selectedPageDef.name}</h2>
+            <p className="text-muted-foreground">
+              Edit sections for the {selectedPageDef.name.toLowerCase()} page
+            </p>
+          </div>
+
+          {/* AI Generation Panel */}
+          <Card className="bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-cyan-600" />
+                AI Section Generator
+              </CardTitle>
+              <CardDescription>
+                Generate SEO-optimized content for page sections with AI.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-4 items-end">
+                <div className="flex-1 space-y-2">
+                  <Label>Context (optional)</Label>
+                  <Input
+                    value={aiContext}
+                    onChange={(e) => setAiContext(e.target.value)}
+                    placeholder="e.g., 'focus on corporate clients' or 'highlight 20+ years experience'"
+                  />
+                </div>
+                <Button
+                  onClick={handleAIGenerate}
+                  disabled={isGenerating || !formData.section}
+                  className="bg-cyan-600 hover:bg-cyan-700"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Generate Content
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Add Section Form */}
+          {isAddingSection && (
+            <Card className="border-primary">
+              <CardHeader>
+                <CardTitle className="text-lg">Add New Section</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Section Type</Label>
+                    <Select
+                      value={formData.section}
+                      onValueChange={(v) =>
+                        setFormData({ ...formData, section: v, content: {} })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select section..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {selectedPageDef.sections.map((section) => (
+                          <SelectItem key={section.id} value={section.id}>
+                            {section.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Order</Label>
+                    <Input
+                      type="number"
+                      value={formData.order}
+                      onChange={(e) =>
+                        setFormData({ ...formData, order: parseInt(e.target.value) || 0 })
+                      }
+                    />
+                  </div>
+                </div>
+
+                {formData.section && renderContentFields()}
+
+                <div className="flex gap-2">
+                  <Button onClick={handleSaveSection} disabled={!formData.section}>
+                    <Save className="w-4 h-4 mr-2" />
+                    Save Section
+                  </Button>
+                  <Button variant="outline" onClick={() => {
+                    setIsAddingSection(false);
+                    setFormData({ section: "", content: {}, order: 0 });
+                  }}>
+                    <X className="w-4 h-4 mr-2" />
+                    Cancel
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Existing Sections */}
+          <div className="space-y-4">
+            {pageSections?.map((section) => {
+              const sectionDef = selectedPageDef.sections.find((s) => s.id === section.section);
+
+              return (
+                <Card key={section._id}>
+                  <CardContent className="pt-6">
+                    {editingSection === section._id ? (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Section Type</Label>
+                            <Input value={sectionDef?.name || section.section} disabled />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Order</Label>
+                            <Input
+                              type="number"
+                              value={formData.order}
+                              onChange={(e) =>
+                                setFormData({ ...formData, order: parseInt(e.target.value) || 0 })
+                              }
+                            />
+                          </div>
+                        </div>
+
+                        {renderContentFields()}
+
+                        <div className="flex gap-2">
+                          <Button onClick={handleSaveSection}>
+                            <Save className="w-4 h-4 mr-2" />
+                            Save
+                          </Button>
+                          <Button variant="outline" onClick={() => {
+                            setEditingSection(null);
+                            setFormData({ section: "", content: {}, order: 0 });
+                          }}>
+                            <X className="w-4 h-4 mr-2" />
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h3 className="font-semibold">
+                              {sectionDef?.name || section.section}
+                            </h3>
+                            <Badge variant={section.isPublished ? "default" : "secondary"}>
+                              {section.isPublished ? "Published" : "Draft"}
+                            </Badge>
+                            <Badge variant="outline">Order: {section.order ?? 0}</Badge>
+                          </div>
+                          <div className="text-sm text-muted-foreground space-y-1">
+                            {Object.entries(section.content || {}).slice(0, 3).map(([key, value]) => (
+                              <div key={key} className="truncate max-w-xl">
+                                <span className="font-medium">{key}:</span>{" "}
+                                {typeof value === "string"
+                                  ? value.substring(0, 60) + (value.length > 60 ? "..." : "")
+                                  : Array.isArray(value)
+                                    ? `[${value.length} items]`
+                                    : JSON.stringify(value).substring(0, 40)}
+                              </div>
+                            ))}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Updated: {new Date(section.updatedAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="flex gap-2 ml-4">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleTogglePublish(section._id, section.isPublished)}
+                            title={section.isPublished ? "Unpublish" : "Publish"}
+                          >
+                            {section.isPublished ? (
+                              <EyeOff className="w-4 h-4" />
+                            ) : (
+                              <Eye className="w-4 h-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => startEditSection(section)}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteSection(section._id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+
+            {(!pageSections || pageSections.length === 0) && !isAddingSection && (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  No sections configured for this page yet. Click "Add Section" to create one.
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

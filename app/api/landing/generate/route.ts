@@ -78,6 +78,32 @@ TESTIMONIAL AUTHENTICITY CHECKLIST:
 - Real-sounding outcome or improvement
 - Natural phrasing (not marketing-speak)
 - Appropriate length (2-4 sentences)`,
+
+  page_section: `You are an SEO expert content writer for Simmonds Language Services (SLS), a premium language training company in Germany with 20+ years of experience.
+
+You are generating content for specific sections of the marketing website. Each section has a specific purpose and structure.
+
+CRITICAL SEO GUIDELINES:
+1. Write compelling, benefit-focused headlines that include target keywords naturally
+2. Subheadlines should expand on the value proposition
+3. Content should be scannable - use short paragraphs
+4. Include specific details (20+ years experience, Hannover & Berlin locations)
+5. CTAs should be action-oriented and create urgency
+6. Match the tone to the section (hero = bold/confident, about = warm/personal)
+
+COMPANY CONTEXT:
+- 20+ years of experience
+- Locations: Hannover and Berlin, Germany
+- Services: Business English, German for foreigners, Copy editing/Lektorat
+- Methodology: "Questions Method" - learning through conversation
+- Target audience: German professionals and international expats
+- Key differentiator: Personalized, conversation-based learning
+
+BRAND VOICE:
+- Professional but approachable
+- Confident but not arrogant
+- Helpful and educational
+- Warm and welcoming`,
 };
 
 // Content generation prompts
@@ -133,6 +159,56 @@ Return JSON with this exact structure:
   "quote": "Authentic testimonial quote (2-4 sentences)",
   "rating": 5
 }`,
+
+  page_section: (locale: string, topic?: string, page?: string, context?: string) => `
+Generate compelling content for a website section of Simmonds Language Services.
+Page: ${page || "home"}
+Section: ${topic || "hero"}
+Language: ${locale === "de" ? "German" : "English"}
+${context ? `Additional Context: ${context}` : ""}
+
+Based on the section type, generate appropriate content. Return JSON with fields relevant to the section:
+
+For HERO sections:
+{
+  "headline": "Bold, compelling headline (5-10 words)",
+  "subheadline": "Supporting text explaining the value proposition (15-25 words)",
+  "ctaText": "Action button text (2-4 words)",
+  "ctaLink": "/contact"
+}
+
+For SERVICES/USP sections with items:
+{
+  "headline": "Section headline",
+  "subheadline": "Optional supporting text",
+  "items": [
+    { "title": "Item title", "description": "Item description (1-2 sentences)", "icon": "suggested-icon-name" }
+  ]
+}
+
+For CONTENT sections (story, methodology, etc.):
+{
+  "headline": "Section headline",
+  "content": "Rich content in markdown format (2-4 paragraphs)"
+}
+
+For CTA sections:
+{
+  "headline": "Compelling call-to-action headline",
+  "subheadline": "Supporting urgency text",
+  "buttonText": "Action button text",
+  "buttonLink": "/contact"
+}
+
+For PRICING sections:
+{
+  "headline": "Section headline",
+  "items": [
+    { "name": "Plan name", "price": "€XX", "duration": "per session", "features": ["feature1", "feature2"] }
+  ]
+}
+
+Generate content appropriate for the "${topic || "hero"}" section of the "${page || "home"}" page.`,
 };
 
 export async function POST(request: NextRequest) {
@@ -147,9 +223,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!["faq", "blog", "testimonial"].includes(type)) {
+    if (!["faq", "blog", "testimonial", "page_section"].includes(type)) {
       return NextResponse.json(
-        { error: "Invalid type. Must be: faq, blog, or testimonial" },
+        { error: "Invalid type. Must be: faq, blog, testimonial, or page_section" },
         { status: 400 }
       );
     }
@@ -166,6 +242,9 @@ export async function POST(request: NextRequest) {
         break;
       case "testimonial":
         userPrompt = GENERATION_PROMPTS.testimonial(locale, context);
+        break;
+      case "page_section":
+        userPrompt = GENERATION_PROMPTS.page_section(locale, topic, category, context);
         break;
       default:
         return NextResponse.json({ error: "Invalid type" }, { status: 400 });

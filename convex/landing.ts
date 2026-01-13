@@ -203,6 +203,79 @@ export const upsertSectionContent = mutation({
   },
 });
 
+// Get all sections for a page (admin - includes unpublished)
+export const getPageSectionsAdmin = query({
+  args: {
+    locale: v.string(),
+    page: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const sections = await ctx.db
+      .query("landingContent")
+      .withIndex("by_locale_page", (q) =>
+        q.eq("locale", args.locale).eq("page", args.page)
+      )
+      .collect();
+
+    // Sort by order
+    sections.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    return sections;
+  },
+});
+
+// Get all pages list for admin
+export const getAllPages = query({
+  args: { locale: v.string() },
+  handler: async (ctx, args) => {
+    const allContent = await ctx.db
+      .query("landingContent")
+      .withIndex("by_locale_page", (q) => q.eq("locale", args.locale))
+      .collect();
+
+    // Get unique pages
+    const pages = new Set<string>();
+    for (const content of allContent) {
+      pages.add(content.page);
+    }
+
+    // Return page info
+    const pageList = Array.from(pages).map((page) => {
+      const pageSections = allContent.filter((c) => c.page === page);
+      return {
+        page,
+        sectionCount: pageSections.length,
+        lastUpdated: Math.max(...pageSections.map((s) => s.updatedAt)),
+      };
+    });
+
+    return pageList;
+  },
+});
+
+// Delete a section
+export const deleteSection = mutation({
+  args: { id: v.id("landingContent") },
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.id);
+    return { success: true };
+  },
+});
+
+// Update section published status
+export const updateSectionStatus = mutation({
+  args: {
+    id: v.id("landingContent"),
+    isPublished: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.id, {
+      isPublished: args.isPublished,
+      updatedAt: Date.now(),
+    });
+    return { success: true };
+  },
+});
+
 // ============================================
 // FAQ
 // ============================================
