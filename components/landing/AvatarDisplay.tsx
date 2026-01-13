@@ -3,9 +3,26 @@
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
-import { MessageCircle, Volume2, VolumeX, Sparkles, Play, Bug } from "lucide-react";
+import { MessageCircle, Sparkles, Play, Bug } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
+import dynamic from "next/dynamic";
+
+// Dynamically import LandingAvatarRoom to avoid SSR issues with LiveKit
+const LandingAvatarRoom = dynamic(
+  () => import("./LandingAvatarRoom").then((mod) => mod.LandingAvatarRoom),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-sls-teal to-sls-olive rounded-3xl">
+        <div className="text-center text-white">
+          <div className="w-16 h-16 border-4 border-white/30 border-t-white rounded-full animate-spin mb-4 mx-auto" />
+          <p className="text-sm opacity-80">Connecting...</p>
+        </div>
+      </div>
+    ),
+  }
+);
 
 interface DebugLog {
   timestamp: string;
@@ -21,6 +38,17 @@ interface AvatarDisplayProps {
   avatarGreeting?: string;
   isLoading?: boolean;
   debug?: boolean;
+  /** Full avatar object for LiveKit connection */
+  avatar?: {
+    _id: string;
+    name: string;
+    profileImage?: string;
+    visionConfig?: {
+      enabled?: boolean;
+      captureWebcam?: boolean;
+    };
+    [key: string]: any;
+  };
 }
 
 export function AvatarDisplay({
@@ -31,12 +59,11 @@ export function AvatarDisplay({
   avatarGreeting,
   isLoading: dataLoading = false,
   debug: debugProp = false,
+  avatar,
 }: AvatarDisplayProps) {
   const t = useTranslations("hero");
   const searchParams = useSearchParams();
   const [isActivated, setIsActivated] = useState(false);
-  const [isActivating, setIsActivating] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
   const [isHovered, setIsHovered] = useState(false);
   const [debugLogs, setDebugLogs] = useState<DebugLog[]>([]);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
@@ -62,7 +89,8 @@ export function AvatarDisplay({
       avatarId,
       avatarName,
       hasProfileImage: !!profileImage,
-      profileImageUrl: profileImage?.substring(0, 50) + "...",
+      hasFullAvatar: !!avatar,
+      visionEnabled: avatar?.visionConfig?.enabled,
       dataLoading,
     });
   }, []);
@@ -82,24 +110,30 @@ export function AvatarDisplay({
 
   // Handle play button click to activate live avatar
   const handleActivate = () => {
-    logDebug("Play button clicked - Starting activation", {
-      avatarId,
-      avatarName,
-      hasProfileImage: !!profileImage,
+    if (!avatar) {
+      logDebug("Cannot activate - no avatar data", { avatarId });
+      return;
+    }
+    logDebug("Play button clicked - Starting LiveKit connection", {
+      avatarId: avatar._id,
+      avatarName: avatar.name,
+      visionEnabled: avatar.visionConfig?.enabled,
     });
-    setIsActivating(true);
-
-    // Simulate avatar loading - in production this would connect to LiveKit
-    logDebug("Simulating LiveKit connection...");
-    setTimeout(() => {
-      logDebug("Activation complete - Avatar now live");
-      setIsActivating(false);
-      setIsActivated(true);
-    }, 1500);
+    setIsActivated(true);
   };
 
-  // Show loading state while data is being fetched
-  const isLoading = dataLoading || isActivating;
+  // Handle closing the LiveKit session
+  const handleClose = () => {
+    logDebug("LiveKit session closed");
+    setIsActivated(false);
+  };
+
+  // Build avatar object for LiveKit (use full avatar if available, otherwise construct from props)
+  const avatarForLiveKit = avatar || (avatarId ? {
+    _id: avatarId,
+    name: avatarName,
+    profileImage,
+  } : null);
 
   return (
     <div
@@ -113,8 +147,17 @@ export function AvatarDisplay({
       {/* Main Avatar Container */}
       <div className="relative aspect-[3/4] rounded-3xl overflow-hidden bg-gradient-to-br from-sls-teal to-sls-olive shadow-2xl shadow-sls-teal/20">
 
+        {/* Activated State: Real LiveKit Video Stream */}
+        {isActivated && avatarForLiveKit && (
+          <LandingAvatarRoom
+            avatar={avatarForLiveKit}
+            onClose={handleClose}
+            className="absolute inset-0"
+          />
+        )}
+
         {/* Initial State: Profile Image with Play Button */}
-        {!isActivated && !isActivating && (
+        {!isActivated && (
           <>
             {/* Profile Image Background */}
             <div className="absolute inset-0 bg-gradient-to-br from-sls-teal via-sls-olive to-sls-teal" />
@@ -153,12 +196,14 @@ export function AvatarDisplay({
             {/* Play Button Overlay */}
             <button
               onClick={handleActivate}
-              className="absolute inset-0 flex items-center justify-center group cursor-pointer"
+              disabled={dataLoading || !avatarForLiveKit}
+              className="absolute inset-0 flex items-center justify-center group cursor-pointer disabled:cursor-not-allowed"
             >
               <div className={cn(
                 "w-20 h-20 rounded-full bg-sls-orange flex items-center justify-center shadow-xl transition-all",
                 "group-hover:scale-110 group-hover:shadow-2xl group-hover:shadow-sls-orange/40",
-                "group-active:scale-95"
+                "group-active:scale-95",
+                "group-disabled:opacity-50 group-disabled:scale-100"
               )}>
                 <Play className="w-8 h-8 text-white ml-1" fill="white" />
               </div>
@@ -186,107 +231,27 @@ export function AvatarDisplay({
                 </>
               )}
             </div>
-          </>
-        )}
 
-        {/* Loading State (when clicking play to activate) */}
-        {isActivating && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-sls-teal to-sls-olive">
-            <div className="text-center text-white">
-              <div className="w-16 h-16 border-4 border-white/30 border-t-white rounded-full animate-spin mb-4 mx-auto" />
-              <p className="text-sm opacity-80">{t("loadingAvatar")}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Activated State: Live Avatar */}
-        {isActivated && (
-          <>
-            {/* Gradient Background */}
-            <div className="absolute inset-0 bg-gradient-to-br from-sls-teal via-sls-olive to-sls-teal" />
-
-            {/* Avatar Image - This would be replaced with actual LiveKit video */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="relative">
-                {profileImage ? (
-                  <div className="w-48 h-48 rounded-full overflow-hidden border-4 border-white/20 shadow-xl">
-                    <Image
-                      src={profileImage}
-                      alt={avatarName}
-                      width={192}
-                      height={192}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                ) : (
-                  <div className="w-48 h-48 rounded-full bg-sls-cream/10 backdrop-blur-sm border-4 border-white/20 flex items-center justify-center">
-                    <span className="text-6xl font-bold text-white/80">
-                      {avatarName.charAt(0)}
-                    </span>
-                  </div>
-                )}
-
-                {/* Animated Ring - Active state */}
-                <div
-                  className={cn(
-                    "absolute inset-0 rounded-full border-4 border-sls-chartreuse transition-all duration-500",
-                    isHovered ? "scale-110 opacity-100" : "scale-105 opacity-80"
-                  )}
-                />
-
-                {/* Pulse Effect - indicates live */}
-                <div className="absolute inset-0 rounded-full bg-sls-chartreuse/20 animate-ping opacity-75" />
-              </div>
-            </div>
-
-            {/* Decorative Particles */}
-            <div className="absolute top-8 right-8 animate-bounce">
-              <Sparkles className="w-6 h-6 text-sls-chartreuse/60" />
-            </div>
-            <div className="absolute bottom-20 left-8 animate-pulse">
-              <Sparkles className="w-4 h-4 text-white/40" />
-            </div>
-
-            {/* AI Badge - Active */}
-            <div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-sls-chartreuse/90 text-sls-teal text-xs font-semibold">
-              <span className="w-2 h-2 rounded-full bg-sls-teal animate-pulse" />
-              AI Avatar Live
-            </div>
-
-            {/* Mute Button */}
-            <button
-              onClick={() => setIsMuted(!isMuted)}
-              className="absolute top-4 right-4 p-3 rounded-full bg-white/20 backdrop-blur-sm text-white transition-all hover:bg-white/30"
-            >
-              {isMuted ? (
-                <VolumeX className="w-5 h-5" />
-              ) : (
-                <Volume2 className="w-5 h-5" />
+            {/* Speech Bubble */}
+            <div
+              className={cn(
+                "absolute bottom-6 left-6 right-6 p-4 rounded-2xl bg-white/95 backdrop-blur-sm shadow-lg transition-all duration-300",
+                "opacity-100 translate-y-0"
               )}
-            </button>
-          </>
-        )}
-
-        {/* Speech Bubble - Always visible except during activation */}
-        {!isActivating && (
-          <div
-            className={cn(
-              "absolute bottom-6 left-6 right-6 p-4 rounded-2xl bg-white/95 backdrop-blur-sm shadow-lg transition-all duration-300",
-              "opacity-100 translate-y-0"
-            )}
-          >
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full bg-sls-teal flex items-center justify-center flex-shrink-0">
-                <MessageCircle className="w-4 h-4 text-white" />
-              </div>
-              <div>
-                <p className="text-sls-teal font-medium text-sm">{avatarName}</p>
-                <p className="text-sls-olive text-sm mt-0.5">
-                  {greeting}
-                </p>
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full bg-sls-teal flex items-center justify-center flex-shrink-0">
+                  <MessageCircle className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <p className="text-sls-teal font-medium text-sm">{avatarName}</p>
+                  <p className="text-sls-olive text-sm mt-0.5">
+                    {greeting}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
+          </>
         )}
       </div>
 
@@ -322,12 +287,13 @@ export function AvatarDisplay({
               {/* Current State */}
               <div className="mb-3 p-2 bg-green-400/10 rounded">
                 <div className="text-yellow-400 font-bold mb-1">Current State:</div>
-                <div>avatarId: {avatarId || "undefined"}</div>
+                <div>avatarId: {avatarId || avatar?._id || "undefined"}</div>
                 <div>avatarName: {avatarName}</div>
                 <div>profileImage: {profileImage ? "✅ loaded" : "❌ missing"}</div>
+                <div>fullAvatar: {avatar ? "✅ available" : "❌ missing"}</div>
+                <div>visionEnabled: {avatar?.visionConfig?.enabled ? "✅ true" : "❌ false"}</div>
                 <div>dataLoading: {dataLoading ? "⏳ true" : "✅ false"}</div>
-                <div>isActivating: {isActivating ? "⏳ true" : "false"}</div>
-                <div>isActivated: {isActivated ? "✅ true" : "false"}</div>
+                <div>isActivated: {isActivated ? "✅ LIVE" : "false"}</div>
               </div>
 
               {/* Event Log */}

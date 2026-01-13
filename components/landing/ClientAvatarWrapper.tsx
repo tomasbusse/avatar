@@ -86,6 +86,14 @@ export function ClientAvatarWrapper({ avatarId }: ClientAvatarWrapperProps) {
   // Pass isLoading only if not timed out yet
   const isLoading = landingAvatar === undefined && !timedOut;
 
+  // Build full avatar object for LiveKit connection (only when we have real data)
+  const fullAvatar = landingAvatar && !useFallback ? {
+    _id: landingAvatar._id,
+    name: landingAvatar.name,
+    profileImage: landingAvatar.profileImage,
+    visionConfig: landingAvatar.visionConfig,
+  } : undefined;
+
   return (
     <AvatarDisplay
       avatarId={avatarId || (avatarData as { _id?: string })?._id}
@@ -93,6 +101,8 @@ export function ClientAvatarWrapper({ avatarId }: ClientAvatarWrapperProps) {
       avatarName={avatarData?.name || "Helena"}
       avatarGreeting={avatarGreeting}
       isLoading={isLoading}
+      avatar={fullAvatar}
+      debug={debugMode}
     />
   );
 }
