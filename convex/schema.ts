@@ -2721,13 +2721,13 @@ export default defineSchema({
     .index("by_locale", ["locale"])
     .index("by_featured", ["isFeatured"]),
 
-  // Blog posts
+  // Blog posts (supports both legacy markdown and new block-based content)
   blogPosts: defineTable({
     locale: v.string(),
     slug: v.string(),
     title: v.string(),
     excerpt: v.string(),
-    content: v.string(), // Markdown content
+    content: v.optional(v.string()), // Legacy markdown content (optional for backward compatibility)
     author: v.string(),
     authorImageUrl: v.optional(v.string()),
     category: v.string(),
@@ -2738,13 +2738,33 @@ export default defineSchema({
     publishedAt: v.optional(v.number()),
     seoTitle: v.optional(v.string()),
     seoDescription: v.optional(v.string()),
+
+    // New block-based content system
+    contentBlocks: v.optional(v.array(v.object({
+      id: v.string(),
+      type: v.string(),
+      order: v.number(),
+      config: v.any(), // Flexible config object for each block type
+    }))),
+    contentVersion: v.optional(v.number()), // 1 = legacy markdown, 2 = content blocks
+
+    // AI generation metadata
+    aiGenerated: v.optional(v.boolean()),
+    aiGenerationPrompt: v.optional(v.string()),
+    aiSuggestedGames: v.optional(v.array(v.string())), // Game IDs suggested by AI
+
+    // Enhanced SEO
+    seoKeywords: v.optional(v.array(v.string())),
+    structuredData: v.optional(v.any()), // JSON-LD schema
+
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_locale_slug", ["locale", "slug"])
     .index("by_locale_status", ["locale", "status"])
     .index("by_locale_category", ["locale", "category"])
-    .index("by_published", ["publishedAt"]),
+    .index("by_published", ["publishedAt"])
+    .index("by_content_version", ["contentVersion"]),
 
   // Contact form submissions
   contactSubmissions: defineTable({

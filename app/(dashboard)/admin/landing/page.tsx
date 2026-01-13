@@ -45,6 +45,8 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
+import { BlockEditor } from "@/components/admin/blog/BlockEditor";
+import type { BlogBlock } from "@/types/blog-blocks";
 
 // AI Content Generation Hook
 function useAIGeneration() {
@@ -2004,6 +2006,7 @@ function BlogTab() {
   const [aiTopic, setAiTopic] = useState("");
   const [seoAnalysis, setSeoAnalysis] = useState<any>(null);
   const [analyzingPostId, setAnalyzingPostId] = useState<string | null>(null);
+  const [editorMode, setEditorMode] = useState<"legacy" | "blocks">("blocks");
 
   const { generateContent, analyzeSEO, isGenerating, isAnalyzing } = useAIGeneration();
 
@@ -2017,6 +2020,8 @@ function BlogTab() {
     slug: "",
     excerpt: "",
     content: "",
+    contentBlocks: [] as BlogBlock[],
+    contentVersion: 2 as 1 | 2,
     author: "James Simmonds",
     category: "Business English",
     status: "draft" as "draft" | "published",
@@ -2024,19 +2029,42 @@ function BlogTab() {
 
   const handleAIGenerate = async () => {
     try {
-      const content = await generateContent("blog", locale, aiTopic, formData.category);
+      // Use blocks mode by default, or legacy based on current editor mode
+      const generateType = editorMode === "blocks" ? "blog_with_blocks" : "blog";
+      const content = await generateContent(generateType, locale, aiTopic, formData.category);
+
       if (content) {
-        setFormData({
-          title: content.title || "",
-          slug: content.slug || "",
-          excerpt: content.excerpt || "",
-          content: content.content || "",
-          author: content.author || "James Simmonds",
-          category: content.category || formData.category,
-          status: "draft",
-        });
+        if (editorMode === "blocks" && content.contentBlocks) {
+          // Block-based content
+          setFormData({
+            title: content.title || "",
+            slug: content.slug || "",
+            excerpt: content.excerpt || "",
+            content: "", // No legacy content in blocks mode
+            contentBlocks: content.contentBlocks || [],
+            contentVersion: 2,
+            author: content.author || "James Simmonds",
+            category: content.category || formData.category,
+            status: "draft",
+          });
+          toast.success("Blog post with blocks generated! Review and customize before publishing.");
+        } else {
+          // Legacy content
+          setFormData({
+            title: content.title || "",
+            slug: content.slug || "",
+            excerpt: content.excerpt || "",
+            content: content.content || "",
+            contentBlocks: [],
+            contentVersion: 1,
+            author: content.author || "James Simmonds",
+            category: content.category || formData.category,
+            status: "draft",
+          });
+          setEditorMode("legacy"); // Switch to legacy mode for AI-generated content
+          toast.success("Blog post generated! Review and edit before publishing.");
+        }
         setIsAdding(true);
-        toast.success("Blog post generated! Review and edit before publishing.");
       }
     } catch (error) {
       toast.error("Failed to generate blog post");
@@ -2069,11 +2097,28 @@ function BlogTab() {
     try {
       await createPost({
         locale,
-        ...formData,
+        title: formData.title,
         slug: formData.slug || generateSlug(formData.title),
+        excerpt: formData.excerpt,
+        content: formData.contentVersion === 1 ? formData.content : "",
+        contentBlocks: formData.contentVersion === 2 ? formData.contentBlocks : undefined,
+        contentVersion: formData.contentVersion,
+        author: formData.author,
+        category: formData.category,
+        status: formData.status,
         tags: [],
       });
-      setFormData({ title: "", slug: "", excerpt: "", content: "", author: "James Simmonds", category: "Business English", status: "draft" });
+      setFormData({
+        title: "",
+        slug: "",
+        excerpt: "",
+        content: "",
+        contentBlocks: [],
+        contentVersion: 2,
+        author: "James Simmonds",
+        category: "Business English",
+        status: "draft"
+      });
       setIsAdding(false);
       toast.success("Blog post created");
     } catch (error) {
@@ -2083,7 +2128,18 @@ function BlogTab() {
 
   const handleUpdate = async (id: Id<"blogPosts">) => {
     try {
-      await updatePost({ id, ...formData });
+      await updatePost({
+        id,
+        title: formData.title,
+        slug: formData.slug,
+        excerpt: formData.excerpt,
+        content: formData.contentVersion === 1 ? formData.content : "",
+        contentBlocks: formData.contentVersion === 2 ? formData.contentBlocks : undefined,
+        contentVersion: formData.contentVersion,
+        author: formData.author,
+        category: formData.category,
+        status: formData.status,
+      });
       setEditingId(null);
       toast.success("Blog post updated");
     } catch (error) {
@@ -2104,11 +2160,15 @@ function BlogTab() {
 
   const startEdit = (post: any) => {
     setEditingId(post._id);
+    const version = post.contentVersion || 1;
+    setEditorMode(version === 2 ? "blocks" : "legacy");
     setFormData({
       title: post.title,
       slug: post.slug,
       excerpt: post.excerpt,
-      content: post.content,
+      content: post.content || "",
+      contentBlocks: (post.contentBlocks || []) as BlogBlock[],
+      contentVersion: version as 1 | 2,
       author: post.author,
       category: post.category,
       status: post.status,
@@ -2284,16 +2344,47 @@ function BlogTab() {
                 rows={2}
               />
             </div>
-            <div className="space-y-2">
-              <Label>Content (Markdown)</Label>
-              <Textarea
-                value={formData.content}
-                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                placeholder="Write your post content in Markdown..."
-                rows={12}
-                className="font-mono text-sm"
-              />
+
+            {/* Editor Mode Toggle */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label>Content Editor</Label>
+                <div className="flex items-center gap-4">
+                  <span className={`text-sm ${editorMode === "legacy" ? "font-medium" : "text-muted-foreground"}`}>
+                    Legacy (Markdown)
+                  </span>
+                  <Switch
+                    checked={editorMode === "blocks"}
+                    onCheckedChange={(checked) => {
+                      setEditorMode(checked ? "blocks" : "legacy");
+                      setFormData({ ...formData, contentVersion: checked ? 2 : 1 });
+                    }}
+                  />
+                  <span className={`text-sm ${editorMode === "blocks" ? "font-medium" : "text-muted-foreground"}`}>
+                    Block Editor
+                  </span>
+                </div>
+              </div>
+
+              {editorMode === "legacy" ? (
+                <Textarea
+                  value={formData.content}
+                  onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                  placeholder="Write your post content in Markdown..."
+                  rows={12}
+                  className="font-mono text-sm"
+                />
+              ) : (
+                <div className="border rounded-lg p-4 bg-muted/30">
+                  <BlockEditor
+                    blocks={formData.contentBlocks}
+                    onChange={(blocks) => setFormData({ ...formData, contentBlocks: blocks })}
+                    locale={locale}
+                  />
+                </div>
+              )}
             </div>
+
             <div className="flex gap-2">
               <Button onClick={handleCreate} disabled={!formData.title || !formData.excerpt}>
                 <Save className="w-4 h-4 mr-2" />
@@ -2346,15 +2437,47 @@ function BlogTab() {
                       rows={2}
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label>Content (Markdown)</Label>
-                    <Textarea
-                      value={formData.content}
-                      onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                      rows={10}
-                      className="font-mono text-sm"
-                    />
+
+                  {/* Editor Mode Toggle */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label>Content Editor</Label>
+                      <div className="flex items-center gap-4">
+                        <span className={`text-sm ${editorMode === "legacy" ? "font-medium" : "text-muted-foreground"}`}>
+                          Legacy (Markdown)
+                        </span>
+                        <Switch
+                          checked={editorMode === "blocks"}
+                          onCheckedChange={(checked) => {
+                            setEditorMode(checked ? "blocks" : "legacy");
+                            setFormData({ ...formData, contentVersion: checked ? 2 : 1 });
+                          }}
+                        />
+                        <span className={`text-sm ${editorMode === "blocks" ? "font-medium" : "text-muted-foreground"}`}>
+                          Block Editor
+                        </span>
+                      </div>
+                    </div>
+
+                    {editorMode === "legacy" ? (
+                      <Textarea
+                        value={formData.content}
+                        onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                        placeholder="Write your post content in Markdown..."
+                        rows={10}
+                        className="font-mono text-sm"
+                      />
+                    ) : (
+                      <div className="border rounded-lg p-4 bg-muted/30">
+                        <BlockEditor
+                          blocks={formData.contentBlocks}
+                          onChange={(blocks) => setFormData({ ...formData, contentBlocks: blocks })}
+                          locale={locale}
+                        />
+                      </div>
+                    )}
                   </div>
+
                   <div className="flex gap-2">
                     <Button onClick={() => handleUpdate(post._id)}>Save</Button>
                     <Button variant="outline" onClick={() => setEditingId(null)}>Cancel</Button>

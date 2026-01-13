@@ -52,6 +52,13 @@ BLOG SEO CHECKLIST:
 - Use lists and bullet points for AI extraction
 - Include statistics or specific numbers when relevant
 
+For BLOCK-BASED CONTENT:
+- Structure content into logical blocks (hero, text, callouts, FAQs, CTAs)
+- Each block should serve a specific purpose
+- Use callouts for tips, warnings, and key information
+- Include FAQs for common questions
+- End with compelling CTAs
+
 COMPANY EXPERTISE AREAS:
 - Business English training for German professionals
 - German language courses for international employees
@@ -146,6 +153,136 @@ Return JSON with this exact structure:
   }
 }`,
 
+  blog_with_blocks: (locale: string, topic?: string, category?: string) => `
+Generate a complete, SEO-optimized blog post for Simmonds Language Services using the CONTENT BLOCKS system.
+${topic ? `Topic/Focus: ${topic}` : "Generate a topic relevant to language learning in Germany"}
+${category ? `Category: ${category}` : ""}
+Language: ${locale === "de" ? "German" : "English"}
+
+IMPORTANT: Generate the post as an array of content blocks. Each block has a type and configuration.
+
+Available block types:
+- hero: Title, subtitle, badge, featured image
+- rich_text: Markdown content for paragraphs
+- image: Single image with caption
+- video: YouTube/Vimeo embed (videoId for the platform ID)
+- callout: Tip, warning, info, success, or note boxes
+- quote: Blockquote with attribution
+- faq: Accordion-style FAQ section
+- cta: Call-to-action with buttons
+- divider: Visual separator
+
+Return JSON with this exact structure:
+{
+  "title": "SEO-optimized title (include primary keyword)",
+  "slug": "url-friendly-slug",
+  "excerpt": "Compelling meta description (150-160 chars)",
+  "category": "${category || "Business English"}",
+  "author": "James Simmonds",
+  "readTimeMinutes": 6,
+  "contentBlocks": [
+    {
+      "id": "block_hero_001",
+      "type": "hero",
+      "order": 0,
+      "config": {
+        "type": "hero",
+        "title": "Same as post title",
+        "subtitle": "Compelling subtitle/intro",
+        "badge": "${category || "Business English"}",
+        "showAuthor": true,
+        "showDate": true,
+        "showReadTime": true,
+        "variant": "default"
+      }
+    },
+    {
+      "id": "block_text_001",
+      "type": "rich_text",
+      "order": 1,
+      "config": {
+        "type": "rich_text",
+        "content": "Opening paragraph in Markdown. Hook the reader immediately...",
+        "variant": "lead"
+      }
+    },
+    {
+      "id": "block_text_002",
+      "type": "rich_text",
+      "order": 2,
+      "config": {
+        "type": "rich_text",
+        "content": "## Main Section\\n\\nMain content here with **bold** and *italic* text. Use proper markdown formatting.",
+        "variant": "default"
+      }
+    },
+    {
+      "id": "block_callout_001",
+      "type": "callout",
+      "order": 3,
+      "config": {
+        "type": "callout",
+        "variant": "tip",
+        "title": "Pro Tip",
+        "content": "A helpful tip related to the topic..."
+      }
+    },
+    {
+      "id": "block_text_003",
+      "type": "rich_text",
+      "order": 4,
+      "config": {
+        "type": "rich_text",
+        "content": "## Another Section\\n\\nMore content with:\\n\\n- Bullet points\\n- Lists\\n- Examples",
+        "variant": "default"
+      }
+    },
+    {
+      "id": "block_faq_001",
+      "type": "faq",
+      "order": 5,
+      "config": {
+        "type": "faq",
+        "showHeader": true,
+        "headerTitle": "Frequently Asked Questions",
+        "variant": "default",
+        "items": [
+          { "id": "faq_1", "question": "Question 1?", "answer": "Answer 1..." },
+          { "id": "faq_2", "question": "Question 2?", "answer": "Answer 2..." },
+          { "id": "faq_3", "question": "Question 3?", "answer": "Answer 3..." }
+        ]
+      }
+    },
+    {
+      "id": "block_cta_001",
+      "type": "cta",
+      "order": 6,
+      "config": {
+        "type": "cta",
+        "variant": "accent",
+        "headline": "Ready to Start Learning?",
+        "subheadline": "Book a free trial lesson with our expert teachers",
+        "primaryButton": { "text": "Book Free Trial", "href": "/contact" },
+        "secondaryButton": { "text": "View Courses", "href": "/services" }
+      }
+    }
+  ],
+  "suggestedGameTypes": ["vocabulary_matching", "flashcards"],
+  "seoKeywords": ["array", "of", "target", "keywords"]
+}
+
+GUIDELINES:
+1. Generate 6-10 content blocks for a complete article
+2. Always start with a hero block
+3. Use rich_text blocks for main content (break into logical sections with H2 headings)
+4. Include at least one callout for engagement
+5. Include an FAQ section with 3-5 relevant questions
+6. Always end with a CTA block
+7. Use proper markdown in rich_text content (## for H2, ### for H3, **bold**, *italic*, - bullets)
+8. Generate unique block IDs (block_type_###)
+9. Suggest relevant game types: vocabulary_matching, flashcards, fill_in_blank, multiple_choice
+10. Keep content SEO-optimized and informative`,
+
   testimonial: (locale: string, context?: string) => `
 Generate an authentic-sounding testimonial for Simmonds Language Services.
 ${context ? `Context/Focus: ${context}` : ""}
@@ -223,14 +360,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!["faq", "blog", "testimonial", "page_section"].includes(type)) {
+    if (!["faq", "blog", "blog_with_blocks", "testimonial", "page_section"].includes(type)) {
       return NextResponse.json(
-        { error: "Invalid type. Must be: faq, blog, testimonial, or page_section" },
+        { error: "Invalid type. Must be: faq, blog, blog_with_blocks, testimonial, or page_section" },
         { status: 400 }
       );
     }
 
-    const systemPrompt = SEO_SYSTEM_PROMPTS[type as keyof typeof SEO_SYSTEM_PROMPTS];
+    // Use 'blog' system prompt for 'blog_with_blocks'
+    const promptKey = type === "blog_with_blocks" ? "blog" : type;
+    const systemPrompt = SEO_SYSTEM_PROMPTS[promptKey as keyof typeof SEO_SYSTEM_PROMPTS];
     let userPrompt: string;
 
     switch (type) {
@@ -239,6 +378,9 @@ export async function POST(request: NextRequest) {
         break;
       case "blog":
         userPrompt = GENERATION_PROMPTS.blog(locale, topic, category);
+        break;
+      case "blog_with_blocks":
+        userPrompt = GENERATION_PROMPTS.blog_with_blocks(locale, topic, category);
         break;
       case "testimonial":
         userPrompt = GENERATION_PROMPTS.testimonial(locale, context);

@@ -7,6 +7,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Calendar, Clock, User } from "lucide-react";
 import { Breadcrumbs, CTASection } from "@/components/landing";
+import { BlockRenderer } from "@/components/blog/blocks/BlockRenderer";
+import type { BlogBlock } from "@/types/blog-blocks";
 
 interface PageProps {
   params: Promise<{ locale: string; slug: string }>;
@@ -26,7 +28,30 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: `${post.title} | Simmonds Language Services`,
     description: post.excerpt,
+    openGraph: {
+      title: post.title,
+      description: post.excerpt,
+      type: "article",
+      images: post.featuredImageUrl ? [post.featuredImageUrl] : undefined,
+    },
   };
+}
+
+// Legacy markdown content renderer
+function LegacyContent({ content }: { content: string }) {
+  const html = content
+    .replace(/## /g, '<h2 class="text-2xl font-bold mt-8 mb-4">')
+    .replace(/### /g, '<h3 class="text-xl font-semibold mt-6 mb-3">')
+    .replace(/\n\n/g, "</p><p>")
+    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+    .replace(/- /g, '<li class="ml-4">');
+
+  return (
+    <div
+      className="prose prose-lg max-w-none prose-headings:text-sls-teal prose-p:text-sls-olive/80 prose-strong:text-sls-teal prose-a:text-sls-orange prose-ul:text-sls-olive/80"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
 }
 
 export default async function BlogPostPage({ params }: PageProps) {
@@ -41,12 +66,18 @@ export default async function BlogPostPage({ params }: PageProps) {
     notFound();
   }
 
+  // Check if this is a block-based post (v2) or legacy post (v1)
+  const isBlockBased = dbPost.contentVersion === 2 && dbPost.contentBlocks && dbPost.contentBlocks.length > 0;
+
   const post = {
     title: dbPost.title,
     excerpt: dbPost.excerpt,
-    content: dbPost.content,
+    content: dbPost.content || "",
+    contentBlocks: dbPost.contentBlocks as BlogBlock[] | undefined,
     author: dbPost.author,
+    authorImageUrl: dbPost.authorImageUrl,
     category: dbPost.category,
+    featuredImageUrl: dbPost.featuredImageUrl,
     publishedAt: dbPost.publishedAt || dbPost.createdAt,
     readTimeMinutes: dbPost.readTimeMinutes || 5,
   };
@@ -60,6 +91,70 @@ export default async function BlogPostPage({ params }: PageProps) {
     }
   );
 
+  // Block-based rendering (v2)
+  if (isBlockBased && post.contentBlocks) {
+    return (
+      <div className="pt-20">
+        {/* Breadcrumbs */}
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <Breadcrumbs
+            items={[
+              { label: t("headline"), href: `/${locale}/blog` },
+              { label: post.title },
+            ]}
+          />
+        </div>
+
+        {/* Back Link */}
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+          <Link
+            href={`/${locale}/blog`}
+            className="inline-flex items-center gap-2 text-sls-olive hover:text-sls-teal transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            {t("backToBlog")}
+          </Link>
+        </div>
+
+        {/* Render content blocks */}
+        <article>
+          {post.contentBlocks.map((block) => (
+            <BlockRenderer
+              key={block.id}
+              block={block}
+              locale={locale}
+              postSlug={slug}
+              postTitle={post.title}
+              author={post.author}
+              authorImageUrl={post.authorImageUrl}
+              publishedAt={post.publishedAt}
+              readTimeMinutes={post.readTimeMinutes}
+            />
+          ))}
+        </article>
+
+        {/* Footer - Back link */}
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="pt-8 border-t border-sls-beige">
+            <Link
+              href={`/${locale}/blog`}
+              className="inline-flex items-center gap-2 text-sls-teal font-semibold hover:text-sls-orange transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              {t("backToBlog")}
+            </Link>
+          </div>
+        </div>
+
+        {/* CTA (if not in blocks) */}
+        {!post.contentBlocks.some(b => b.config.type === "cta") && (
+          <CTASection variant="accent" />
+        )}
+      </div>
+    );
+  }
+
+  // Legacy rendering (v1)
   return (
     <div className="pt-20">
       {/* Breadcrumbs */}
@@ -113,19 +208,19 @@ export default async function BlogPostPage({ params }: PageProps) {
             </div>
           </header>
 
+          {/* Featured Image */}
+          {post.featuredImageUrl && (
+            <div className="mb-12 rounded-2xl overflow-hidden shadow-xl shadow-sls-teal/10">
+              <img
+                src={post.featuredImageUrl}
+                alt={post.title}
+                className="w-full h-auto"
+              />
+            </div>
+          )}
+
           {/* Content */}
-          <div className="prose prose-lg max-w-none prose-headings:text-sls-teal prose-p:text-sls-olive/80 prose-strong:text-sls-teal prose-a:text-sls-orange prose-ul:text-sls-olive/80">
-            <div
-              dangerouslySetInnerHTML={{
-                __html: post.content
-                  .replace(/## /g, '<h2 class="text-2xl font-bold mt-8 mb-4">')
-                  .replace(/### /g, '<h3 class="text-xl font-semibold mt-6 mb-3">')
-                  .replace(/\n\n/g, "</p><p>")
-                  .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-                  .replace(/- /g, '<li class="ml-4">')
-              }}
-            />
-          </div>
+          <LegacyContent content={post.content} />
 
           {/* Share / Tags */}
           <div className="mt-12 pt-8 border-t border-sls-beige">
