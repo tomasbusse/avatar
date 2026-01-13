@@ -86,13 +86,9 @@ export function ClientAvatarWrapper({ avatarId }: ClientAvatarWrapperProps) {
   // Pass isLoading only if not timed out yet
   const isLoading = landingAvatar === undefined && !timedOut;
 
-  // Build full avatar object for LiveKit connection (only when we have real data)
-  const fullAvatar = landingAvatar && !useFallback ? {
-    _id: landingAvatar._id,
-    name: landingAvatar.name,
-    profileImage: landingAvatar.profileImage,
-    visionConfig: landingAvatar.visionConfig,
-  } : undefined;
+  // Pass full avatar object for LiveKit connection (only when we have real data)
+  // The agent needs all avatar config fields (avatarProvider, voiceProvider, llmConfig, etc.)
+  const fullAvatar = landingAvatar && !useFallback ? landingAvatar : undefined;
 
   return (
     <AvatarDisplay
