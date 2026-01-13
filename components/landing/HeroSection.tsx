@@ -3,10 +3,25 @@
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import { ArrowRight, Play, CheckCircle2 } from "lucide-react";
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import { AvatarDisplay } from "./AvatarDisplay";
-import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
+
+// Dynamically import the avatar wrapper with SSR disabled to prevent hydration errors
+const ClientAvatarWrapper = dynamic(
+  () => import("./ClientAvatarWrapper").then((mod) => mod.ClientAvatarWrapper),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full max-w-md aspect-[3/4] rounded-3xl bg-gradient-to-br from-sls-teal/5 to-sls-beige/50 border-2 border-sls-beige flex items-center justify-center animate-pulse">
+        <div className="text-center text-sls-olive/60 p-8">
+          <div className="w-24 h-24 rounded-full bg-sls-beige/50 mx-auto mb-4 flex items-center justify-center">
+            <Play className="w-10 h-10 text-sls-teal/50" />
+          </div>
+          <p className="text-sm">Loading avatar...</p>
+        </div>
+      </div>
+    ),
+  }
+);
 
 interface HeroSectionProps {
   avatarId?: string;
@@ -16,22 +31,6 @@ interface HeroSectionProps {
 export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
   const t = useTranslations("hero");
   const locale = useLocale();
-
-  // Track if we're on the client to prevent hydration mismatch
-  const [isClient, setIsClient] = useState(false);
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  // Fetch configured landing avatar from database
-  const landingAvatar = useQuery(api.landing.getLandingAvatar);
-
-  // Fetch hero page content from CMS (for avatar greeting)
-  const heroContent = useQuery(api.landing.getSectionContent, {
-    locale,
-    page: "home",
-    section: "hero",
-  });
 
   const benefits = [
     t("benefit1"),
@@ -127,12 +126,7 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
           {/* Right: Avatar */}
           <div className="order-1 lg:order-2 flex justify-center lg:justify-end">
             {showAvatar ? (
-              <AvatarDisplay
-                avatarId={avatarId || (isClient ? landingAvatar?._id : undefined)}
-                profileImage={isClient ? landingAvatar?.profileImage : undefined}
-                avatarName={isClient ? landingAvatar?.name : undefined}
-                avatarGreeting={isClient ? (heroContent as { avatarGreeting?: string } | null)?.avatarGreeting : undefined}
-              />
+              <ClientAvatarWrapper avatarId={avatarId} />
             ) : (
               <div className="w-full max-w-md aspect-[3/4] rounded-3xl bg-gradient-to-br from-sls-teal/5 to-sls-beige/50 border-2 border-sls-beige flex items-center justify-center">
                 <div className="text-center text-sls-olive/60 p-8">
