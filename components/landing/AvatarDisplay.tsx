@@ -104,10 +104,10 @@ export function AvatarDisplay({
             </button>
 
             {/* Decorative Particles */}
-            <div className="absolute top-8 right-8 animate-float">
+            <div className="absolute top-8 right-8 animate-bounce">
               <Sparkles className="w-6 h-6 text-sls-chartreuse/60" />
             </div>
-            <div className="absolute bottom-20 left-8 animate-float-delayed">
+            <div className="absolute bottom-20 left-8 animate-pulse">
               <Sparkles className="w-4 h-4 text-white/40" />
             </div>
 
@@ -170,10 +170,10 @@ export function AvatarDisplay({
             </div>
 
             {/* Decorative Particles */}
-            <div className="absolute top-8 right-8 animate-float">
+            <div className="absolute top-8 right-8 animate-bounce">
               <Sparkles className="w-6 h-6 text-sls-chartreuse/60" />
             </div>
-            <div className="absolute bottom-20 left-8 animate-float-delayed">
+            <div className="absolute bottom-20 left-8 animate-pulse">
               <Sparkles className="w-4 h-4 text-white/40" />
             </div>
 
@@ -223,31 +223,6 @@ export function AvatarDisplay({
       {/* Decorative Elements */}
       <div className="absolute -top-4 -right-4 w-24 h-24 rounded-2xl bg-sls-chartreuse/20 -z-10" />
       <div className="absolute -bottom-4 -left-4 w-32 h-32 rounded-2xl bg-sls-orange/10 -z-10" />
-
-      <style jsx>{`
-        @keyframes float {
-          0%, 100% {
-            transform: translateY(0);
-          }
-          50% {
-            transform: translateY(-10px);
-          }
-        }
-        @keyframes float-delayed {
-          0%, 100% {
-            transform: translateY(0);
-          }
-          50% {
-            transform: translateY(-8px);
-          }
-        }
-        .animate-float {
-          animation: float 3s ease-in-out infinite;
-        }
-        .animate-float-delayed {
-          animation: float-delayed 3s ease-in-out infinite 0.5s;
-        }
-      `}</style>
     </div>
   );
 }

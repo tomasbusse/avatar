@@ -6,6 +6,7 @@ import { ArrowRight, Play, CheckCircle2 } from "lucide-react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { AvatarDisplay } from "./AvatarDisplay";
+import { useState, useEffect } from "react";
 
 interface HeroSectionProps {
   avatarId?: string;
@@ -15,6 +16,12 @@ interface HeroSectionProps {
 export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
   const t = useTranslations("hero");
   const locale = useLocale();
+
+  // Track if we're on the client to prevent hydration mismatch
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Fetch configured landing avatar from database
   const landingAvatar = useQuery(api.landing.getLandingAvatar);
@@ -121,10 +128,10 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
           <div className="order-1 lg:order-2 flex justify-center lg:justify-end">
             {showAvatar ? (
               <AvatarDisplay
-                avatarId={avatarId || landingAvatar?._id}
-                profileImage={landingAvatar?.profileImage}
-                avatarName={landingAvatar?.name}
-                avatarGreeting={(heroContent as { avatarGreeting?: string } | null)?.avatarGreeting}
+                avatarId={avatarId || (isClient ? landingAvatar?._id : undefined)}
+                profileImage={isClient ? landingAvatar?.profileImage : undefined}
+                avatarName={isClient ? landingAvatar?.name : undefined}
+                avatarGreeting={isClient ? (heroContent as { avatarGreeting?: string } | null)?.avatarGreeting : undefined}
               />
             ) : (
               <div className="w-full max-w-md aspect-[3/4] rounded-3xl bg-gradient-to-br from-sls-teal/5 to-sls-beige/50 border-2 border-sls-beige flex items-center justify-center">
@@ -143,25 +150,9 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
       {/* Scroll Indicator */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
         <div className="w-8 h-12 rounded-full border-2 border-sls-teal/30 flex items-start justify-center p-2">
-          <div className="w-1.5 h-3 rounded-full bg-sls-teal/50 animate-scroll" />
+          <div className="w-1.5 h-3 rounded-full bg-sls-teal/50 animate-pulse" />
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes scroll {
-          0% {
-            transform: translateY(0);
-            opacity: 1;
-          }
-          100% {
-            transform: translateY(8px);
-            opacity: 0;
-          }
-        }
-        .animate-scroll {
-          animation: scroll 1.5s ease-in-out infinite;
-        }
-      `}</style>
     </section>
   );
 }
