@@ -24,9 +24,152 @@ import {
   Save,
   X,
   GripVertical,
-  Globe
+  Globe,
+  Sparkles,
+  Loader2,
+  BarChart3,
+  CheckCircle,
+  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
+
+// AI Content Generation Hook
+function useAIGeneration() {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  const generateContent = async (type: string, locale: string, topic?: string, category?: string, context?: string) => {
+    setIsGenerating(true);
+    try {
+      const response = await fetch("/api/landing/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type, locale, topic, category, context }),
+      });
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error);
+      return data.content;
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const analyzeSEO = async (content: any, type: string, locale: string) => {
+    setIsAnalyzing(true);
+    try {
+      const response = await fetch("/api/landing/generate", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content, type, locale }),
+      });
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error);
+      return data.analysis;
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  return { generateContent, analyzeSEO, isGenerating, isAnalyzing };
+}
+
+// SEO Score Badge Component
+function SEOScoreBadge({ score }: { score: number }) {
+  const getColor = () => {
+    if (score >= 80) return "bg-green-100 text-green-800 border-green-300";
+    if (score >= 60) return "bg-yellow-100 text-yellow-800 border-yellow-300";
+    return "bg-red-100 text-red-800 border-red-300";
+  };
+
+  const getIcon = () => {
+    if (score >= 80) return <CheckCircle className="w-3 h-3" />;
+    if (score >= 60) return <AlertCircle className="w-3 h-3" />;
+    return <AlertCircle className="w-3 h-3" />;
+  };
+
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${getColor()}`}>
+      {getIcon()}
+      SEO: {score}/100
+    </span>
+  );
+}
+
+// SEO Analysis Panel Component
+function SEOAnalysisPanel({ analysis, onClose }: { analysis: any; onClose: () => void }) {
+  if (!analysis) return null;
+
+  return (
+    <Card className="border-primary mt-4">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <BarChart3 className="w-5 h-5" />
+            SEO Analysis
+          </CardTitle>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-3 gap-4">
+          <div className="text-center p-3 bg-muted rounded-lg">
+            <div className="text-2xl font-bold">{analysis.overallScore}</div>
+            <div className="text-xs text-muted-foreground">Overall Score</div>
+          </div>
+          <div className="text-center p-3 bg-muted rounded-lg">
+            <div className="text-2xl font-bold">{analysis.llmSearchScore}</div>
+            <div className="text-xs text-muted-foreground">LLM Search</div>
+          </div>
+          <div className="text-center p-3 bg-muted rounded-lg">
+            <div className="text-2xl font-bold">{analysis.citabilityScore}</div>
+            <div className="text-xs text-muted-foreground">Citability</div>
+          </div>
+        </div>
+
+        {analysis.strengths?.length > 0 && (
+          <div>
+            <h4 className="font-medium text-sm mb-2 text-green-700">Strengths</h4>
+            <ul className="text-sm space-y-1">
+              {analysis.strengths.map((s: string, i: number) => (
+                <li key={i} className="flex items-start gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
+                  {s}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {analysis.improvements?.length > 0 && (
+          <div>
+            <h4 className="font-medium text-sm mb-2 text-amber-700">Improvements</h4>
+            <ul className="text-sm space-y-1">
+              {analysis.improvements.map((s: string, i: number) => (
+                <li key={i} className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                  {s}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {analysis.keywordSuggestions?.length > 0 && (
+          <div>
+            <h4 className="font-medium text-sm mb-2">Suggested Keywords</h4>
+            <div className="flex flex-wrap gap-2">
+              {analysis.keywordSuggestions.map((kw: string, i: number) => (
+                <Badge key={i} variant="outline">{kw}</Badge>
+              ))}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 type Locale = "de" | "en";
 
@@ -145,6 +288,11 @@ function FAQTab() {
   const [locale, setLocale] = useState<Locale>("en");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const [aiTopic, setAiTopic] = useState("");
+  const [seoAnalysis, setSeoAnalysis] = useState<any>(null);
+  const [analyzingFaqId, setAnalyzingFaqId] = useState<string | null>(null);
+
+  const { generateContent, analyzeSEO, isGenerating, isAnalyzing } = useAIGeneration();
 
   const faqs = useQuery(api.landing.getFaqs, { locale });
   const createFaq = useMutation(api.landing.createFaq);
@@ -164,6 +312,38 @@ function FAQTab() {
     { value: "methodology", label: "Methodology" },
     { value: "booking", label: "Booking" },
   ];
+
+  const handleAIGenerate = async () => {
+    try {
+      const content = await generateContent("faq", locale, aiTopic, formData.category);
+      if (content) {
+        setFormData({
+          question: content.question || "",
+          answer: content.answer || "",
+          category: content.category || formData.category,
+        });
+        setIsAdding(true);
+        toast.success("FAQ generated with AI! Review and save.");
+      }
+    } catch (error) {
+      toast.error("Failed to generate FAQ");
+    }
+  };
+
+  const handleAnalyzeFaq = async (faq: any) => {
+    setAnalyzingFaqId(faq._id);
+    try {
+      const analysis = await analyzeSEO(
+        { question: faq.question, answer: faq.answer },
+        "faq",
+        locale
+      );
+      setSeoAnalysis({ ...analysis, faqId: faq._id });
+    } catch (error) {
+      toast.error("Failed to analyze FAQ");
+    }
+    setAnalyzingFaqId(null);
+  };
 
   const handleCreate = async () => {
     try {
@@ -241,11 +421,73 @@ function FAQTab() {
           </Select>
         </div>
 
-        <Button onClick={() => setIsAdding(true)} disabled={isAdding}>
-          <Plus className="w-4 h-4 mr-2" />
-          Add FAQ
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => setIsAdding(true)} disabled={isAdding}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add FAQ
+          </Button>
+        </div>
       </div>
+
+      {/* AI Generation Panel */}
+      <Card className="bg-gradient-to-r from-violet-50 to-purple-50 border-violet-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-violet-600" />
+            AI FAQ Generator
+          </CardTitle>
+          <CardDescription>
+            Generate SEO-optimized FAQs with AI. Optimized for LLM search engines like Perplexity and ChatGPT Search.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4 items-end">
+            <div className="flex-1 space-y-2">
+              <Label>Topic (optional)</Label>
+              <Input
+                value={aiTopic}
+                onChange={(e) => setAiTopic(e.target.value)}
+                placeholder="e.g., 'pricing for group lessons' or 'German courses for beginners'"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Category</Label>
+              <Select
+                value={formData.category}
+                onValueChange={(v) => setFormData({ ...formData, category: v })}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.value} value={cat.value}>
+                      {cat.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              onClick={handleAIGenerate}
+              disabled={isGenerating}
+              className="bg-violet-600 hover:bg-violet-700"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Generate FAQ
+                </>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {isAdding && (
         <Card className="border-primary">
@@ -360,8 +602,27 @@ function FAQTab() {
                     </div>
                     <h3 className="font-semibold mb-2">{faq.question}</h3>
                     <p className="text-muted-foreground text-sm">{faq.answer}</p>
+                    {seoAnalysis?.faqId === faq._id && (
+                      <SEOAnalysisPanel
+                        analysis={seoAnalysis}
+                        onClose={() => setSeoAnalysis(null)}
+                      />
+                    )}
                   </div>
                   <div className="flex gap-2 ml-4">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleAnalyzeFaq(faq)}
+                      disabled={analyzingFaqId === faq._id}
+                      title="Analyze SEO"
+                    >
+                      {analyzingFaqId === faq._id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <BarChart3 className="w-4 h-4" />
+                      )}
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => startEdit(faq)}>
                       <Pencil className="w-4 h-4" />
                     </Button>
@@ -392,6 +653,9 @@ function TestimonialsTab() {
   const [locale, setLocale] = useState<Locale>("en");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const [aiContext, setAiContext] = useState("");
+
+  const { generateContent, isGenerating } = useAIGeneration();
 
   const testimonials = useQuery(api.landing.getTestimonials, { locale });
   const createTestimonial = useMutation(api.landing.createTestimonial);
@@ -406,6 +670,26 @@ function TestimonialsTab() {
     rating: 5,
     featured: false,
   });
+
+  const handleAIGenerate = async () => {
+    try {
+      const content = await generateContent("testimonial", locale, undefined, undefined, aiContext);
+      if (content) {
+        setFormData({
+          name: content.name || "",
+          company: content.company || "",
+          role: content.role || "",
+          quote: content.quote || "",
+          rating: content.rating || 5,
+          featured: false,
+        });
+        setIsAdding(true);
+        toast.success("Testimonial generated! Review and save.");
+      }
+    } catch (error) {
+      toast.error("Failed to generate testimonial");
+    }
+  };
 
   const handleCreate = async () => {
     try {
@@ -476,6 +760,48 @@ function TestimonialsTab() {
           Add Testimonial
         </Button>
       </div>
+
+      {/* AI Generation Panel */}
+      <Card className="bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-amber-600" />
+            AI Testimonial Generator
+          </CardTitle>
+          <CardDescription>
+            Generate realistic testimonials. Review carefully before publishing.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4 items-end">
+            <div className="flex-1 space-y-2">
+              <Label>Context (optional)</Label>
+              <Input
+                value={aiContext}
+                onChange={(e) => setAiContext(e.target.value)}
+                placeholder="e.g., 'corporate client from automotive industry' or 'beginner German learner'"
+              />
+            </div>
+            <Button
+              onClick={handleAIGenerate}
+              disabled={isGenerating}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Generate Testimonial
+                </>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {isAdding && (
         <Card className="border-primary">
@@ -646,6 +972,11 @@ function BlogTab() {
   const [locale, setLocale] = useState<Locale>("en");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const [aiTopic, setAiTopic] = useState("");
+  const [seoAnalysis, setSeoAnalysis] = useState<any>(null);
+  const [analyzingPostId, setAnalyzingPostId] = useState<string | null>(null);
+
+  const { generateContent, analyzeSEO, isGenerating, isAnalyzing } = useAIGeneration();
 
   const posts = useQuery(api.landing.getBlogPosts, { locale });
   const createPost = useMutation(api.landing.createBlogPost);
@@ -661,6 +992,42 @@ function BlogTab() {
     category: "Business English",
     status: "draft" as "draft" | "published",
   });
+
+  const handleAIGenerate = async () => {
+    try {
+      const content = await generateContent("blog", locale, aiTopic, formData.category);
+      if (content) {
+        setFormData({
+          title: content.title || "",
+          slug: content.slug || "",
+          excerpt: content.excerpt || "",
+          content: content.content || "",
+          author: content.author || "James Simmonds",
+          category: content.category || formData.category,
+          status: "draft",
+        });
+        setIsAdding(true);
+        toast.success("Blog post generated! Review and edit before publishing.");
+      }
+    } catch (error) {
+      toast.error("Failed to generate blog post");
+    }
+  };
+
+  const handleAnalyzePost = async (post: any) => {
+    setAnalyzingPostId(post._id);
+    try {
+      const analysis = await analyzeSEO(
+        { title: post.title, excerpt: post.excerpt, content: post.content },
+        "blog",
+        locale
+      );
+      setSeoAnalysis({ ...analysis, postId: post._id });
+    } catch (error) {
+      toast.error("Failed to analyze blog post");
+    }
+    setAnalyzingPostId(null);
+  };
 
   const generateSlug = (title: string) => {
     return title
@@ -719,6 +1086,14 @@ function BlogTab() {
     });
   };
 
+  const blogCategories = [
+    { value: "Business English", label: "Business English" },
+    { value: "Communication", label: "Communication" },
+    { value: "Culture", label: "Culture" },
+    { value: "Grammar", label: "Grammar" },
+    { value: "Tips", label: "Tips" },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -740,6 +1115,66 @@ function BlogTab() {
           New Post
         </Button>
       </div>
+
+      {/* AI Generation Panel */}
+      <Card className="bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-emerald-600" />
+            AI Blog Post Generator
+          </CardTitle>
+          <CardDescription>
+            Generate SEO-optimized blog posts with AI. Optimized for LLM search engines and traditional SEO.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4 items-end">
+            <div className="flex-1 space-y-2">
+              <Label>Topic</Label>
+              <Input
+                value={aiTopic}
+                onChange={(e) => setAiTopic(e.target.value)}
+                placeholder="e.g., '5 tips for business email etiquette' or 'common English grammar mistakes'"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Category</Label>
+              <Select
+                value={formData.category}
+                onValueChange={(v) => setFormData({ ...formData, category: v })}
+              >
+                <SelectTrigger className="w-44">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {blogCategories.map((cat) => (
+                    <SelectItem key={cat.value} value={cat.value}>
+                      {cat.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              onClick={handleAIGenerate}
+              disabled={isGenerating}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Generate Post
+                </>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {isAdding && (
         <Card className="border-primary">
@@ -910,8 +1345,27 @@ function BlogTab() {
                     <p className="text-xs text-muted-foreground">
                       By {post.author} • {new Date(post.createdAt).toLocaleDateString()}
                     </p>
+                    {seoAnalysis?.postId === post._id && (
+                      <SEOAnalysisPanel
+                        analysis={seoAnalysis}
+                        onClose={() => setSeoAnalysis(null)}
+                      />
+                    )}
                   </div>
                   <div className="flex gap-2 ml-4">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleAnalyzePost(post)}
+                      disabled={analyzingPostId === post._id}
+                      title="Analyze SEO"
+                    >
+                      {analyzingPostId === post._id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <BarChart3 className="w-4 h-4" />
+                      )}
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => startEdit(post)}>
                       <Pencil className="w-4 h-4" />
                     </Button>

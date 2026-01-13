@@ -1,0 +1,306 @@
+import { NextRequest, NextResponse } from "next/server";
+import OpenAI from "openai";
+
+// Initialize OpenRouter client
+const openai = new OpenAI({
+  baseURL: "https://openrouter.ai/api/v1",
+  apiKey: process.env.OPENROUTER_API_KEY,
+});
+
+// SEO-optimized system prompts for different content types
+const SEO_SYSTEM_PROMPTS = {
+  faq: `You are an SEO expert content writer for Simmonds Language Services (SLS), a premium language training company in Germany with 20+ years of experience.
+
+CRITICAL SEO GUIDELINES FOR LLM SEARCH ENGINES (Perplexity, ChatGPT Search, Google AI Overviews):
+1. Structure answers to be directly quotable - AI search engines prefer concise, authoritative answers
+2. Use natural question phrasing that matches how people actually ask
+3. Include specific details (numbers, locations, pricing) that AI can extract
+4. Front-load the most important information in answers
+5. Use semantic keywords naturally - not keyword stuffing
+6. Create content that answers follow-up questions preemptively
+7. Include E-E-A-T signals (Experience, Expertise, Authoritativeness, Trustworthiness)
+
+COMPANY CONTEXT:
+- Locations: Hannover and Berlin, Germany
+- Services: Business English, German for foreigners, Copy editing/Lektorat
+- Methodology: "Questions Method" - learning through conversation
+- Target audience: German professionals and international expats
+- Pricing: Online (€50/60min, €70/90min), Face-to-face (€60/60min, €85/90min)
+
+Generate FAQ content that is:
+- Directly answerable by AI search engines
+- Rich in semantic keywords for language learning
+- Structured for featured snippets
+- Helpful and genuinely informative`,
+
+  blog: `You are an SEO expert content writer for Simmonds Language Services (SLS), a premium language training company based in Hannover and Berlin, Germany.
+
+CRITICAL SEO GUIDELINES FOR LLM SEARCH ENGINES:
+1. Use clear H2/H3 structure that AI can parse for featured snippets
+2. Include a compelling hook in the first paragraph (AI often extracts this)
+3. Write in an authoritative but accessible tone
+4. Include specific, factual information that AI search can cite
+5. Use semantic LSI keywords naturally throughout
+6. Structure content with clear sections for skimmability
+7. End with actionable takeaways that AI can summarize
+8. Target long-tail keywords with specific intent
+
+BLOG SEO CHECKLIST:
+- Title: Include primary keyword, compelling hook, under 60 chars ideal
+- Excerpt: 150-160 chars, include keyword, create urgency
+- Content: 800-1500 words, semantic keywords, internal linking opportunities
+- Use lists and bullet points for AI extraction
+- Include statistics or specific numbers when relevant
+
+COMPANY EXPERTISE AREAS:
+- Business English training for German professionals
+- German language courses for international employees
+- Corporate language training programs
+- Cross-cultural business communication
+- Professional copy editing and Lektorat`,
+
+  testimonial: `You are creating authentic-sounding testimonials for Simmonds Language Services (SLS), a premium language training company in Germany.
+
+IMPORTANT: Generate realistic testimonials that sound genuine, not promotional.
+
+GUIDELINES:
+1. Use natural, conversational language
+2. Include specific details about the learning experience
+3. Mention concrete improvements or outcomes
+4. Reference realistic German/international company names
+5. Include appropriate job titles for the German business context
+6. Vary the tone - some enthusiastic, some more reserved/professional
+7. Include both English and German speakers' perspectives
+
+TESTIMONIAL AUTHENTICITY CHECKLIST:
+- Specific detail about what they learned
+- Mention of the teaching method or approach
+- Real-sounding outcome or improvement
+- Natural phrasing (not marketing-speak)
+- Appropriate length (2-4 sentences)`,
+};
+
+// Content generation prompts
+const GENERATION_PROMPTS = {
+  faq: (locale: string, topic?: string, category?: string) => `
+Generate a high-quality FAQ item for Simmonds Language Services.
+${topic ? `Topic/Focus: ${topic}` : ""}
+${category ? `Category: ${category}` : ""}
+Language: ${locale === "de" ? "German" : "English"}
+
+Return JSON with this exact structure:
+{
+  "question": "The FAQ question (optimized for search)",
+  "answer": "Comprehensive answer (150-300 words, SEO-optimized)",
+  "category": "${category || "general"}",
+  "seoKeywords": ["array", "of", "target", "keywords"]
+}`,
+
+  blog: (locale: string, topic?: string, category?: string) => `
+Generate a complete, SEO-optimized blog post for Simmonds Language Services.
+${topic ? `Topic/Focus: ${topic}` : "Generate a topic relevant to language learning in Germany"}
+${category ? `Category: ${category}` : ""}
+Language: ${locale === "de" ? "German" : "English"}
+
+Return JSON with this exact structure:
+{
+  "title": "SEO-optimized title (include primary keyword)",
+  "slug": "url-friendly-slug",
+  "excerpt": "Compelling meta description (150-160 chars)",
+  "content": "Full blog post content in Markdown format (800-1500 words). Use ## for H2 headings, ### for H3. Include bullet points and numbered lists where appropriate.",
+  "category": "${category || "language-learning"}",
+  "author": "James Simmonds",
+  "readTimeMinutes": 5,
+  "seoKeywords": ["array", "of", "target", "keywords"],
+  "seoAnalysis": {
+    "primaryKeyword": "main target keyword",
+    "keywordDensity": "estimated percentage",
+    "readabilityScore": "easy/medium/advanced",
+    "targetAudience": "description of target audience"
+  }
+}`,
+
+  testimonial: (locale: string, context?: string) => `
+Generate an authentic-sounding testimonial for Simmonds Language Services.
+${context ? `Context/Focus: ${context}` : ""}
+Language: ${locale === "de" ? "German" : "English"}
+
+Return JSON with this exact structure:
+{
+  "name": "Realistic German or international name",
+  "company": "Real-sounding German company name",
+  "role": "Professional job title",
+  "quote": "Authentic testimonial quote (2-4 sentences)",
+  "rating": 5
+}`,
+};
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { type, locale, topic, category, context } = body;
+
+    if (!type || !locale) {
+      return NextResponse.json(
+        { error: "Missing required fields: type, locale" },
+        { status: 400 }
+      );
+    }
+
+    if (!["faq", "blog", "testimonial"].includes(type)) {
+      return NextResponse.json(
+        { error: "Invalid type. Must be: faq, blog, or testimonial" },
+        { status: 400 }
+      );
+    }
+
+    const systemPrompt = SEO_SYSTEM_PROMPTS[type as keyof typeof SEO_SYSTEM_PROMPTS];
+    let userPrompt: string;
+
+    switch (type) {
+      case "faq":
+        userPrompt = GENERATION_PROMPTS.faq(locale, topic, category);
+        break;
+      case "blog":
+        userPrompt = GENERATION_PROMPTS.blog(locale, topic, category);
+        break;
+      case "testimonial":
+        userPrompt = GENERATION_PROMPTS.testimonial(locale, context);
+        break;
+      default:
+        return NextResponse.json({ error: "Invalid type" }, { status: 400 });
+    }
+
+    const response = await openai.chat.completions.create({
+      model: "google/gemini-2.5-flash-preview",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.7,
+      max_tokens: 4000,
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      return NextResponse.json(
+        { error: "No content generated" },
+        { status: 500 }
+      );
+    }
+
+    // Parse JSON from response
+    let parsedContent;
+    try {
+      // Handle markdown code blocks if present
+      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      const jsonString = jsonMatch ? jsonMatch[1] : content;
+      parsedContent = JSON.parse(jsonString);
+    } catch {
+      // If JSON parsing fails, return raw content
+      return NextResponse.json({
+        success: true,
+        raw: true,
+        content: content,
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      type,
+      locale,
+      content: parsedContent,
+    });
+  } catch (error) {
+    console.error("Content generation error:", error);
+    return NextResponse.json(
+      { error: "Failed to generate content" },
+      { status: 500 }
+    );
+  }
+}
+
+// SEO Analysis endpoint
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { content, type, locale } = body;
+
+    if (!content || !type) {
+      return NextResponse.json(
+        { error: "Missing required fields: content, type" },
+        { status: 400 }
+      );
+    }
+
+    const analysisPrompt = `Analyze this ${type} content for SEO optimization, particularly for LLM search engines (Perplexity, ChatGPT Search, Google AI Overviews).
+
+Content to analyze:
+${JSON.stringify(content, null, 2)}
+
+Language: ${locale === "de" ? "German" : "English"}
+
+Provide analysis in JSON format:
+{
+  "overallScore": 0-100,
+  "llmSearchScore": 0-100,
+  "traditionalSeoScore": 0-100,
+  "strengths": ["array of strengths"],
+  "improvements": ["array of specific improvements"],
+  "keywordSuggestions": ["additional keywords to target"],
+  "structureAnalysis": "analysis of content structure for AI extraction",
+  "citabilityScore": 0-100,
+  "recommendations": ["prioritized list of changes to make"]
+}`;
+
+    const response = await openai.chat.completions.create({
+      model: "google/gemini-2.5-flash-preview",
+      messages: [
+        {
+          role: "system",
+          content: `You are an SEO analyst specializing in optimizing content for both traditional search engines and modern LLM-powered search engines. Focus on:
+1. Content structure for AI extraction
+2. Citability - how likely is the content to be quoted by AI
+3. E-E-A-T signals (Experience, Expertise, Authoritativeness, Trustworthiness)
+4. Semantic keyword coverage
+5. Answer quality for voice search and AI assistants`,
+        },
+        { role: "user", content: analysisPrompt },
+      ],
+      temperature: 0.3,
+      max_tokens: 2000,
+    });
+
+    const analysisContent = response.choices[0]?.message?.content;
+    if (!analysisContent) {
+      return NextResponse.json(
+        { error: "No analysis generated" },
+        { status: 500 }
+      );
+    }
+
+    let parsedAnalysis;
+    try {
+      const jsonMatch = analysisContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      const jsonString = jsonMatch ? jsonMatch[1] : analysisContent;
+      parsedAnalysis = JSON.parse(jsonString);
+    } catch {
+      return NextResponse.json({
+        success: true,
+        raw: true,
+        analysis: analysisContent,
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      analysis: parsedAnalysis,
+    });
+  } catch (error) {
+    console.error("SEO analysis error:", error);
+    return NextResponse.json(
+      { error: "Failed to analyze content" },
+      { status: 500 }
+    );
+  }
+}

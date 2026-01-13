@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardCheck,
+  Globe,
 } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
 import { useState, useEffect } from "react";
@@ -120,22 +121,40 @@ export function Sidebar() {
           })}
 
           {isAdmin && (
-            <li>
-              <Link
-                href="/admin"
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
-                  pathname.startsWith("/admin")
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                  isCollapsed && "justify-center px-2"
-                )}
-                title={isCollapsed ? "Admin" : undefined}
-              >
-                <ShieldCheck className="w-5 h-5 flex-shrink-0" />
-                {!isCollapsed && "Admin"}
-              </Link>
-            </li>
+            <>
+              <li>
+                <Link
+                  href="/admin/landing"
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
+                    pathname === "/admin/landing"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                    isCollapsed && "justify-center px-2"
+                  )}
+                  title={isCollapsed ? "Website CMS" : undefined}
+                >
+                  <Globe className="w-5 h-5 flex-shrink-0" />
+                  {!isCollapsed && "Website CMS"}
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/admin"
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
+                    pathname.startsWith("/admin") && pathname !== "/admin/landing"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                    isCollapsed && "justify-center px-2"
+                  )}
+                  title={isCollapsed ? "Admin" : undefined}
+                >
+                  <ShieldCheck className="w-5 h-5 flex-shrink-0" />
+                  {!isCollapsed && "Admin"}
+                </Link>
+              </li>
+            </>
           )}
         </ul>
       </nav>
