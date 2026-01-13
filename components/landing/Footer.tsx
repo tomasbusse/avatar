@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
 import { Mail, Phone, MapPin } from "lucide-react";
@@ -7,7 +8,12 @@ import { Mail, Phone, MapPin } from "lucide-react";
 export function Footer() {
   const t = useTranslations("footer");
   const locale = useLocale();
-  const currentYear = new Date().getFullYear();
+
+  // Use static year for SSR, update on client to prevent hydration mismatch
+  const [currentYear, setCurrentYear] = useState(2026);
+  useEffect(() => {
+    setCurrentYear(new Date().getFullYear());
+  }, []);
 
   const serviceLinks = [
     { href: `/${locale}/services/business-english`, label: t("businessEnglish") },
