@@ -296,12 +296,13 @@ export default function AdminPracticePage() {
     setIsCreating(true);
     try {
       if (editingPracticeId) {
-        // Update existing practice (mode and avatarId are immutable)
+        // Update existing practice
         await updatePractice({
           practiceId: editingPracticeId,
           title: title.trim(),
           description: description.trim() || undefined,
           subject: subject.trim() || undefined,
+          avatarId: avatarId as Id<"avatars">,
           behaviorConfig: {
             conversationStyle,
             difficultyAdaptation: true,

@@ -519,6 +519,7 @@ export const update = mutation({
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     subject: v.optional(v.string()),
+    avatarId: v.optional(v.id("avatars")),
     behaviorConfig: v.optional(
       v.object({
         conversationStyle: v.union(
@@ -573,6 +574,14 @@ export const update = mutation({
     if (args.title !== undefined) updates.title = args.title;
     if (args.description !== undefined) updates.description = args.description;
     if (args.subject !== undefined) updates.subject = args.subject;
+    if (args.avatarId !== undefined) {
+      // Verify avatar exists
+      const avatar = await ctx.db.get(args.avatarId);
+      if (!avatar) {
+        throw new Error("Avatar not found");
+      }
+      updates.avatarId = args.avatarId;
+    }
     if (args.behaviorConfig !== undefined)
       updates.behaviorConfig = args.behaviorConfig;
     if (args.webSearchEnabled !== undefined)
