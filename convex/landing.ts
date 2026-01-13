@@ -779,8 +779,10 @@ export const seedPageContent = mutation({
         cta: {
           headline: "Ready to Transform Your English?",
           subheadline: "Book a free consultation and discover how we can help you achieve your language goals.",
-          buttonText: "Book Free Consultation",
+          buttonPrimary: "Book Free Consultation",
+          buttonSecondary: "Call Us",
           buttonLink: "/contact",
+          trustBadge: "No commitment required • Usually respond within 24 hours",
         },
       },
       about: {
@@ -901,8 +903,10 @@ export const seedPageContent = mutation({
         cta: {
           headline: "Bereit Ihr Englisch zu transformieren?",
           subheadline: "Buchen Sie eine kostenlose Beratung und entdecken Sie, wie wir Ihnen helfen können, Ihre Sprachziele zu erreichen.",
-          buttonText: "Kostenlose Beratung buchen",
+          buttonPrimary: "Kostenlose Beratung buchen",
+          buttonSecondary: "Rufen Sie uns an",
           buttonLink: "/contact",
+          trustBadge: "Keine Verpflichtung • Antwort innerhalb von 24 Stunden",
         },
       },
       about: {
