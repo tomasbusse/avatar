@@ -31,7 +31,8 @@
     "satisfaction": "Zufriedenheit",
     "loadingAvatar": "Avatar wird geladen...",
     "avatarGreeting": "Hallo! Ich bin Emma, Ihre KI-Sprachassistentin. Wie kann ich Ihnen heute helfen?",
-    "avatarPlaceholder": "KI-Avatar erscheint hier"
+    "avatarPlaceholder": "KI-Avatar erscheint hier",
+    "clickToStart": "Klicken zum Starten"
   },
   "services": {
     "badge": "Unsere Leistungen",

@@ -3,6 +3,8 @@
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import { ArrowRight, Play, CheckCircle2 } from "lucide-react";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { AvatarDisplay } from "./AvatarDisplay";
 
 interface HeroSectionProps {
@@ -13,6 +15,16 @@ interface HeroSectionProps {
 export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
   const t = useTranslations("hero");
   const locale = useLocale();
+
+  // Fetch configured landing avatar from database
+  const landingAvatar = useQuery(api.landing.getLandingAvatar);
+
+  // Fetch hero page content from CMS (for avatar greeting)
+  const heroContent = useQuery(api.landing.getSectionContent, {
+    locale,
+    page: "home",
+    section: "hero",
+  });
 
   const benefits = [
     t("benefit1"),
@@ -108,7 +120,12 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
           {/* Right: Avatar */}
           <div className="order-1 lg:order-2 flex justify-center lg:justify-end">
             {showAvatar ? (
-              <AvatarDisplay avatarId={avatarId} />
+              <AvatarDisplay
+                avatarId={avatarId || landingAvatar?._id}
+                profileImage={landingAvatar?.profileImage}
+                avatarName={landingAvatar?.name}
+                avatarGreeting={(heroContent as { avatarGreeting?: string } | null)?.avatarGreeting}
+              />
             ) : (
               <div className="w-full max-w-md aspect-[3/4] rounded-3xl bg-gradient-to-br from-sls-teal/5 to-sls-beige/50 border-2 border-sls-beige flex items-center justify-center">
                 <div className="text-center text-sls-olive/60 p-8">

@@ -103,7 +103,11 @@ export const getLandingAvatar = query({
       return avatar;
     }
 
-    const avatar = await ctx.db.get(config.value);
+    // Fetch the configured avatar by ID
+    const avatar = await ctx.db
+      .query("avatars")
+      .filter((q) => q.eq(q.field("_id"), config.value))
+      .first();
     return avatar;
   },
 });
@@ -752,6 +756,8 @@ export const seedPageContent = mutation({
           ctaPrimary: "Free Consultation",
           ctaSecondary: "Our Services",
           ctaLink: "/contact",
+          avatarName: "Emma",
+          avatarGreeting: "Hi! I'm Emma, your AI language assistant. Click the play button to start a conversation with me!",
         },
         services: {
           badge: "What We Offer",
@@ -876,6 +882,8 @@ export const seedPageContent = mutation({
           ctaPrimary: "Kostenlose Beratung",
           ctaSecondary: "Unsere Leistungen",
           ctaLink: "/contact",
+          avatarName: "Emma",
+          avatarGreeting: "Hallo! Ich bin Emma, Ihre KI-Sprachassistentin. Klicken Sie auf den Play-Button, um ein Gespräch mit mir zu starten!",
         },
         services: {
           badge: "Unsere Leistungen",

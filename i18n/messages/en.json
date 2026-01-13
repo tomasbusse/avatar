@@ -31,7 +31,8 @@
     "satisfaction": "Satisfaction",
     "loadingAvatar": "Loading avatar...",
     "avatarGreeting": "Hello! I'm Emma, your AI language assistant. How can I help you today?",
-    "avatarPlaceholder": "AI avatar will appear here"
+    "avatarPlaceholder": "AI avatar will appear here",
+    "clickToStart": "Click to Start"
   },
   "services": {
     "badge": "What We Offer",
