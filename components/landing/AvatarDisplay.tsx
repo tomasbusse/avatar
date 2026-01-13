@@ -1,10 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { MessageCircle, Volume2, VolumeX, Sparkles, Play } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { MessageCircle, Volume2, VolumeX, Sparkles, Play, Bug } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
+
+interface DebugLog {
+  timestamp: string;
+  event: string;
+  data?: Record<string, unknown>;
+}
 
 interface AvatarDisplayProps {
   avatarId?: string;
@@ -13,6 +20,7 @@ interface AvatarDisplayProps {
   avatarName?: string;
   avatarGreeting?: string;
   isLoading?: boolean;
+  debug?: boolean;
 }
 
 export function AvatarDisplay({
@@ -22,21 +30,69 @@ export function AvatarDisplay({
   avatarName = "Emma",
   avatarGreeting,
   isLoading: dataLoading = false,
+  debug: debugProp = false,
 }: AvatarDisplayProps) {
   const t = useTranslations("hero");
+  const searchParams = useSearchParams();
   const [isActivated, setIsActivated] = useState(false);
   const [isActivating, setIsActivating] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [isHovered, setIsHovered] = useState(false);
+  const [debugLogs, setDebugLogs] = useState<DebugLog[]>([]);
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
+
+  // Check for debug mode via URL param or prop
+  const debugMode = debugProp || searchParams.get("debug") === "true";
+
+  // Debug logging function
+  const logDebug = (event: string, data?: Record<string, unknown>) => {
+    if (!debugMode) return;
+    const log: DebugLog = {
+      timestamp: new Date().toISOString().split("T")[1].split(".")[0],
+      event,
+      data,
+    };
+    console.log(`[Avatar Debug] ${log.timestamp} - ${event}`, data || "");
+    setDebugLogs((prev) => [...prev.slice(-19), log]); // Keep last 20 logs
+  };
+
+  // Log initial mount and data changes
+  useEffect(() => {
+    logDebug("Component mounted", {
+      avatarId,
+      avatarName,
+      hasProfileImage: !!profileImage,
+      profileImageUrl: profileImage?.substring(0, 50) + "...",
+      dataLoading,
+    });
+  }, []);
+
+  useEffect(() => {
+    logDebug("Data loading state changed", { dataLoading });
+  }, [dataLoading]);
+
+  useEffect(() => {
+    if (profileImage) {
+      logDebug("Profile image received", { url: profileImage });
+    }
+  }, [profileImage]);
 
   // Greeting text from props (CMS) or fallback to translation
   const greeting = avatarGreeting || t("avatarGreeting");
 
   // Handle play button click to activate live avatar
   const handleActivate = () => {
+    logDebug("Play button clicked - Starting activation", {
+      avatarId,
+      avatarName,
+      hasProfileImage: !!profileImage,
+    });
     setIsActivating(true);
+
     // Simulate avatar loading - in production this would connect to LiveKit
+    logDebug("Simulating LiveKit connection...");
     setTimeout(() => {
+      logDebug("Activation complete - Avatar now live");
       setIsActivating(false);
       setIsActivated(true);
     }, 1500);
@@ -237,6 +293,74 @@ export function AvatarDisplay({
       {/* Decorative Elements */}
       <div className="absolute -top-4 -right-4 w-24 h-24 rounded-2xl bg-sls-chartreuse/20 -z-10" />
       <div className="absolute -bottom-4 -left-4 w-32 h-32 rounded-2xl bg-sls-orange/10 -z-10" />
+
+      {/* Debug Mode UI */}
+      {debugMode && (
+        <>
+          {/* Debug Toggle Button */}
+          <button
+            onClick={() => setShowDebugPanel(!showDebugPanel)}
+            className="absolute -top-2 -right-2 z-50 p-2 rounded-full bg-yellow-500 text-black shadow-lg hover:bg-yellow-400 transition-colors"
+            title="Toggle Debug Panel"
+          >
+            <Bug className="w-4 h-4" />
+          </button>
+
+          {/* Debug Panel */}
+          {showDebugPanel && (
+            <div className="absolute top-8 right-0 z-50 w-80 max-h-96 overflow-auto bg-black/90 text-green-400 text-xs font-mono rounded-lg shadow-2xl p-3">
+              <div className="flex items-center justify-between mb-2 pb-2 border-b border-green-400/30">
+                <span className="text-yellow-400 font-bold">🐛 Avatar Debug</span>
+                <button
+                  onClick={() => setDebugLogs([])}
+                  className="text-red-400 hover:text-red-300 text-xs"
+                >
+                  Clear
+                </button>
+              </div>
+
+              {/* Current State */}
+              <div className="mb-3 p-2 bg-green-400/10 rounded">
+                <div className="text-yellow-400 font-bold mb-1">Current State:</div>
+                <div>avatarId: {avatarId || "undefined"}</div>
+                <div>avatarName: {avatarName}</div>
+                <div>profileImage: {profileImage ? "✅ loaded" : "❌ missing"}</div>
+                <div>dataLoading: {dataLoading ? "⏳ true" : "✅ false"}</div>
+                <div>isActivating: {isActivating ? "⏳ true" : "false"}</div>
+                <div>isActivated: {isActivated ? "✅ true" : "false"}</div>
+              </div>
+
+              {/* Event Log */}
+              <div className="text-yellow-400 font-bold mb-1">Event Log:</div>
+              <div className="space-y-1">
+                {debugLogs.length === 0 ? (
+                  <div className="text-gray-500 italic">No events logged yet...</div>
+                ) : (
+                  debugLogs.map((log, i) => (
+                    <div key={i} className="border-l-2 border-green-400/30 pl-2">
+                      <span className="text-gray-500">{log.timestamp}</span>{" "}
+                      <span className="text-green-300">{log.event}</span>
+                      {log.data && (
+                        <pre className="text-gray-400 text-[10px] mt-0.5 overflow-x-auto">
+                          {JSON.stringify(log.data, null, 2)}
+                        </pre>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Debug Status Indicator */}
+          <div className="absolute -bottom-8 left-0 right-0 text-center">
+            <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-500/20 text-yellow-600 text-xs rounded-full">
+              <Bug className="w-3 h-3" />
+              Debug Mode Active - Add ?debug=true to URL
+            </span>
+          </div>
+        </>
+      )}
     </div>
   );
 }
