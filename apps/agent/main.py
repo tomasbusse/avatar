@@ -1877,19 +1877,31 @@ async def entrypoint(ctx: JobContext):
             logger.error("❌ Entry test session ID not found!")
         return
 
-    # First try to get avatar config from room metadata (passed from token API)
+    # First try to get avatar config from dispatch metadata (ctx.job.metadata)
+    # This is where the token API passes the avatar config when using explicit dispatch
+    # Fallback to room metadata for backward compatibility
     avatar_config = None
+
+    # Check dispatch metadata first (preferred for explicit dispatch)
+    job_metadata_str = ctx.job.metadata if hasattr(ctx, 'job') and ctx.job else None
     room_metadata_str = ctx.room.metadata
 
-    logger.info(f"🔍 Room metadata string length: {len(room_metadata_str) if room_metadata_str else 0}")
-    if room_metadata_str:
+    # Use job metadata if available, otherwise fall back to room metadata
+    metadata_str = job_metadata_str or room_metadata_str
+    metadata_source = "job (dispatch)" if job_metadata_str else "room"
+
+    logger.info(f"🔍 Metadata source: {metadata_source}")
+    logger.info(f"🔍 Job metadata length: {len(job_metadata_str) if job_metadata_str else 0}")
+    logger.info(f"🔍 Room metadata length: {len(room_metadata_str) if room_metadata_str else 0}")
+
+    if metadata_str:
         try:
-            room_metadata = json.loads(room_metadata_str)
-            logger.info(f"🔍 Room metadata keys: {list(room_metadata.keys())}")
-            logger.info(f"🔍 Has 'avatar' key: {bool(room_metadata.get('avatar'))}")
-            if room_metadata.get("avatar"):
-                avatar_config = room_metadata["avatar"]
-                logger.info(f"✅ Got avatar config from room metadata: {avatar_config.get('name', 'Unknown')}")
+            parsed_metadata = json.loads(metadata_str)
+            logger.info(f"🔍 Parsed metadata keys: {list(parsed_metadata.keys())}")
+            logger.info(f"🔍 Has 'avatar' key: {bool(parsed_metadata.get('avatar'))}")
+            if parsed_metadata.get("avatar"):
+                avatar_config = parsed_metadata["avatar"]
+                logger.info(f"✅ Got avatar config from {metadata_source} metadata: {avatar_config.get('name', 'Unknown')}")
 
                 # CRITICAL: Log llmConfig and voiceProvider immediately
                 logger.info(f"   ⚡ [CRITICAL] llmConfig: {avatar_config.get('llmConfig')}")
