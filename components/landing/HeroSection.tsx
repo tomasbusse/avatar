@@ -36,6 +36,13 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
   // Handle CTA click to show contact form on avatar
   const handleCtaClick = useCallback(() => {
     setShowContactForm(true);
+    // On mobile, scroll to the avatar (which shows the contact form)
+    setTimeout(() => {
+      const avatarEl = document.querySelector('[data-avatar-display]');
+      if (avatarEl) {
+        avatarEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100); // Small delay to ensure flip animation starts
   }, []);
 
   // Handle when contact form is closed/reset
