@@ -51,6 +51,8 @@ export const getFullSiteConfig = query({
     }
     return {
       heroAvatarId: configMap["landing_hero_avatar"] || null,
+      heroAvatarIdEn: configMap["landing_hero_avatar_en"] || null,
+      heroAvatarIdDe: configMap["landing_hero_avatar_de"] || null,
       contactInfo: configMap["contact_info"] || null,
     };
   },
@@ -162,27 +164,48 @@ export const updateContactInfo = mutation({
 export const updateSiteConfig = mutation({
   args: {
     heroAvatarId: v.optional(v.id("avatars")),
+    heroAvatarIdEn: v.optional(v.id("avatars")),
+    heroAvatarIdDe: v.optional(v.id("avatars")),
   },
   handler: async (ctx, args) => {
-    if (args.heroAvatarId) {
+    const now = Date.now();
+
+    // Helper to upsert a config key
+    const upsertConfig = async (key: string, value: any) => {
       const existing = await ctx.db
         .query("siteConfig")
-        .withIndex("by_key", (q) => q.eq("key", "landing_hero_avatar"))
+        .withIndex("by_key", (q) => q.eq("key", key))
         .first();
 
       if (existing) {
         await ctx.db.patch(existing._id, {
-          value: args.heroAvatarId,
-          updatedAt: Date.now(),
+          value,
+          updatedAt: now,
         });
       } else {
         await ctx.db.insert("siteConfig", {
-          key: "landing_hero_avatar",
-          value: args.heroAvatarId,
-          updatedAt: Date.now(),
+          key,
+          value,
+          updatedAt: now,
         });
       }
+    };
+
+    // Update generic avatar (for backward compatibility)
+    if (args.heroAvatarId) {
+      await upsertConfig("landing_hero_avatar", args.heroAvatarId);
     }
+
+    // Update English-specific avatar
+    if (args.heroAvatarIdEn) {
+      await upsertConfig("landing_hero_avatar_en", args.heroAvatarIdEn);
+    }
+
+    // Update German-specific avatar
+    if (args.heroAvatarIdDe) {
+      await upsertConfig("landing_hero_avatar_de", args.heroAvatarIdDe);
+    }
+
     return { success: true };
   },
 });
@@ -339,29 +362,46 @@ export const updateEmailConfig = mutation({
   },
 });
 
-// Get landing page avatar configuration
+// Get landing page avatar configuration (locale-aware)
 export const getLandingAvatar = query({
-  args: {},
-  handler: async (ctx) => {
-    // Get configured avatar ID from site config
+  args: {
+    locale: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const locale = args.locale || "en";
+
+    // Try locale-specific avatar first (e.g., landing_hero_avatar_en or landing_hero_avatar_de)
+    const localeConfig = await ctx.db
+      .query("siteConfig")
+      .withIndex("by_key", (q) => q.eq("key", `landing_hero_avatar_${locale}`))
+      .first();
+
+    if (localeConfig?.value) {
+      const avatar = await ctx.db
+        .query("avatars")
+        .filter((q) => q.eq(q.field("_id"), localeConfig.value))
+        .first();
+      if (avatar) return avatar;
+    }
+
+    // Fall back to generic config (for backward compatibility)
     const config = await ctx.db
       .query("siteConfig")
       .withIndex("by_key", (q) => q.eq("key", "landing_hero_avatar"))
       .first();
 
-    if (!config?.value) {
-      // Return first active avatar as fallback
+    if (config?.value) {
       const avatar = await ctx.db
         .query("avatars")
-        .filter((q) => q.eq(q.field("isActive"), true))
+        .filter((q) => q.eq(q.field("_id"), config.value))
         .first();
-      return avatar;
+      if (avatar) return avatar;
     }
 
-    // Fetch the configured avatar by ID
+    // Return first active avatar as final fallback
     const avatar = await ctx.db
       .query("avatars")
-      .filter((q) => q.eq(q.field("_id"), config.value))
+      .filter((q) => q.eq(q.field("isActive"), true))
       .first();
     return avatar;
   },

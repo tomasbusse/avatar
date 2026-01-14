@@ -23,8 +23,8 @@ export function ClientAvatarWrapper({ avatarId }: ClientAvatarWrapperProps) {
   const debugMode = searchParams.get("debug") === "true";
   const [timedOut, setTimedOut] = useState(false);
 
-  // Fetch configured landing avatar from database
-  const landingAvatar = useQuery(api.landing.getLandingAvatar);
+  // Fetch configured landing avatar from database (locale-aware)
+  const landingAvatar = useQuery(api.landing.getLandingAvatar, { locale });
 
   // Fetch hero page content from CMS (for avatar greeting)
   const heroContent = useQuery(api.landing.getSectionContent, {
@@ -53,6 +53,7 @@ export function ClientAvatarWrapper({ avatarId }: ClientAvatarWrapperProps) {
     console.log("[Avatar Debug] ClientAvatarWrapper mounted", {
       locale,
       providedAvatarId: avatarId,
+      fetchingLocaleAvatar: `landing_hero_avatar_${locale}`,
     });
   }, [debugMode, locale, avatarId]);
 

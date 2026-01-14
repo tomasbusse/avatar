@@ -28,6 +28,7 @@ import type * as memories from "../memories.js";
 import type * as pdfWorksheets from "../pdfWorksheets.js";
 import type * as presentations from "../presentations.js";
 import type * as rbac from "../rbac.js";
+import type * as scrapingJobs from "../scrapingJobs.js";
 import type * as seed from "../seed.js";
 import type * as seedEntryTestQuestions from "../seedEntryTestQuestions.js";
 import type * as seedLanding from "../seedLanding.js";
@@ -65,6 +66,7 @@ declare const fullApi: ApiFromModules<{
   pdfWorksheets: typeof pdfWorksheets;
   presentations: typeof presentations;
   rbac: typeof rbac;
+  scrapingJobs: typeof scrapingJobs;
   seed: typeof seed;
   seedEntryTestQuestions: typeof seedEntryTestQuestions;
   seedLanding: typeof seedLanding;

@@ -795,6 +795,8 @@ function SiteConfigTab() {
   const heroContentDE = useQuery(api.landing.getSectionContent, { locale: "de", page: "home", section: "hero" });
 
   const [selectedAvatar, setSelectedAvatar] = useState<string>("");
+  const [selectedAvatarEn, setSelectedAvatarEn] = useState<string>("");
+  const [selectedAvatarDe, setSelectedAvatarDe] = useState<string>("");
   const [avatarNameEN, setAvatarNameEN] = useState("");
   const [avatarGreetingEN, setAvatarGreetingEN] = useState("");
   const [avatarNameDE, setAvatarNameDE] = useState("");
@@ -843,12 +845,25 @@ function SiteConfigTab() {
   }
 
   const handleSaveAvatar = async () => {
-    if (!selectedAvatar) return;
+    // Need at least one avatar selected
+    if (!selectedAvatarEn && !selectedAvatarDe && !selectedAvatar) return;
 
     try {
-      await updateConfig({
-        heroAvatarId: selectedAvatar as Id<"avatars">
-      });
+      const updates: Record<string, Id<"avatars">> = {};
+
+      // Update locale-specific avatars if set
+      if (selectedAvatarEn) {
+        updates.heroAvatarIdEn = selectedAvatarEn as Id<"avatars">;
+      }
+      if (selectedAvatarDe) {
+        updates.heroAvatarIdDe = selectedAvatarDe as Id<"avatars">;
+      }
+      // Also update generic fallback if set
+      if (selectedAvatar) {
+        updates.heroAvatarId = selectedAvatar as Id<"avatars">;
+      }
+
+      await updateConfig(updates);
       toast.success("Avatar selection updated");
     } catch (error) {
       toast.error("Failed to update configuration");
@@ -953,7 +968,9 @@ function SiteConfigTab() {
     setLocations(newLocations);
   };
 
-  // Get currently selected avatar details
+  // Get currently selected avatar details for each locale
+  const currentAvatarEn = avatars?.find(a => a._id === (selectedAvatarEn || siteConfig?.heroAvatarIdEn || siteConfig?.heroAvatarId));
+  const currentAvatarDe = avatars?.find(a => a._id === (selectedAvatarDe || siteConfig?.heroAvatarIdDe || siteConfig?.heroAvatarId));
   const currentAvatar = avatars?.find(a => a._id === (selectedAvatar || siteConfig?.heroAvatarId));
 
   const getStatusBadge = (status: string) => {
@@ -1243,38 +1260,79 @@ function SiteConfigTab() {
         <CardHeader>
           <CardTitle>Hero Avatar Selection</CardTitle>
           <CardDescription>
-            Select the avatar that appears on the homepage hero section
+            Select different avatars for the English and German versions of the homepage
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <Label>Select Avatar</Label>
-            <Select
-              value={selectedAvatar || siteConfig?.heroAvatarId || ""}
-              onValueChange={setSelectedAvatar}
-            >
-              <SelectTrigger className="w-full max-w-md">
-                <SelectValue placeholder="Select an avatar" />
-              </SelectTrigger>
-              <SelectContent>
-                {avatars?.map((avatar) => (
-                  <SelectItem key={avatar._id} value={avatar._id}>
-                    {avatar.name} - {avatar.persona?.role || "Teacher"}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {currentAvatar && (
-              <div className="mt-2 p-3 bg-muted rounded-lg">
-                <p className="text-sm font-medium">Currently selected: {currentAvatar.name}</p>
-                {currentAvatar.profileImage && (
-                  <p className="text-xs text-muted-foreground mt-1">Has profile image ✓</p>
-                )}
-              </div>
-            )}
+          {/* English Avatar */}
+          <div className="space-y-4 p-4 border rounded-lg">
+            <div className="flex items-center gap-2">
+              <Globe className="w-4 h-4" />
+              <Label className="text-base font-semibold">English (EN) Avatar</Label>
+            </div>
+            <div className="space-y-2">
+              <Label>Select Avatar for /en pages</Label>
+              <Select
+                value={selectedAvatarEn || siteConfig?.heroAvatarIdEn || siteConfig?.heroAvatarId || ""}
+                onValueChange={setSelectedAvatarEn}
+              >
+                <SelectTrigger className="w-full max-w-md">
+                  <SelectValue placeholder="Select an avatar" />
+                </SelectTrigger>
+                <SelectContent>
+                  {avatars?.map((avatar) => (
+                    <SelectItem key={avatar._id} value={avatar._id}>
+                      {avatar.name} - {avatar.persona?.role || "Teacher"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {currentAvatarEn && (
+                <div className="mt-2 p-3 bg-muted rounded-lg">
+                  <p className="text-sm font-medium">Currently selected: {currentAvatarEn.name}</p>
+                  {currentAvatarEn.profileImage && (
+                    <p className="text-xs text-muted-foreground mt-1">Has profile image ✓</p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
-          <Button onClick={handleSaveAvatar} disabled={!selectedAvatar}>
+          {/* German Avatar */}
+          <div className="space-y-4 p-4 border rounded-lg">
+            <div className="flex items-center gap-2">
+              <Globe className="w-4 h-4" />
+              <Label className="text-base font-semibold">Deutsch (DE) Avatar</Label>
+            </div>
+            <div className="space-y-2">
+              <Label>Select Avatar for /de pages</Label>
+              <Select
+                value={selectedAvatarDe || siteConfig?.heroAvatarIdDe || siteConfig?.heroAvatarId || ""}
+                onValueChange={setSelectedAvatarDe}
+              >
+                <SelectTrigger className="w-full max-w-md">
+                  <SelectValue placeholder="Select an avatar" />
+                </SelectTrigger>
+                <SelectContent>
+                  {avatars?.map((avatar) => (
+                    <SelectItem key={avatar._id} value={avatar._id}>
+                      {avatar.name} - {avatar.persona?.role || "Teacher"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {currentAvatarDe && (
+                <div className="mt-2 p-3 bg-muted rounded-lg">
+                  <p className="text-sm font-medium">Currently selected: {currentAvatarDe.name}</p>
+                  {currentAvatarDe.profileImage && (
+                    <p className="text-xs text-muted-foreground mt-1">Has profile image ✓</p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <Button onClick={handleSaveAvatar} disabled={!selectedAvatarEn && !selectedAvatarDe}>
             <Save className="w-4 h-4 mr-2" />
             Save Avatar Selection
           </Button>
