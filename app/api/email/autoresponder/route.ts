@@ -19,7 +19,38 @@ interface AutoresponderRequest {
   mode: "preview" | "generate";
   knowledgeBaseIds?: string[];
   includeFaqs?: boolean;
+  includeServices?: boolean;
   customPrompt?: string; // Custom AI instructions to override the default
+  useGlobalConfig?: boolean; // Whether to use global email config from Convex
+}
+
+interface EmailConfig {
+  replyMode: "disabled" | "manual" | "ai_assisted" | "auto_ai";
+  aiSettings: {
+    enabled: boolean;
+    model: string;
+    customPrompt: string;
+    temperature: number;
+    maxTokens: number;
+  };
+  knowledgeBase: {
+    includeFaqs: boolean;
+    defaultKnowledgeBaseIds: string[];
+    includeServices: boolean;
+  };
+  notifications: {
+    notifyOnNewSubmission: boolean;
+    notificationEmails: string[];
+    notifyOnAutoReply: boolean;
+  };
+  templates: {
+    en: { subjectPrefix: string; greeting: string; closing: string; signature: string };
+    de: { subjectPrefix: string; greeting: string; closing: string; signature: string };
+  };
+  rateLimits: {
+    maxAutoRepliesPerHour: number;
+    cooldownMinutes: number;
+  };
 }
 
 const BASE_SYSTEM_PROMPT = `You are James Simmonds, the founder of Simmonds Language Services (SLS), a professional language training company based in Hannover, Germany since 1999. You're writing personalized email responses to contact form inquiries.
@@ -95,7 +126,7 @@ function buildKnowledgeContext(knowledge: {
 export async function POST(request: NextRequest) {
   try {
     const body: AutoresponderRequest = await request.json();
-    const { name, email, company, message, locale, mode, knowledgeBaseIds, includeFaqs, customPrompt } = body;
+    const { name, email, company, message, locale, mode, useGlobalConfig = true } = body;
 
     // Validate required fields
     if (!name || !email || !message) {
@@ -104,6 +135,24 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Fetch global email config from Convex
+    let emailConfig: EmailConfig | null = null;
+    if (useGlobalConfig) {
+      try {
+        emailConfig = await convex.query(api.landing.getEmailConfig);
+      } catch (configError) {
+        console.warn("[Autoresponder] Failed to fetch email config:", configError);
+      }
+    }
+
+    // Merge request params with global config (request params take precedence)
+    const knowledgeBaseIds = body.knowledgeBaseIds ?? emailConfig?.knowledgeBase?.defaultKnowledgeBaseIds ?? [];
+    const includeFaqs = body.includeFaqs ?? emailConfig?.knowledgeBase?.includeFaqs ?? true;
+    const includeServices = body.includeServices ?? emailConfig?.knowledgeBase?.includeServices ?? true;
+    const customPrompt = body.customPrompt ?? emailConfig?.aiSettings?.customPrompt;
+    const aiModel = emailConfig?.aiSettings?.model ?? "claude-opus-4-5-20251101";
+    const maxTokens = emailConfig?.aiSettings?.maxTokens ?? 1024;
 
     const isGerman = locale === "de" || /[äöüßÄÖÜ]/.test(message) ||
       message.toLowerCase().includes("sehr geehrte") ||
@@ -115,7 +164,8 @@ export async function POST(request: NextRequest) {
     try {
       const knowledge = await convex.query(api.landing.getAutoresponderKnowledge, {
         knowledgeBaseIds: knowledgeBaseIds as Id<"knowledgeBases">[] | undefined,
-        includeFaqs: includeFaqs ?? true,
+        includeFaqs: includeFaqs,
+        includeServices: includeServices,
         locale: isGerman ? "de" : "en",
       });
 
@@ -146,8 +196,8 @@ If the inquiry relates to information in the REFERENCE KNOWLEDGE above, use that
 `;
 
     const response = await anthropic.messages.create({
-      model: "claude-opus-4-5-20251101",
-      max_tokens: 1024,
+      model: aiModel,
+      max_tokens: maxTokens,
       system: systemPrompt,
       messages: [
         {

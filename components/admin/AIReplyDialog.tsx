@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
   Sparkles,
@@ -30,6 +31,7 @@ import {
   Settings2,
   ChevronDown,
   ChevronUp,
+  Cog,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -61,8 +63,13 @@ const DEFAULT_AI_PROMPT = `You are James Simmonds, the founder of Simmonds Langu
 export function AIReplyDialog({ submission, open, onOpenChange }: AIReplyDialogProps) {
   const recordReply = useMutation(api.landing.recordContactReply);
   const knowledgeBases = useQuery(api.knowledgeBases.getActive);
+  const emailConfig = useQuery(api.landing.getEmailConfig);
 
-  // Mode selection
+  // Track if settings have been customized
+  const [usingGlobalDefaults, setUsingGlobalDefaults] = useState(true);
+  const [configInitialized, setConfigInitialized] = useState(false);
+
+  // Mode selection - initialize from global config
   const [replyMode, setReplyMode] = useState<ReplyMode>("ai");
 
   // Common state
@@ -80,6 +87,34 @@ export function AIReplyDialog({ submission, open, onOpenChange }: AIReplyDialogP
   // Knowledge base settings
   const [selectedKnowledgeBases, setSelectedKnowledgeBases] = useState<string[]>([]);
   const [includeFaqs, setIncludeFaqs] = useState(true);
+  const [includeServices, setIncludeServices] = useState(true);
+
+  // Initialize settings from global config when it loads
+  useEffect(() => {
+    if (emailConfig && !configInitialized) {
+      // Set reply mode from global config
+      const configReplyMode = emailConfig.replyMode;
+      if (configReplyMode === "manual" || configReplyMode === "disabled") {
+        setReplyMode("manual");
+      } else {
+        setReplyMode("ai");
+      }
+
+      // Set AI settings
+      if (emailConfig.aiSettings?.customPrompt) {
+        setCustomPrompt(emailConfig.aiSettings.customPrompt);
+      }
+
+      // Set knowledge base settings
+      setIncludeFaqs(emailConfig.knowledgeBase?.includeFaqs ?? true);
+      setIncludeServices(emailConfig.knowledgeBase?.includeServices ?? true);
+      if (emailConfig.knowledgeBase?.defaultKnowledgeBaseIds) {
+        setSelectedKnowledgeBases(emailConfig.knowledgeBase.defaultKnowledgeBaseIds);
+      }
+
+      setConfigInitialized(true);
+    }
+  }, [emailConfig, configInitialized]);
 
   const handleGenerateReply = async () => {
     if (!submission) return;
@@ -87,6 +122,10 @@ export function AIReplyDialog({ submission, open, onOpenChange }: AIReplyDialogP
     setIsGenerating(true);
 
     try {
+      // Determine if we should send custom prompt or let API use global config
+      const globalPrompt = emailConfig?.aiSettings?.customPrompt;
+      const isCustomPrompt = customPrompt !== DEFAULT_AI_PROMPT && customPrompt !== globalPrompt;
+
       const response = await fetch("/api/email/autoresponder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -97,9 +136,11 @@ export function AIReplyDialog({ submission, open, onOpenChange }: AIReplyDialogP
           message: submission.message,
           locale: submission.locale,
           mode: "generate",
-          knowledgeBaseIds: selectedKnowledgeBases,
+          knowledgeBaseIds: selectedKnowledgeBases.length > 0 ? selectedKnowledgeBases : undefined,
           includeFaqs,
-          customPrompt: customPrompt !== DEFAULT_AI_PROMPT ? customPrompt : undefined,
+          includeServices,
+          customPrompt: isCustomPrompt ? customPrompt : undefined,
+          useGlobalConfig: true,
         }),
       });
 
@@ -172,11 +213,18 @@ export function AIReplyDialog({ submission, open, onOpenChange }: AIReplyDialogP
     setSubject("");
     setHasKnowledgeContext(false);
     setDetectedLanguage("en");
+    setConfigInitialized(false);
+    setUsingGlobalDefaults(true);
   };
 
   const handleClose = () => {
     onOpenChange(false);
     setTimeout(resetState, 200);
+  };
+
+  // Track when user customizes settings
+  const markAsCustomized = () => {
+    setUsingGlobalDefaults(false);
   };
 
   const handleModeChange = (mode: ReplyMode) => {
@@ -253,6 +301,15 @@ export function AIReplyDialog({ submission, open, onOpenChange }: AIReplyDialogP
           {/* AI Mode Settings */}
           {replyMode === "ai" && (
             <>
+              {/* Global Config Indicator */}
+              {usingGlobalDefaults && emailConfig && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 px-3 py-2 rounded-lg">
+                  <Cog className="w-4 h-4" />
+                  <span>Using default settings from Email Configuration</span>
+                  <Badge variant="secondary" className="text-xs">Global</Badge>
+                </div>
+              )}
+
               {/* Knowledge Base Selection */}
               <div className="space-y-3 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
                 <div className="flex items-center gap-2 text-sm font-medium text-blue-700 dark:text-blue-300">
@@ -265,7 +322,10 @@ export function AIReplyDialog({ submission, open, onOpenChange }: AIReplyDialogP
                     <Checkbox
                       id="include-faqs"
                       checked={includeFaqs}
-                      onCheckedChange={(checked) => setIncludeFaqs(checked === true)}
+                      onCheckedChange={(checked) => {
+                        setIncludeFaqs(checked === true);
+                        markAsCustomized();
+                      }}
                     />
                     <label
                       htmlFor="include-faqs"
@@ -273,6 +333,24 @@ export function AIReplyDialog({ submission, open, onOpenChange }: AIReplyDialogP
                     >
                       <HelpCircle className="w-3 h-3" />
                       Include FAQs from website
+                    </label>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="include-services"
+                      checked={includeServices}
+                      onCheckedChange={(checked) => {
+                        setIncludeServices(checked === true);
+                        markAsCustomized();
+                      }}
+                    />
+                    <label
+                      htmlFor="include-services"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-1"
+                    >
+                      <Database className="w-3 h-3" />
+                      Include Services info
                     </label>
                   </div>
 
@@ -285,7 +363,10 @@ export function AIReplyDialog({ submission, open, onOpenChange }: AIReplyDialogP
                             <Checkbox
                               id={`kb-${kb._id}`}
                               checked={selectedKnowledgeBases.includes(kb._id)}
-                              onCheckedChange={() => toggleKnowledgeBase(kb._id)}
+                              onCheckedChange={() => {
+                                toggleKnowledgeBase(kb._id);
+                                markAsCustomized();
+                              }}
                             />
                             <label
                               htmlFor={`kb-${kb._id}`}
@@ -335,7 +416,10 @@ export function AIReplyDialog({ submission, open, onOpenChange }: AIReplyDialogP
                       </Label>
                       <Textarea
                         value={customPrompt}
-                        onChange={(e) => setCustomPrompt(e.target.value)}
+                        onChange={(e) => {
+                          setCustomPrompt(e.target.value);
+                          markAsCustomized();
+                        }}
                         rows={6}
                         placeholder="Enter custom instructions for the AI..."
                         className="text-sm"
@@ -345,9 +429,14 @@ export function AIReplyDialog({ submission, open, onOpenChange }: AIReplyDialogP
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setCustomPrompt(DEFAULT_AI_PROMPT)}
+                        onClick={() => {
+                          // Reset to global config prompt if available, otherwise default
+                          const globalPrompt = emailConfig?.aiSettings?.customPrompt;
+                          setCustomPrompt(globalPrompt || DEFAULT_AI_PROMPT);
+                          setUsingGlobalDefaults(true);
+                        }}
                       >
-                        Reset to Default
+                        Reset to Global Default
                       </Button>
                     </div>
                   </div>

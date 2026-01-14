@@ -203,7 +203,7 @@ export default function LandingAdminPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5 mb-8">
+        <TabsList className="grid w-full grid-cols-6 mb-8">
           <TabsTrigger value="pages" className="flex items-center gap-2">
             <Layout className="w-4 h-4" />
             Pages
@@ -219,6 +219,10 @@ export default function LandingAdminPage() {
           <TabsTrigger value="blog" className="flex items-center gap-2">
             <FileText className="w-4 h-4" />
             Blog
+          </TabsTrigger>
+          <TabsTrigger value="email" className="flex items-center gap-2">
+            <Mail className="w-4 h-4" />
+            Email
           </TabsTrigger>
           <TabsTrigger value="config" className="flex items-center gap-2">
             <Settings className="w-4 h-4" />
@@ -237,6 +241,9 @@ export default function LandingAdminPage() {
         </TabsContent>
         <TabsContent value="blog">
           <BlogTab />
+        </TabsContent>
+        <TabsContent value="email">
+          <EmailTab />
         </TabsContent>
         <TabsContent value="config">
           <SiteConfigTab />
@@ -2572,6 +2579,722 @@ function BlogTab() {
           </Card>
         )}
       </div>
+    </div>
+  );
+}
+
+// ============ Email Tab ============
+
+interface EmailConfig {
+  replyMode: "disabled" | "manual" | "ai_assisted" | "auto_ai";
+  aiSettings: {
+    enabled: boolean;
+    model: string;
+    customPrompt: string;
+    temperature: number;
+    maxTokens: number;
+  };
+  knowledgeBase: {
+    includeFaqs: boolean;
+    defaultKnowledgeBaseIds: string[];
+    includeServices: boolean;
+  };
+  notifications: {
+    notifyOnNewSubmission: boolean;
+    notificationEmails: string[];
+    notifyOnAutoReply: boolean;
+  };
+  templates: {
+    en: {
+      subjectPrefix: string;
+      greeting: string;
+      closing: string;
+      signature: string;
+    };
+    de: {
+      subjectPrefix: string;
+      greeting: string;
+      closing: string;
+      signature: string;
+    };
+  };
+  rateLimits: {
+    maxAutoRepliesPerHour: number;
+    cooldownMinutes: number;
+  };
+}
+
+const REPLY_MODES = [
+  {
+    value: "disabled",
+    label: "Disabled",
+    description: "No autoresponder. Handle all replies manually.",
+    icon: "🚫",
+  },
+  {
+    value: "manual",
+    label: "Manual First",
+    description: "Default to manual reply. AI assist available.",
+    icon: "✍️",
+  },
+  {
+    value: "ai_assisted",
+    label: "AI Assisted",
+    description: "Default to AI reply. Edit before sending.",
+    icon: "✨",
+  },
+  {
+    value: "auto_ai",
+    label: "Auto AI",
+    description: "Automatically send AI-generated replies.",
+    icon: "🤖",
+  },
+] as const;
+
+function EmailTab() {
+  const emailConfig = useQuery(api.landing.getEmailConfig);
+  const updateEmailConfig = useMutation(api.landing.updateEmailConfig);
+  const knowledgeBases = useQuery(api.knowledgeBases.getActive);
+
+  const [config, setConfig] = useState<EmailConfig | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [templateLocale, setTemplateLocale] = useState<"en" | "de">("en");
+  const [expandedSections, setExpandedSections] = useState({
+    aiSettings: true,
+    knowledgeBase: true,
+    notifications: false,
+    templates: false,
+    rateLimits: false,
+  });
+
+  // Load config when data arrives
+  useState(() => {
+    if (emailConfig && !config) {
+      setConfig(emailConfig as EmailConfig);
+    }
+  });
+
+  // Update local config when query changes
+  if (emailConfig && !config) {
+    setConfig(emailConfig as EmailConfig);
+  }
+
+  const toggleSection = (section: keyof typeof expandedSections) => {
+    setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  const handleSave = async () => {
+    if (!config) return;
+    setIsSaving(true);
+    try {
+      await updateEmailConfig({ config });
+      toast.success("Email configuration saved!");
+    } catch (error) {
+      console.error("Failed to save email config:", error);
+      toast.error("Failed to save configuration");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const addNotificationEmail = () => {
+    if (!config || !newEmail || !newEmail.includes("@")) return;
+    setConfig({
+      ...config,
+      notifications: {
+        ...config.notifications,
+        notificationEmails: [...config.notifications.notificationEmails, newEmail],
+      },
+    });
+    setNewEmail("");
+  };
+
+  const removeNotificationEmail = (email: string) => {
+    if (!config) return;
+    setConfig({
+      ...config,
+      notifications: {
+        ...config.notifications,
+        notificationEmails: config.notifications.notificationEmails.filter((e) => e !== email),
+      },
+    });
+  };
+
+  const toggleKnowledgeBase = (kbId: string) => {
+    if (!config) return;
+    const currentIds = config.knowledgeBase.defaultKnowledgeBaseIds;
+    const newIds = currentIds.includes(kbId)
+      ? currentIds.filter((id) => id !== kbId)
+      : [...currentIds, kbId];
+    setConfig({
+      ...config,
+      knowledgeBase: {
+        ...config.knowledgeBase,
+        defaultKnowledgeBaseIds: newIds,
+      },
+    });
+  };
+
+  if (!config) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Email Configuration</h2>
+          <p className="text-muted-foreground">
+            Configure autoresponder settings, AI prompts, and email templates
+          </p>
+        </div>
+        <Button onClick={handleSave} disabled={isSaving} className="gap-2">
+          {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          Save Configuration
+        </Button>
+      </div>
+
+      {/* Reply Mode Selection */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Inbox className="w-5 h-5" />
+            Reply Mode
+          </CardTitle>
+          <CardDescription>
+            Choose how to handle incoming contact form submissions
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-4">
+            {REPLY_MODES.map((mode) => (
+              <div
+                key={mode.value}
+                onClick={() => setConfig({ ...config, replyMode: mode.value })}
+                className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                  config.replyMode === mode.value
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/50"
+                }`}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-2xl">{mode.icon}</span>
+                  <span className="font-medium">{mode.label}</span>
+                </div>
+                <p className="text-sm text-muted-foreground">{mode.description}</p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* AI Settings */}
+      <Card>
+        <CardHeader
+          className="cursor-pointer"
+          onClick={() => toggleSection("aiSettings")}
+        >
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5" />
+              AI Settings
+            </CardTitle>
+            {expandedSections.aiSettings ? (
+              <ChevronUp className="w-5 h-5" />
+            ) : (
+              <ChevronDown className="w-5 h-5" />
+            )}
+          </div>
+          <CardDescription>Configure AI-powered email generation</CardDescription>
+        </CardHeader>
+        {expandedSections.aiSettings && (
+          <CardContent className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Enable AI Replies</Label>
+                <p className="text-sm text-muted-foreground">
+                  Allow AI to generate email responses
+                </p>
+              </div>
+              <Switch
+                checked={config.aiSettings.enabled}
+                onCheckedChange={(checked) =>
+                  setConfig({
+                    ...config,
+                    aiSettings: { ...config.aiSettings, enabled: checked },
+                  })
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>AI Model</Label>
+              <Select
+                value={config.aiSettings.model}
+                onValueChange={(value) =>
+                  setConfig({
+                    ...config,
+                    aiSettings: { ...config.aiSettings, model: value },
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="claude-opus-4-5-20251101">Claude Opus 4.5</SelectItem>
+                  <SelectItem value="claude-sonnet-4-20250514">Claude Sonnet 4</SelectItem>
+                  <SelectItem value="claude-3-5-haiku-20241022">Claude 3.5 Haiku</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Custom AI Prompt</Label>
+              <p className="text-sm text-muted-foreground mb-2">
+                Define the persona and style for AI-generated replies
+              </p>
+              <Textarea
+                value={config.aiSettings.customPrompt}
+                onChange={(e) =>
+                  setConfig({
+                    ...config,
+                    aiSettings: { ...config.aiSettings, customPrompt: e.target.value },
+                  })
+                }
+                rows={12}
+                className="font-mono text-sm"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Temperature ({config.aiSettings.temperature})</Label>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={config.aiSettings.temperature}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      aiSettings: {
+                        ...config.aiSettings,
+                        temperature: parseFloat(e.target.value),
+                      },
+                    })
+                  }
+                  className="w-full"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Lower = more consistent, Higher = more creative
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>Max Tokens</Label>
+                <Input
+                  type="number"
+                  value={config.aiSettings.maxTokens}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      aiSettings: {
+                        ...config.aiSettings,
+                        maxTokens: parseInt(e.target.value) || 1024,
+                      },
+                    })
+                  }
+                />
+              </div>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Knowledge Base */}
+      <Card>
+        <CardHeader
+          className="cursor-pointer"
+          onClick={() => toggleSection("knowledgeBase")}
+        >
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              Knowledge Base
+            </CardTitle>
+            {expandedSections.knowledgeBase ? (
+              <ChevronUp className="w-5 h-5" />
+            ) : (
+              <ChevronDown className="w-5 h-5" />
+            )}
+          </div>
+          <CardDescription>
+            Select default knowledge sources for AI context
+          </CardDescription>
+        </CardHeader>
+        {expandedSections.knowledgeBase && (
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Include FAQs</Label>
+                <p className="text-sm text-muted-foreground">
+                  Use website FAQs as context
+                </p>
+              </div>
+              <Switch
+                checked={config.knowledgeBase.includeFaqs}
+                onCheckedChange={(checked) =>
+                  setConfig({
+                    ...config,
+                    knowledgeBase: { ...config.knowledgeBase, includeFaqs: checked },
+                  })
+                }
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Include Services</Label>
+                <p className="text-sm text-muted-foreground">
+                  Use services information as context
+                </p>
+              </div>
+              <Switch
+                checked={config.knowledgeBase.includeServices}
+                onCheckedChange={(checked) =>
+                  setConfig({
+                    ...config,
+                    knowledgeBase: { ...config.knowledgeBase, includeServices: checked },
+                  })
+                }
+              />
+            </div>
+
+            {knowledgeBases && knowledgeBases.length > 0 && (
+              <div className="pt-4 border-t">
+                <Label className="mb-3 block">Additional Knowledge Bases</Label>
+                <div className="space-y-2">
+                  {knowledgeBases.map((kb) => (
+                    <div
+                      key={kb._id}
+                      onClick={() => toggleKnowledgeBase(kb._id)}
+                      className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                        config.knowledgeBase.defaultKnowledgeBaseIds.includes(kb._id)
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/50"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="font-medium">{kb.name}</span>
+                          <p className="text-sm text-muted-foreground">
+                            {kb.sources?.length || 0} sources
+                          </p>
+                        </div>
+                        {config.knowledgeBase.defaultKnowledgeBaseIds.includes(kb._id) && (
+                          <CheckCircle className="w-5 h-5 text-primary" />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Notifications */}
+      <Card>
+        <CardHeader
+          className="cursor-pointer"
+          onClick={() => toggleSection("notifications")}
+        >
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Mail className="w-5 h-5" />
+              Notifications
+            </CardTitle>
+            {expandedSections.notifications ? (
+              <ChevronUp className="w-5 h-5" />
+            ) : (
+              <ChevronDown className="w-5 h-5" />
+            )}
+          </div>
+          <CardDescription>Configure email notifications</CardDescription>
+        </CardHeader>
+        {expandedSections.notifications && (
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Notify on New Submission</Label>
+                <p className="text-sm text-muted-foreground">
+                  Send email when new contact form is submitted
+                </p>
+              </div>
+              <Switch
+                checked={config.notifications.notifyOnNewSubmission}
+                onCheckedChange={(checked) =>
+                  setConfig({
+                    ...config,
+                    notifications: { ...config.notifications, notifyOnNewSubmission: checked },
+                  })
+                }
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Notify on Auto-Reply</Label>
+                <p className="text-sm text-muted-foreground">
+                  Send copy when AI auto-reply is sent
+                </p>
+              </div>
+              <Switch
+                checked={config.notifications.notifyOnAutoReply}
+                onCheckedChange={(checked) =>
+                  setConfig({
+                    ...config,
+                    notifications: { ...config.notifications, notifyOnAutoReply: checked },
+                  })
+                }
+              />
+            </div>
+
+            <div className="pt-4 border-t">
+              <Label className="mb-3 block">Notification Emails</Label>
+              <div className="flex gap-2 mb-3">
+                <Input
+                  type="email"
+                  placeholder="Add email address..."
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addNotificationEmail()}
+                />
+                <Button onClick={addNotificationEmail} variant="outline">
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {config.notifications.notificationEmails.map((email) => (
+                  <Badge key={email} variant="secondary" className="gap-1 py-1">
+                    {email}
+                    <button
+                      onClick={() => removeNotificationEmail(email)}
+                      className="ml-1 hover:text-destructive"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Email Templates */}
+      <Card>
+        <CardHeader
+          className="cursor-pointer"
+          onClick={() => toggleSection("templates")}
+        >
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              Email Templates
+            </CardTitle>
+            {expandedSections.templates ? (
+              <ChevronUp className="w-5 h-5" />
+            ) : (
+              <ChevronDown className="w-5 h-5" />
+            )}
+          </div>
+          <CardDescription>
+            Configure bilingual email templates
+          </CardDescription>
+        </CardHeader>
+        {expandedSections.templates && (
+          <CardContent className="space-y-4">
+            <div className="flex gap-2 mb-4">
+              <Button
+                variant={templateLocale === "en" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTemplateLocale("en")}
+              >
+                🇬🇧 English
+              </Button>
+              <Button
+                variant={templateLocale === "de" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTemplateLocale("de")}
+              >
+                🇩🇪 Deutsch
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Subject Prefix</Label>
+                <Input
+                  value={config.templates[templateLocale].subjectPrefix}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      templates: {
+                        ...config.templates,
+                        [templateLocale]: {
+                          ...config.templates[templateLocale],
+                          subjectPrefix: e.target.value,
+                        },
+                      },
+                    })
+                  }
+                  placeholder="Re: "
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Greeting</Label>
+                <Input
+                  value={config.templates[templateLocale].greeting}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      templates: {
+                        ...config.templates,
+                        [templateLocale]: {
+                          ...config.templates[templateLocale],
+                          greeting: e.target.value,
+                        },
+                      },
+                    })
+                  }
+                  placeholder="Dear {name},"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Use {"{name}"} as placeholder for recipient name
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Closing</Label>
+                <Input
+                  value={config.templates[templateLocale].closing}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      templates: {
+                        ...config.templates,
+                        [templateLocale]: {
+                          ...config.templates[templateLocale],
+                          closing: e.target.value,
+                        },
+                      },
+                    })
+                  }
+                  placeholder="Best regards,"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Signature</Label>
+                <Textarea
+                  value={config.templates[templateLocale].signature}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      templates: {
+                        ...config.templates,
+                        [templateLocale]: {
+                          ...config.templates[templateLocale],
+                          signature: e.target.value,
+                        },
+                      },
+                    })
+                  }
+                  rows={3}
+                />
+              </div>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Rate Limits */}
+      <Card>
+        <CardHeader
+          className="cursor-pointer"
+          onClick={() => toggleSection("rateLimits")}
+        >
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="w-5 h-5" />
+              Rate Limits
+            </CardTitle>
+            {expandedSections.rateLimits ? (
+              <ChevronUp className="w-5 h-5" />
+            ) : (
+              <ChevronDown className="w-5 h-5" />
+            )}
+          </div>
+          <CardDescription>
+            Configure auto-reply rate limiting
+          </CardDescription>
+        </CardHeader>
+        {expandedSections.rateLimits && (
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Max Auto-Replies Per Hour</Label>
+                <Input
+                  type="number"
+                  value={config.rateLimits.maxAutoRepliesPerHour}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      rateLimits: {
+                        ...config.rateLimits,
+                        maxAutoRepliesPerHour: parseInt(e.target.value) || 20,
+                      },
+                    })
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Limit automatic replies to prevent spam
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Cooldown (Minutes)</Label>
+                <Input
+                  type="number"
+                  value={config.rateLimits.cooldownMinutes}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      rateLimits: {
+                        ...config.rateLimits,
+                        cooldownMinutes: parseInt(e.target.value) || 5,
+                      },
+                    })
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Wait time between replies to same email
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        )}
+      </Card>
     </div>
   );
 }

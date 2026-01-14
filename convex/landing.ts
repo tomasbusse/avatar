@@ -187,6 +187,158 @@ export const updateSiteConfig = mutation({
   },
 });
 
+// ============================================
+// EMAIL CONFIGURATION
+// ============================================
+
+const DEFAULT_EMAIL_CONFIG = {
+  replyMode: "ai_assisted" as const, // "disabled" | "manual" | "ai_assisted" | "auto_ai"
+  aiSettings: {
+    enabled: true,
+    model: "claude-opus-4-5-20251101",
+    customPrompt: `You are James Simmonds, the founder of Simmonds Language Services (SLS), a professional language training company based in Hannover, Germany since 1999. You're writing personalized email responses to contact form inquiries.
+
+ABOUT SLS:
+- 25+ years of experience in corporate language training
+- Native English speakers from UK, USA, Australia, and South Africa
+- Based in Hannover and Berlin, serving all of Germany
+- Services: Business English, German for Expats, Copyediting & Translation
+- Training formats: In-person, online, hybrid
+- Clients: Major corporations like VW, Continental, TUI, Deutsche Bahn, Rossmann
+
+YOUR COMMUNICATION STYLE:
+- Professional yet warm and approachable
+- Direct and helpful, never salesy or pushy
+- Knowledgeable about language learning challenges
+- Genuine interest in helping people improve their language skills
+
+RESPONSE GUIDELINES:
+1. Thank them personally for reaching out
+2. Address their specific question or need directly
+3. Provide relevant information about how SLS can help
+4. Suggest a clear next step (call, trial lesson, etc.)
+5. Keep it concise (2-4 short paragraphs)
+6. End with a personal sign-off
+
+IMPORTANT:
+- Match the language of the inquiry (German for German messages, English for English)
+- Never be overly formal or stiff
+- Reference specific details from their message`,
+    temperature: 0.7,
+    maxTokens: 1024,
+  },
+  knowledgeBase: {
+    includeFaqs: true,
+    defaultKnowledgeBaseIds: [] as string[],
+    includeServices: true,
+  },
+  notifications: {
+    notifyOnNewSubmission: true,
+    notificationEmails: ["james@englisch-lehrer.com"],
+    notifyOnAutoReply: false,
+  },
+  templates: {
+    en: {
+      subjectPrefix: "Re: ",
+      greeting: "Dear {name},",
+      closing: "Best regards,",
+      signature: "James Simmonds\nSimmonds Language Services",
+    },
+    de: {
+      subjectPrefix: "Re: ",
+      greeting: "Liebe/r {name},",
+      closing: "Mit freundlichen Grüßen,",
+      signature: "James Simmonds\nSimmonds Language Services",
+    },
+  },
+  rateLimits: {
+    maxAutoRepliesPerHour: 20,
+    cooldownMinutes: 5,
+  },
+};
+
+// Get email configuration
+export const getEmailConfig = query({
+  args: {},
+  handler: async (ctx) => {
+    const config = await ctx.db
+      .query("siteConfig")
+      .withIndex("by_key", (q) => q.eq("key", "email_config"))
+      .first();
+    return config?.value ?? DEFAULT_EMAIL_CONFIG;
+  },
+});
+
+// Update email configuration
+export const updateEmailConfig = mutation({
+  args: {
+    config: v.object({
+      replyMode: v.union(
+        v.literal("disabled"),
+        v.literal("manual"),
+        v.literal("ai_assisted"),
+        v.literal("auto_ai")
+      ),
+      aiSettings: v.object({
+        enabled: v.boolean(),
+        model: v.string(),
+        customPrompt: v.string(),
+        temperature: v.number(),
+        maxTokens: v.number(),
+      }),
+      knowledgeBase: v.object({
+        includeFaqs: v.boolean(),
+        defaultKnowledgeBaseIds: v.array(v.string()),
+        includeServices: v.boolean(),
+      }),
+      notifications: v.object({
+        notifyOnNewSubmission: v.boolean(),
+        notificationEmails: v.array(v.string()),
+        notifyOnAutoReply: v.boolean(),
+      }),
+      templates: v.object({
+        en: v.object({
+          subjectPrefix: v.string(),
+          greeting: v.string(),
+          closing: v.string(),
+          signature: v.string(),
+        }),
+        de: v.object({
+          subjectPrefix: v.string(),
+          greeting: v.string(),
+          closing: v.string(),
+          signature: v.string(),
+        }),
+      }),
+      rateLimits: v.object({
+        maxAutoRepliesPerHour: v.number(),
+        cooldownMinutes: v.number(),
+      }),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("siteConfig")
+      .withIndex("by_key", (q) => q.eq("key", "email_config"))
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        value: args.config,
+        updatedAt: Date.now(),
+      });
+    } else {
+      await ctx.db.insert("siteConfig", {
+        key: "email_config",
+        value: args.config,
+        updatedAt: Date.now(),
+      });
+    }
+
+    return { success: true };
+  },
+});
+
 // Get landing page avatar configuration
 export const getLandingAvatar = query({
   args: {},
@@ -850,6 +1002,7 @@ export const getAutoresponderKnowledge = query({
   args: {
     knowledgeBaseIds: v.optional(v.array(v.id("knowledgeBases"))),
     includeFaqs: v.optional(v.boolean()),
+    includeServices: v.optional(v.boolean()),
     locale: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -901,22 +1054,24 @@ export const getAutoresponderKnowledge = query({
       }
     }
 
-    // 3. Get services info from landingContent
-    const servicesContent = await ctx.db
-      .query("landingContent")
-      .withIndex("by_locale_page_section", (q) =>
-        q.eq("locale", args.locale || "en").eq("page", "services")
-      )
-      .collect();
+    // 3. Get services info from landingContent (if requested)
+    if (args.includeServices !== false) {
+      const servicesContent = await ctx.db
+        .query("landingContent")
+        .withIndex("by_locale_page_section", (q) =>
+          q.eq("locale", args.locale || "en").eq("page", "services")
+        )
+        .collect();
 
-    for (const section of servicesContent) {
-      if (section.content && typeof section.content === "object") {
-        const content = section.content as Record<string, unknown>;
-        if (content.headline && content.subheadline) {
-          result.services.push({
-            title: content.headline as string,
-            description: content.subheadline as string,
-          });
+      for (const section of servicesContent) {
+        if (section.content && typeof section.content === "object") {
+          const content = section.content as Record<string, unknown>;
+          if (content.headline && content.subheadline) {
+            result.services.push({
+              title: content.headline as string,
+              description: content.subheadline as string,
+            });
+          }
         }
       }
     }
