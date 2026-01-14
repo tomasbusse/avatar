@@ -1437,11 +1437,20 @@ export default defineSchema({
 
     // Configuration
     config: v.object({
+      scale: v.optional(v.union(
+        v.literal("quick"),
+        v.literal("standard"),
+        v.literal("comprehensive"),
+        v.literal("book")
+      )),                                   // Scale preset
       depth: v.number(),                    // 1-3 depth level
       maxSourcesPerSubtopic: v.number(),    // Sources to scrape per subtopic
       includeExercises: v.boolean(),        // Generate exercises
       targetLevel: v.optional(v.string()),  // CEFR level: A1-C2
       language: v.string(),                 // en, de, or multi
+      tags: v.optional(v.array(v.string())), // Categorization tags
+      referenceUrls: v.optional(v.array(v.string())), // Specific URLs to include
+      broadSearch: v.optional(v.boolean()), // If true, don't limit to quality domains
     }),
 
     // Metadata

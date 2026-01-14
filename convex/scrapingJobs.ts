@@ -108,11 +108,20 @@ export const create = mutation({
     knowledgeBaseId: v.id("knowledgeBases"),
     subtopics: v.optional(v.array(v.string())), // For advanced mode
     config: v.object({
+      scale: v.optional(v.union(
+        v.literal("quick"),
+        v.literal("standard"),
+        v.literal("comprehensive"),
+        v.literal("book")
+      )),
       depth: v.number(),
       maxSourcesPerSubtopic: v.number(),
       includeExercises: v.boolean(),
       targetLevel: v.optional(v.string()),
       language: v.string(),
+      tags: v.optional(v.array(v.string())),
+      referenceUrls: v.optional(v.array(v.string())),
+      broadSearch: v.optional(v.boolean()),
     }),
   },
   handler: async (ctx, args) => {
