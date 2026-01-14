@@ -1,5 +1,20 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
+
+// Internal mutation for admin updates (no auth required - use only from dashboard or scripts)
+export const internalUpdateAvatar = internalMutation({
+  args: {
+    avatarId: v.id("avatars"),
+    updates: v.any(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.avatarId, {
+      ...args.updates,
+      updatedAt: Date.now(),
+    });
+    return { success: true };
+  },
+});
 
 export const getAvatar = query({
   args: { avatarId: v.id("avatars") },
