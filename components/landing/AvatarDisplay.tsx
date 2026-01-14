@@ -112,9 +112,9 @@ export function AvatarDisplay({
 
   // Watch for external showContactForm trigger (from CTA button)
   useEffect(() => {
-    if (externalShowContactForm) {
-      logDebug("External showContactForm triggered", { externalShowContactForm });
-      setIsFlipped(true);
+    if (externalShowContactForm !== undefined) {
+      logDebug("External showContactForm changed", { externalShowContactForm });
+      setIsFlipped(externalShowContactForm);
     }
   }, [externalShowContactForm]);
 

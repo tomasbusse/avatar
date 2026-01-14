@@ -33,17 +33,21 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
   const locale = useLocale();
   const [showContactForm, setShowContactForm] = useState(false);
 
-  // Handle CTA click to show contact form on avatar
+  // Handle CTA click to toggle contact form on avatar
   const handleCtaClick = useCallback(() => {
-    setShowContactForm(true);
+    const newState = !showContactForm;
+    setShowContactForm(newState);
+
     // On mobile, scroll to the avatar (which shows the contact form)
-    setTimeout(() => {
-      const avatarEl = document.querySelector('[data-avatar-display]');
-      if (avatarEl) {
-        avatarEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }, 100); // Small delay to ensure flip animation starts
-  }, []);
+    if (newState) {
+      setTimeout(() => {
+        const avatarEl = document.querySelector('[data-avatar-display]');
+        if (avatarEl) {
+          avatarEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100); // Small delay to ensure flip animation starts
+    }
+  }, [showContactForm]);
 
   // Handle when contact form is closed/reset
   const handleContactFormClose = useCallback(() => {
