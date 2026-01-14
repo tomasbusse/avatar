@@ -41,6 +41,10 @@ interface AvatarDisplayProps {
   isLoading?: boolean;
   debug?: boolean;
   locale?: string;
+  /** Show contact form directly (triggered by external CTA button) */
+  showContactForm?: boolean;
+  /** Callback when contact form is closed */
+  onContactFormClose?: () => void;
   /** Full avatar object for LiveKit connection */
   avatar?: {
     _id: string;
@@ -63,6 +67,8 @@ export function AvatarDisplay({
   isLoading: dataLoading = false,
   debug: debugProp = false,
   locale = "en",
+  showContactForm: externalShowContactForm,
+  onContactFormClose,
   avatar,
 }: AvatarDisplayProps) {
   const t = useTranslations("hero");
@@ -103,6 +109,14 @@ export function AvatarDisplay({
     console.log(`[Avatar Debug] ${log.timestamp} - ${event}`, data || "");
     setDebugLogs((prev) => [...prev.slice(-19), log]); // Keep last 20 logs
   };
+
+  // Watch for external showContactForm trigger (from CTA button)
+  useEffect(() => {
+    if (externalShowContactForm) {
+      logDebug("External showContactForm triggered", { externalShowContactForm });
+      setIsFlipped(true);
+    }
+  }, [externalShowContactForm]);
 
   // Log initial mount and data changes
   useEffect(() => {
@@ -165,6 +179,8 @@ export function AvatarDisplay({
   const handleBackToAvatar = () => {
     setIsFlipped(false);
     setSubmitSuccess(false);
+    // Notify parent that contact form is closed
+    onContactFormClose?.();
   };
 
   // Handle contact form submission
@@ -201,6 +217,7 @@ export function AvatarDisplay({
 
   return (
     <div
+      data-avatar-display
       className={cn(
         "relative w-full max-w-md",
         className

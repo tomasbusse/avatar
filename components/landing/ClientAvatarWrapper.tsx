@@ -15,9 +15,15 @@ const FALLBACK_AVATAR = {
 
 interface ClientAvatarWrapperProps {
   avatarId?: string;
+  showContactForm?: boolean;
+  onContactFormClose?: () => void;
 }
 
-export function ClientAvatarWrapper({ avatarId }: ClientAvatarWrapperProps) {
+export function ClientAvatarWrapper({
+  avatarId,
+  showContactForm,
+  onContactFormClose,
+}: ClientAvatarWrapperProps) {
   const locale = useLocale();
   const searchParams = useSearchParams();
   const debugMode = searchParams.get("debug") === "true";
@@ -101,6 +107,8 @@ export function ClientAvatarWrapper({ avatarId }: ClientAvatarWrapperProps) {
       avatar={fullAvatar}
       debug={debugMode}
       locale={locale}
+      showContactForm={showContactForm}
+      onContactFormClose={onContactFormClose}
     />
   );
 }

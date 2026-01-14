@@ -1,7 +1,7 @@
 "use client";
 
+import { useState, useCallback } from "react";
 import { useTranslations, useLocale } from "next-intl";
-import Link from "next/link";
 import { ArrowRight, Play, CheckCircle2 } from "lucide-react";
 import dynamic from "next/dynamic";
 
@@ -31,6 +31,17 @@ interface HeroSectionProps {
 export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
   const t = useTranslations("hero");
   const locale = useLocale();
+  const [showContactForm, setShowContactForm] = useState(false);
+
+  // Handle CTA click to show contact form on avatar
+  const handleCtaClick = useCallback(() => {
+    setShowContactForm(true);
+  }, []);
+
+  // Handle when contact form is closed/reset
+  const handleContactFormClose = useCallback(() => {
+    setShowContactForm(false);
+  }, []);
 
   const benefits = [
     t("benefit1"),
@@ -88,20 +99,24 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4">
-              <Link
-                href={`/${locale}/contact`}
+              <button
+                onClick={handleCtaClick}
                 className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-sls-orange text-white font-semibold text-lg transition-all hover:bg-sls-orange/90 hover:shadow-xl hover:shadow-sls-orange/25 hover:-translate-y-0.5 active:scale-95"
               >
                 {t("ctaPrimary")}
                 <ArrowRight className="w-5 h-5" />
-              </Link>
-              <Link
-                href={`/${locale}/services`}
+              </button>
+              <button
+                onClick={() => {
+                  // Scroll to avatar and start it
+                  const avatarEl = document.querySelector('[data-avatar-display]');
+                  avatarEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }}
                 className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-sls-teal/10 text-sls-teal font-semibold text-lg transition-all hover:bg-sls-teal/20 active:scale-95"
               >
                 <Play className="w-5 h-5" />
                 {t("ctaSecondary")}
-              </Link>
+              </button>
             </div>
 
             {/* Trust Indicators */}
@@ -126,7 +141,11 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
           {/* Right: Avatar */}
           <div className="order-1 lg:order-2 flex justify-center lg:justify-end">
             {showAvatar ? (
-              <ClientAvatarWrapper avatarId={avatarId} />
+              <ClientAvatarWrapper
+                avatarId={avatarId}
+                showContactForm={showContactForm}
+                onContactFormClose={handleContactFormClose}
+              />
             ) : (
               <div className="w-full max-w-md aspect-[3/4] rounded-3xl bg-gradient-to-br from-sls-teal/5 to-sls-beige/50 border-2 border-sls-beige flex items-center justify-center">
                 <div className="text-center text-sls-olive/60 p-8">
