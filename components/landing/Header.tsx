@@ -42,9 +42,11 @@ export function Header() {
     <header
       className={cn(
         "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
-        isScrolled
-          ? "bg-sls-cream/95 backdrop-blur-md shadow-lg shadow-sls-teal/5"
-          : "bg-transparent"
+        isMobileMenuOpen
+          ? "bg-sls-teal"
+          : isScrolled
+            ? "bg-sls-cream/95 backdrop-blur-md shadow-lg shadow-sls-teal/5"
+            : "bg-transparent"
       )}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -54,14 +56,26 @@ export function Header() {
             href={`/${locale}`}
             className="flex items-center gap-3 group"
           >
-            <div className="w-10 h-10 rounded-lg bg-sls-teal flex items-center justify-center transition-transform group-hover:scale-105">
-              <span className="text-sls-cream font-bold text-xl">S</span>
+            <div className={cn(
+              "w-10 h-10 rounded-lg flex items-center justify-center transition-transform group-hover:scale-105",
+              isMobileMenuOpen ? "bg-white" : "bg-sls-teal"
+            )}>
+              <span className={cn(
+                "font-bold text-xl",
+                isMobileMenuOpen ? "text-sls-teal" : "text-sls-cream"
+              )}>S</span>
             </div>
             <div className="hidden sm:block">
-              <span className="text-sls-teal font-semibold text-lg tracking-tight">
+              <span className={cn(
+                "font-semibold text-lg tracking-tight",
+                isMobileMenuOpen ? "text-white" : "text-sls-teal"
+              )}>
                 Simmonds
               </span>
-              <span className="text-sls-olive text-sm block -mt-1">
+              <span className={cn(
+                "text-sm block -mt-1",
+                isMobileMenuOpen ? "text-white/80" : "text-sls-olive"
+              )}>
                 Language Services
               </span>
             </div>
@@ -152,7 +166,12 @@ export function Header() {
             {/* Mobile Menu Button */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="lg:hidden p-2 rounded-lg text-sls-olive hover:bg-sls-beige/50 transition-colors"
+              className={cn(
+                "lg:hidden p-2 rounded-lg transition-colors",
+                isMobileMenuOpen
+                  ? "text-white hover:bg-white/10"
+                  : "text-sls-olive hover:bg-sls-beige/50"
+              )}
             >
               {isMobileMenuOpen ? (
                 <X className="w-6 h-6" />
@@ -167,16 +186,16 @@ export function Header() {
       {/* Mobile Menu */}
       <div
         className={cn(
-          "lg:hidden fixed inset-x-0 top-20 bg-sls-cream/98 backdrop-blur-lg border-t border-sls-beige transition-all duration-300",
+          "lg:hidden fixed inset-x-0 top-20 bottom-0 bg-sls-teal transition-all duration-300 overflow-y-auto",
           isMobileMenuOpen
             ? "opacity-100 translate-y-0 pointer-events-auto"
             : "opacity-0 -translate-y-4 pointer-events-none"
         )}
       >
-        <nav className="max-w-7xl mx-auto px-4 py-6 space-y-2">
+        <nav className="max-w-7xl mx-auto px-4 py-6 space-y-1">
           <Link
             href={`/${locale}/services`}
-            className="block px-4 py-3 rounded-lg text-sls-teal font-medium hover:bg-sls-beige/50 transition-colors"
+            className="block px-4 py-3 rounded-lg text-white font-medium hover:bg-white/10 transition-colors"
             onClick={() => setIsMobileMenuOpen(false)}
           >
             {t("services")}
@@ -185,24 +204,24 @@ export function Header() {
             <Link
               key={service.href}
               href={service.href}
-              className="block px-4 py-3 pl-8 rounded-lg text-sm text-sls-olive hover:text-sls-teal hover:bg-sls-beige/50 transition-colors"
+              className="block px-4 py-3 pl-8 rounded-lg text-sm text-white/80 hover:text-white hover:bg-white/10 transition-colors"
               onClick={() => setIsMobileMenuOpen(false)}
             >
               {service.label}
             </Link>
           ))}
-          <div className="h-px bg-sls-beige my-2" />
+          <div className="h-px bg-white/20 my-3" />
           {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className="block px-4 py-3 rounded-lg text-sls-olive hover:text-sls-teal hover:bg-sls-beige/50 transition-colors"
+              className="block px-4 py-3 rounded-lg text-white/90 hover:text-white hover:bg-white/10 transition-colors"
               onClick={() => setIsMobileMenuOpen(false)}
             >
               {item.label}
             </Link>
           ))}
-          <div className="pt-4">
+          <div className="pt-6">
             <Link
               href={`/${locale}/contact`}
               className="block w-full text-center px-5 py-3 rounded-lg bg-sls-orange text-white font-semibold transition-all hover:bg-sls-orange/90"
