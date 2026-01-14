@@ -38,12 +38,20 @@ import {
   Presentation,
   Download,
   Layers,
+  Sparkles,
+  Search,
+  BookOpen,
+  Settings2,
+  Zap,
+  XCircle,
+  CheckCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function KnowledgeManagementPage() {
   const knowledgeBases = useQuery(api.knowledgeBases.list);
   const [showCreator, setShowCreator] = useState(false);
+  const [showWebGenerator, setShowWebGenerator] = useState(false);
   const [selectedKB, setSelectedKB] = useState<Id<"knowledgeBases"> | null>(null);
 
   return (
@@ -56,10 +64,16 @@ export default function KnowledgeManagementPage() {
               Create knowledge bases and upload documents, YouTube videos, or web pages for your AI avatars.
             </p>
           </div>
-          <Button onClick={() => setShowCreator(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            New Knowledge Base
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowWebGenerator(true)}>
+              <Sparkles className="w-4 h-4 mr-2" />
+              Generate from Web
+            </Button>
+            <Button onClick={() => setShowCreator(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              New Knowledge Base
+            </Button>
+          </div>
         </div>
 
         {/* Stats */}
@@ -142,6 +156,11 @@ export default function KnowledgeManagementPage() {
         {/* Creator Modal */}
         {showCreator && (
           <KnowledgeBaseCreator onClose={() => setShowCreator(false)} />
+        )}
+
+        {/* Web Generator Modal */}
+        {showWebGenerator && (
+          <WebGeneratorModal onClose={() => setShowWebGenerator(false)} />
         )}
       </div>
     </div>
@@ -1528,6 +1547,515 @@ function KnowledgeBaseCreator({ onClose }: { onClose: () => void }) {
               </Button>
             </div>
           </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Web Generator Modal - Generate knowledge base from web scraping
+interface SubtopicProgress {
+  name: string;
+  status: string;
+  sourceCount: number;
+  wordCount: number;
+}
+
+interface GenerationProgress {
+  type: string;
+  phase: string;
+  status: string;
+  currentSubtopic: string;
+  progress: {
+    current: number;
+    total: number;
+    percentage: number;
+  };
+  subtopics: SubtopicProgress[];
+  stats: {
+    totalSources: number;
+    totalWords: number;
+  };
+  errorMessage?: string;
+}
+
+function WebGeneratorModal({ onClose }: { onClose: () => void }) {
+  const [mode, setMode] = useState<"simple" | "advanced">("simple");
+  const [topic, setTopic] = useState("");
+  const [subtopics, setSubtopics] = useState<string[]>([]);
+  const [newSubtopic, setNewSubtopic] = useState("");
+  const [depth, setDepth] = useState<1 | 2 | 3>(2);
+  const [maxSources, setMaxSources] = useState(5);
+  const [includeExercises, setIncludeExercises] = useState(true);
+  const [targetLevel, setTargetLevel] = useState("B1");
+  const [language, setLanguage] = useState<"en" | "de">("en");
+
+  // Generation state
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [progress, setProgress] = useState<GenerationProgress | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const eventSourceRef = useRef<EventSource | null>(null);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+    };
+  }, []);
+
+  const addSubtopic = () => {
+    if (newSubtopic.trim() && !subtopics.includes(newSubtopic.trim())) {
+      setSubtopics([...subtopics, newSubtopic.trim()]);
+      setNewSubtopic("");
+    }
+  };
+
+  const removeSubtopic = (index: number) => {
+    setSubtopics(subtopics.filter((_, i) => i !== index));
+  };
+
+  const handleGenerate = async () => {
+    if (!topic.trim()) {
+      toast.error("Please enter a topic");
+      return;
+    }
+
+    if (mode === "advanced" && subtopics.length === 0) {
+      toast.error("Please add at least one subtopic in advanced mode");
+      return;
+    }
+
+    setIsGenerating(true);
+    setError(null);
+    setProgress(null);
+
+    try {
+      const response = await fetch("/api/knowledge/generate-from-web", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic: topic.trim(),
+          mode,
+          subtopics: mode === "advanced" ? subtopics : undefined,
+          depth,
+          maxSourcesPerSubtopic: maxSources,
+          includeExercises,
+          targetLevel,
+          language,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to start generation");
+      }
+
+      const data = await response.json();
+      setJobId(data.jobId);
+
+      // Start SSE for progress updates
+      const eventSource = new EventSource(
+        `/api/knowledge/generate-from-web/progress?jobId=${data.jobId}`
+      );
+      eventSourceRef.current = eventSource;
+
+      eventSource.onmessage = (event) => {
+        try {
+          const progressData = JSON.parse(event.data);
+          setProgress(progressData);
+
+          if (progressData.type === "complete") {
+            toast.success("Knowledge base generated successfully!");
+            eventSource.close();
+            setTimeout(() => {
+              onClose();
+            }, 2000);
+          } else if (progressData.type === "error") {
+            setError(progressData.errorMessage || progressData.message);
+            eventSource.close();
+            setIsGenerating(false);
+          } else if (progressData.type === "cancelled") {
+            setError("Generation was cancelled");
+            eventSource.close();
+            setIsGenerating(false);
+          }
+        } catch (e) {
+          console.error("Failed to parse SSE message:", e);
+        }
+      };
+
+      eventSource.onerror = () => {
+        eventSource.close();
+        if (!progress || progress.type !== "complete") {
+          setError("Connection lost. Check the job status.");
+          setIsGenerating(false);
+        }
+      };
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to start generation");
+      setIsGenerating(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!jobId) return;
+
+    try {
+      await fetch(`/api/knowledge/generate-from-web?jobId=${jobId}`, {
+        method: "DELETE",
+      });
+      toast.info("Cancellation requested");
+    } catch (error) {
+      toast.error("Failed to cancel");
+    }
+  };
+
+  const statusColors: Record<string, string> = {
+    pending: "bg-gray-100 text-gray-600",
+    discovering: "bg-blue-100 text-blue-700",
+    scraping: "bg-amber-100 text-amber-700",
+    synthesizing: "bg-purple-100 text-purple-700",
+    optimizing: "bg-indigo-100 text-indigo-700",
+    completed: "bg-green-100 text-green-700",
+    failed: "bg-red-100 text-red-700",
+  };
+
+  const subtopicStatusIcons: Record<string, React.ReactNode> = {
+    pending: <Clock className="w-3 h-3 text-gray-400" />,
+    scraping: <Search className="w-3 h-3 text-amber-500 animate-pulse" />,
+    synthesizing: <Sparkles className="w-3 h-3 text-purple-500 animate-pulse" />,
+    optimizing: <Zap className="w-3 h-3 text-indigo-500 animate-pulse" />,
+    completed: <CheckCircle className="w-3 h-3 text-green-500" />,
+    failed: <XCircle className="w-3 h-3 text-red-500" />,
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-2xl max-h-[90vh] flex flex-col">
+        <CardHeader className="flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-amber-500" />
+              <CardTitle>Generate Knowledge Base from Web</CardTitle>
+            </div>
+            <Button variant="ghost" size="icon" onClick={onClose} disabled={isGenerating && !error}>
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Automatically search and compile comprehensive educational content from the web.
+          </p>
+        </CardHeader>
+
+        <CardContent className="flex-1 overflow-auto">
+          {!isGenerating ? (
+            <div className="space-y-6">
+              {/* Mode Toggle */}
+              <div className="flex gap-2 p-1 bg-muted rounded-lg">
+                <button
+                  onClick={() => setMode("simple")}
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                    mode === "simple"
+                      ? "bg-background shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Search className="w-4 h-4 inline mr-2" />
+                  Simple Mode
+                </button>
+                <button
+                  onClick={() => setMode("advanced")}
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                    mode === "advanced"
+                      ? "bg-background shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Settings2 className="w-4 h-4 inline mr-2" />
+                  Advanced Mode
+                </button>
+              </div>
+
+              {/* Topic Input */}
+              <div>
+                <label className="text-sm font-medium">Topic *</label>
+                <input
+                  type="text"
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                  placeholder="e.g., English Present Perfect Tense, Business Email Writing"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {mode === "simple"
+                    ? "AI will automatically discover subtopics and create comprehensive content"
+                    : "Specify your own subtopics for targeted content generation"}
+                </p>
+              </div>
+
+              {/* Advanced Mode: Subtopics */}
+              {mode === "advanced" && (
+                <div>
+                  <label className="text-sm font-medium">Subtopics *</label>
+                  <div className="flex gap-2 mt-1">
+                    <input
+                      type="text"
+                      value={newSubtopic}
+                      onChange={(e) => setNewSubtopic(e.target.value)}
+                      onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addSubtopic())}
+                      className="flex-1 px-3 py-2 border rounded-lg bg-background"
+                      placeholder="Add a subtopic..."
+                    />
+                    <Button type="button" onClick={addSubtopic} size="sm">
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  {subtopics.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {subtopics.map((st, idx) => (
+                        <Badge
+                          key={idx}
+                          variant="secondary"
+                          className="py-1 px-2 flex items-center gap-1"
+                        >
+                          {st}
+                          <button
+                            onClick={() => removeSubtopic(idx)}
+                            className="ml-1 hover:text-destructive"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Configuration Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                {mode === "simple" && (
+                  <div>
+                    <label className="text-sm font-medium">Depth</label>
+                    <select
+                      value={depth}
+                      onChange={(e) => setDepth(Number(e.target.value) as 1 | 2 | 3)}
+                      className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                    >
+                      <option value={1}>Basic (3-5 subtopics)</option>
+                      <option value={2}>Standard (5-8 subtopics)</option>
+                      <option value={3}>Comprehensive (8-12 subtopics)</option>
+                    </select>
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-sm font-medium">Sources per Subtopic</label>
+                  <select
+                    value={maxSources}
+                    onChange={(e) => setMaxSources(Number(e.target.value))}
+                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                  >
+                    <option value={3}>3 sources (faster)</option>
+                    <option value={5}>5 sources (balanced)</option>
+                    <option value={8}>8 sources (comprehensive)</option>
+                    <option value={10}>10 sources (thorough)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Target Level</label>
+                  <select
+                    value={targetLevel}
+                    onChange={(e) => setTargetLevel(e.target.value)}
+                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                  >
+                    <option value="A1">A1 - Beginner</option>
+                    <option value="A2">A2 - Elementary</option>
+                    <option value="B1">B1 - Intermediate</option>
+                    <option value="B2">B2 - Upper Intermediate</option>
+                    <option value="C1">C1 - Advanced</option>
+                    <option value="C2">C2 - Proficient</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Language</label>
+                  <select
+                    value={language}
+                    onChange={(e) => setLanguage(e.target.value as "en" | "de")}
+                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                  >
+                    <option value="en">English</option>
+                    <option value="de">German</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Options */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="includeExercises"
+                  checked={includeExercises}
+                  onChange={(e) => setIncludeExercises(e.target.checked)}
+                  className="w-4 h-4 rounded"
+                />
+                <label htmlFor="includeExercises" className="text-sm">
+                  Include practice exercises and quizzes
+                </label>
+              </div>
+
+              {/* Estimate */}
+              <div className="p-4 bg-muted/50 rounded-lg">
+                <div className="flex items-center gap-2 text-sm">
+                  <Clock className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">Estimated time:</span>
+                  <span className="font-medium">
+                    {mode === "advanced"
+                      ? `${Math.ceil(subtopics.length * 2)} minutes`
+                      : `${Math.ceil(depth * 5 * 2)} minutes`}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Content will be scraped from authoritative sources and synthesized with AI
+                </p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={onClose}>
+                  Cancel
+                </Button>
+                <Button onClick={handleGenerate}>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Generate Knowledge Base
+                </Button>
+              </div>
+            </div>
+          ) : (
+            /* Progress View */
+            <div className="space-y-6">
+              {/* Header */}
+              <div className="text-center">
+                <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+                  <Sparkles className="w-8 h-8 text-amber-600 animate-pulse" />
+                </div>
+                <h3 className="text-lg font-medium">{topic}</h3>
+                <p className="text-sm text-muted-foreground">
+                  {progress?.phase || "Starting generation..."}
+                </p>
+              </div>
+
+              {/* Overall Progress */}
+              {progress && (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Overall Progress</span>
+                    <span className="font-medium">{progress.progress.percentage}%</span>
+                  </div>
+                  <div className="h-3 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-amber-500 transition-all duration-500"
+                      style={{ width: `${progress.progress.percentage}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>
+                      {progress.progress.current} / {progress.progress.total} subtopics
+                    </span>
+                    <Badge className={statusColors[progress.status] || "bg-gray-100"}>
+                      {progress.status}
+                    </Badge>
+                  </div>
+                </div>
+              )}
+
+              {/* Stats */}
+              {progress?.stats && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-muted/50 rounded-lg text-center">
+                    <div className="text-2xl font-bold text-amber-600">
+                      {progress.stats.totalSources}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Sources Found</div>
+                  </div>
+                  <div className="p-3 bg-muted/50 rounded-lg text-center">
+                    <div className="text-2xl font-bold text-purple-600">
+                      {progress.stats.totalWords.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Words Generated</div>
+                  </div>
+                </div>
+              )}
+
+              {/* Subtopics Progress */}
+              {progress?.subtopics && progress.subtopics.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Subtopics</h4>
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                    {progress.subtopics.map((st, idx) => (
+                      <div
+                        key={idx}
+                        className={`flex items-center justify-between p-2 rounded-lg text-sm ${
+                          st.status === progress.currentSubtopic
+                            ? "bg-amber-50 border border-amber-200"
+                            : "bg-muted/30"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          {subtopicStatusIcons[st.status] || (
+                            <Clock className="w-3 h-3 text-gray-400" />
+                          )}
+                          <span className={st.status === "completed" ? "text-green-700" : ""}>
+                            {st.name}
+                          </span>
+                        </div>
+                        {st.status === "completed" && (
+                          <span className="text-xs text-muted-foreground">
+                            {st.sourceCount} sources • {st.wordCount.toLocaleString()} words
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Error Display */}
+              {error && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-red-700">Generation Failed</p>
+                      <p className="text-sm text-red-600 mt-1">{error}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex justify-center gap-2 pt-2">
+                {progress?.type !== "complete" && !error && (
+                  <Button variant="outline" onClick={handleCancel}>
+                    <XCircle className="w-4 h-4 mr-2" />
+                    Cancel
+                  </Button>
+                )}
+                {(progress?.type === "complete" || error) && (
+                  <Button onClick={onClose}>
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    {progress?.type === "complete" ? "Done" : "Close"}
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

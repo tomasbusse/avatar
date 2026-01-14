@@ -1161,13 +1161,21 @@ export default defineSchema({
     errorMessage: v.optional(v.string()),
     // Vector store reference (e.g., Zep user ID for the entire KB)
     vectorStoreRef: v.optional(v.string()),
+    // Generation type - whether content was uploaded or scraped from web
+    generationType: v.optional(v.union(
+      v.literal("uploaded"),
+      v.literal("scraped")
+    )),
+    // Link to scraping job if this KB was generated from web
+    scrapingJobId: v.optional(v.id("scrapingJobs")),
     // Metadata
     createdAt: v.number(),
     updatedAt: v.number(),
     createdBy: v.optional(v.id("users")),
   })
     .index("by_status", ["status"])
-    .index("by_created", ["createdAt"]),
+    .index("by_created", ["createdAt"])
+    .index("by_generation_type", ["generationType"]),
 
   // ============================================
   // USER MEMORY SYNC (Zep Integration)
@@ -1329,6 +1337,35 @@ export default defineSchema({
       grammarRuleCount: v.optional(v.number()),
       level: v.optional(v.string()), // CEFR level: A1-C2
     })),
+    // RLM-optimized data for fast avatar retrieval (<10ms lookups)
+    rlmOptimized: v.optional(v.object({
+      // Grammar index for fast lookup by keyword
+      grammarIndex: v.optional(v.any()), // { [keyword: string]: GrammarRule[] }
+      // Vocabulary maps for O(1) lookup
+      vocabularyByTerm: v.optional(v.any()),    // { [term: string]: VocabularyItem }
+      vocabularyByTermDe: v.optional(v.any()),  // { [termDe: string]: VocabularyItem }
+      vocabularyByLevel: v.optional(v.any()),   // { [level: string]: VocabularyItem[] }
+      // Mistake detection patterns
+      mistakePatterns: v.optional(v.array(v.object({
+        pattern: v.string(),        // Regex or keyword pattern
+        mistakeType: v.string(),    // Error category
+        correction: v.string(),     // How to correct it
+        explanation: v.string(),    // Why it's wrong
+      }))),
+      // Topic keywords for matching
+      topicKeywords: v.optional(v.array(v.string())),
+      // Version for cache invalidation
+      version: v.optional(v.string()),
+      optimizedAt: v.optional(v.number()),
+    })),
+    // Web scraping sources (when content was scraped from web)
+    webSources: v.optional(v.array(v.object({
+      url: v.string(),
+      title: v.string(),
+      domain: v.string(),
+      scrapedAt: v.number(),
+      relevanceScore: v.optional(v.number()),
+    }))),
     processingStatus: v.union(
       v.literal("pending"),
       v.literal("processing"),
@@ -1337,7 +1374,8 @@ export default defineSchema({
       v.literal("failed"),
       v.literal("generating_pdf"),
       v.literal("generating_pptx"),
-      v.literal("generating_html_slides")
+      v.literal("generating_html_slides"),
+      v.literal("optimizing_rlm")  // New status for RLM optimization phase
     ),
     errorMessage: v.optional(v.string()),
     createdAt: v.number(),
@@ -1348,6 +1386,75 @@ export default defineSchema({
     .index("by_status", ["processingStatus"])
     .index("by_share_token", ["shareToken"])
     .index("by_public", ["isPublic"]),
+
+  // ============================================
+  // SCRAPING JOBS (Web scraping for knowledge generation)
+  // ============================================
+
+  scrapingJobs: defineTable({
+    // Basic info
+    topic: v.string(),
+    mode: v.union(v.literal("simple"), v.literal("advanced")),
+    knowledgeBaseId: v.id("knowledgeBases"),
+
+    // Status tracking
+    status: v.union(
+      v.literal("pending"),
+      v.literal("discovering"),    // Finding subtopics (simple mode)
+      v.literal("scraping"),       // Tavily search + web fetch
+      v.literal("synthesizing"),   // AI synthesis to structured content
+      v.literal("optimizing"),     // RLM optimization
+      v.literal("completed"),
+      v.literal("failed"),
+      v.literal("cancelled")
+    ),
+
+    // Subtopics progress
+    subtopics: v.array(v.object({
+      name: v.string(),
+      status: v.union(
+        v.literal("pending"),
+        v.literal("scraping"),
+        v.literal("synthesizing"),
+        v.literal("optimizing"),
+        v.literal("completed"),
+        v.literal("failed")
+      ),
+      sourceCount: v.optional(v.number()),
+      wordCount: v.optional(v.number()),
+      errorMessage: v.optional(v.string()),
+    })),
+
+    // Overall progress
+    progress: v.object({
+      discoveredCount: v.number(),
+      scrapedCount: v.number(),
+      synthesizedCount: v.number(),
+      optimizedCount: v.optional(v.number()),
+      totalSources: v.number(),
+      totalWords: v.number(),
+    }),
+
+    // Configuration
+    config: v.object({
+      depth: v.number(),                    // 1-3 depth level
+      maxSourcesPerSubtopic: v.number(),    // Sources to scrape per subtopic
+      includeExercises: v.boolean(),        // Generate exercises
+      targetLevel: v.optional(v.string()),  // CEFR level: A1-C2
+      language: v.string(),                 // en, de, or multi
+    }),
+
+    // Metadata
+    errorMessage: v.optional(v.string()),
+    startedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+    createdBy: v.optional(v.id("users")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_status", ["status"])
+    .index("by_knowledge_base", ["knowledgeBaseId"])
+    .index("by_created", ["createdAt"]),
 
   // ============================================
   // EXERCISE PROGRESS (Track student exercise attempts)

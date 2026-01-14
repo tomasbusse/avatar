@@ -405,6 +405,91 @@ export const updateContent = mutation({
   },
 });
 
+// Add scraped content from web (used by scraping orchestrator)
+export const addScrapedContent = mutation({
+  args: {
+    knowledgeBaseId: v.id("knowledgeBases"),
+    sourceId: v.string(),
+    title: v.string(),
+    content: v.string(), // Markdown
+    jsonContent: v.any(), // Structured LessonContent
+    rlmOptimized: v.object({
+      grammarIndex: v.optional(v.any()),
+      vocabularyByTerm: v.optional(v.any()),
+      vocabularyByTermDe: v.optional(v.any()),
+      vocabularyByLevel: v.optional(v.any()),
+      mistakePatterns: v.optional(v.array(v.object({
+        pattern: v.string(),
+        mistakeType: v.string(),
+        correction: v.string(),
+        explanation: v.string(),
+      }))),
+      topicKeywords: v.optional(v.array(v.string())),
+      version: v.optional(v.string()),
+      optimizedAt: v.optional(v.number()),
+    }),
+    webSources: v.array(v.object({
+      url: v.string(),
+      title: v.string(),
+      domain: v.string(),
+      scrapedAt: v.number(),
+      relevanceScore: v.optional(v.number()),
+    })),
+    metadata: v.object({
+      wordCount: v.optional(v.number()),
+      exerciseCount: v.optional(v.number()),
+      vocabularyCount: v.optional(v.number()),
+      grammarRuleCount: v.optional(v.number()),
+      level: v.optional(v.string()),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const kb = await ctx.db.get(args.knowledgeBaseId);
+    if (!kb) {
+      throw new Error("Knowledge base not found");
+    }
+
+    const now = Date.now();
+
+    // Add source to knowledge base
+    const newSource = {
+      sourceId: args.sourceId,
+      type: "document" as const,
+      name: args.title,
+      chunkCount: Math.ceil((args.metadata.wordCount || 0) / 500),
+      lastUpdated: now,
+      priority: 1,
+    };
+
+    await ctx.db.patch(args.knowledgeBaseId, {
+      sources: [...kb.sources, newSource],
+      updatedAt: now,
+    });
+
+    // Create content record
+    const contentId = await ctx.db.insert("knowledgeContent", {
+      knowledgeBaseId: args.knowledgeBaseId,
+      sourceId: args.sourceId,
+      title: args.title,
+      content: args.content,
+      contentType: "webpage",
+      jsonContent: args.jsonContent,
+      rlmOptimized: args.rlmOptimized,
+      webSources: args.webSources,
+      metadata: {
+        ...args.metadata,
+        usedOcr: false,
+        aiCleaned: true,
+      },
+      processingStatus: "completed",
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return { success: true, contentId, sourceId: args.sourceId };
+  },
+});
+
 // Get all content for a knowledge base
 export const getContent = query({
   args: { knowledgeBaseId: v.id("knowledgeBases") },
