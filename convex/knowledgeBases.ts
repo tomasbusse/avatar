@@ -427,6 +427,15 @@ export const addScrapedContent = mutation({
       topicKeywords: v.optional(v.array(v.string())),
       version: v.optional(v.string()),
       optimizedAt: v.optional(v.number()),
+      // Quick reference cards for common questions
+      quickReference: v.optional(v.array(v.object({
+        id: v.string(),
+        trigger: v.string(),
+        response: v.string(),
+        expandedResponse: v.optional(v.string()),
+      }))),
+      // Exercise index by type
+      exerciseIndex: v.optional(v.any()), // { [type: string]: string[] }
     }),
     webSources: v.array(v.object({
       url: v.string(),

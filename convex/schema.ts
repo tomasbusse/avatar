@@ -1357,6 +1357,15 @@ export default defineSchema({
       // Version for cache invalidation
       version: v.optional(v.string()),
       optimizedAt: v.optional(v.number()),
+      // Quick reference cards for common questions
+      quickReference: v.optional(v.array(v.object({
+        id: v.string(),
+        trigger: v.string(),        // What question/context triggers this
+        response: v.string(),       // Concise response
+        expandedResponse: v.optional(v.string()), // Detailed response if needed
+      }))),
+      // Exercise index by type for targeted practice
+      exerciseIndex: v.optional(v.any()), // { [type: string]: string[] }
     })),
     // Web scraping sources (when content was scraped from web)
     webSources: v.optional(v.array(v.object({

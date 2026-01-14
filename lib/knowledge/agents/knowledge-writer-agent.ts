@@ -194,6 +194,21 @@ export class KnowledgeWriterAgent {
   }
 
   /**
+   * Sanitize a string to be used as a Convex field name (ASCII only)
+   * Replaces German umlauts and other special characters
+   */
+  private sanitizeKey(key: string): string {
+    return key
+      .toLowerCase()
+      .replace(/ä/g, "ae")
+      .replace(/ö/g, "oe")
+      .replace(/ü/g, "ue")
+      .replace(/ß/g, "ss")
+      .replace(/[^\x00-\x7F]/g, "") // Remove any remaining non-ASCII
+      .trim();
+  }
+
+  /**
    * Write final knowledge content from organized structure
    */
   async write(
@@ -597,7 +612,7 @@ Sections covered: ${mainContent.sections.map((s) => s.title).join(", ")}
       ];
 
       for (const keyword of allKeywords) {
-        const key = keyword.toLowerCase().trim();
+        const key = this.sanitizeKey(keyword);
         if (key.length > 2) {
           if (!grammarIndex[key]) grammarIndex[key] = [];
           grammarIndex[key].push({
@@ -616,7 +631,7 @@ Sections covered: ${mainContent.sections.map((s) => s.title).join(", ")}
     const vocabularyByLevel: Record<string, any[]> = {};
 
     for (const vocab of vocabulary) {
-      const termKey = vocab.term.toLowerCase();
+      const termKey = this.sanitizeKey(vocab.term);
       vocabularyByTerm[termKey] = {
         id: vocab.id,
         term: vocab.term,
@@ -626,12 +641,13 @@ Sections covered: ${mainContent.sections.map((s) => s.title).join(", ")}
       };
 
       if (vocab.termDe) {
-        const termDeKey = vocab.termDe.toLowerCase();
+        const termDeKey = this.sanitizeKey(vocab.termDe);
         vocabularyByTermDe[termDeKey] = vocabularyByTerm[termKey];
       }
 
-      if (!vocabularyByLevel[vocab.level]) vocabularyByLevel[vocab.level] = [];
-      vocabularyByLevel[vocab.level].push({
+      const levelKey = this.sanitizeKey(vocab.level);
+      if (!vocabularyByLevel[levelKey]) vocabularyByLevel[levelKey] = [];
+      vocabularyByLevel[levelKey].push({
         id: vocab.id,
         term: vocab.term,
         level: vocab.level,
@@ -699,7 +715,7 @@ Sections covered: ${mainContent.sections.map((s) => s.title).join(", ")}
     const exerciseIndex: Record<string, string[]> = {};
 
     for (const exercise of exercises) {
-      const skill = exercise.type;
+      const skill = this.sanitizeKey(exercise.type);
       if (!exerciseIndex[skill]) exerciseIndex[skill] = [];
       exerciseIndex[skill].push(exercise.id);
     }
