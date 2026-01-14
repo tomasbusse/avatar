@@ -12,7 +12,7 @@ import {
 } from "@livekit/components-react";
 import "@livekit/components-styles";
 import { Track } from "livekit-client";
-import { Volume2, VolumeX, X, Video, VideoOff, Clock, AlertTriangle } from "lucide-react";
+import { Volume2, VolumeX, X, Video, VideoOff, Clock, AlertTriangle, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface LandingAvatarRoomProps {
@@ -435,6 +435,15 @@ function RoomContent({
           ) : (
             <Volume2 className="w-5 h-5 text-white" />
           )}
+        </button>
+
+        {/* Stop Button - Flips to contact form */}
+        <button
+          onClick={() => handleClose("user_stopped")}
+          className="p-3 rounded-full bg-sls-orange/90 hover:bg-sls-orange backdrop-blur-sm transition-all"
+          title="Stop and contact us"
+        >
+          <Square className="w-5 h-5 text-white fill-white" />
         </button>
 
         {/* Camera Toggle (only if vision enabled) */}

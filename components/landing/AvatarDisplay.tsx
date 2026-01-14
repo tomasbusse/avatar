@@ -144,13 +144,19 @@ export function AvatarDisplay({
     setIsActivated(true);
   };
 
-  // Handle closing the LiveKit session - flip to contact form
+  // Handle closing the LiveKit session
   const handleClose = (reason?: string) => {
     logDebug("LiveKit session closed", { reason });
     setIsActivated(false);
 
-    // Show contact form if configured or on timeout
-    if (avatarConfig?.showContactFormOnStop !== false) {
+    // Determine if we should show contact form based on close reason
+    // - "user_stopped" (Stop button): Show contact form
+    // - "user_closed" (X button): Just close, don't show form
+    // - "timeout": Show contact form
+    // - "disconnected": Show contact form
+    const showForm = reason !== "user_closed" && avatarConfig?.showContactFormOnStop !== false;
+
+    if (showForm) {
       setIsFlipped(true);
     }
   };
