@@ -722,7 +722,7 @@ function TextAddPanel({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
-            placeholder="e.g., Present Perfect Tense Rules"
+            placeholder="e.g., Introduction to Machine Learning"
           />
         </div>
 
@@ -744,7 +744,7 @@ function TextAddPanel({
             onChange={(e) => setContent(e.target.value)}
             className="w-full mt-1 px-3 py-2 border rounded-lg bg-background font-mono text-sm"
             rows={8}
-            placeholder="# Grammar Rule&#10;&#10;The present perfect tense is used when...&#10;&#10;## Examples&#10;- I have visited Paris.&#10;- She has finished her homework."
+            placeholder="# Topic Overview&#10;&#10;Introduction to the concept...&#10;&#10;## Key Points&#10;- Point one&#10;- Point two&#10;&#10;## Examples&#10;..."
           />
         </div>
 
@@ -1587,8 +1587,11 @@ function WebGeneratorModal({ onClose }: { onClose: () => void }) {
   const [depth, setDepth] = useState<1 | 2 | 3>(2);
   const [maxSources, setMaxSources] = useState(5);
   const [includeExercises, setIncludeExercises] = useState(true);
-  const [targetLevel, setTargetLevel] = useState("B1");
-  const [language, setLanguage] = useState<"en" | "de">("en");
+  const [language, setLanguage] = useState<"en" | "de" | "multi">("multi");
+  const [tags, setTags] = useState<string[]>([]);
+  const [newTag, setNewTag] = useState("");
+  const [referenceUrls, setReferenceUrls] = useState<string[]>([]);
+  const [newUrl, setNewUrl] = useState("");
 
   // Generation state
   const [isGenerating, setIsGenerating] = useState(false);
@@ -1618,6 +1621,34 @@ function WebGeneratorModal({ onClose }: { onClose: () => void }) {
     setSubtopics(subtopics.filter((_, i) => i !== index));
   };
 
+  const addTag = () => {
+    if (newTag.trim() && !tags.includes(newTag.trim())) {
+      setTags([...tags, newTag.trim()]);
+      setNewTag("");
+    }
+  };
+
+  const removeTag = (index: number) => {
+    setTags(tags.filter((_, i) => i !== index));
+  };
+
+  const addUrl = () => {
+    if (newUrl.trim() && !referenceUrls.includes(newUrl.trim())) {
+      // Basic URL validation
+      try {
+        new URL(newUrl.trim().startsWith('http') ? newUrl.trim() : `https://${newUrl.trim()}`);
+        setReferenceUrls([...referenceUrls, newUrl.trim()]);
+        setNewUrl("");
+      } catch {
+        toast.error("Please enter a valid URL");
+      }
+    }
+  };
+
+  const removeUrl = (index: number) => {
+    setReferenceUrls(referenceUrls.filter((_, i) => i !== index));
+  };
+
   const handleGenerate = async () => {
     if (!topic.trim()) {
       toast.error("Please enter a topic");
@@ -1644,8 +1675,9 @@ function WebGeneratorModal({ onClose }: { onClose: () => void }) {
           depth,
           maxSourcesPerSubtopic: maxSources,
           includeExercises,
-          targetLevel,
           language,
+          tags: tags.length > 0 ? tags : undefined,
+          referenceUrls: referenceUrls.length > 0 ? referenceUrls : undefined,
         }),
       });
 
@@ -1788,13 +1820,93 @@ function WebGeneratorModal({ onClose }: { onClose: () => void }) {
                   value={topic}
                   onChange={(e) => setTopic(e.target.value)}
                   className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
-                  placeholder="e.g., English Present Perfect Tense, Business Email Writing"
+                  placeholder="e.g., Project Management, Machine Learning, Business Strategy"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   {mode === "simple"
                     ? "AI will automatically discover subtopics and create comprehensive content"
                     : "Specify your own subtopics for targeted content generation"}
                 </p>
+              </div>
+
+              {/* Tags Input */}
+              <div>
+                <label className="text-sm font-medium">Tags (for categorization)</label>
+                <div className="flex gap-2 mt-1">
+                  <input
+                    type="text"
+                    value={newTag}
+                    onChange={(e) => setNewTag(e.target.value)}
+                    onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
+                    className="flex-1 px-3 py-2 border rounded-lg bg-background"
+                    placeholder="Add a tag..."
+                  />
+                  <Button type="button" onClick={addTag} size="sm" variant="outline">
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+                {tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {tags.map((tag, idx) => (
+                      <Badge
+                        key={idx}
+                        variant="outline"
+                        className="py-1 px-2 flex items-center gap-1"
+                      >
+                        {tag}
+                        <button
+                          onClick={() => removeTag(idx)}
+                          className="ml-1 hover:text-destructive"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Reference URLs */}
+              <div>
+                <label className="text-sm font-medium">Reference URLs (optional)</label>
+                <div className="flex gap-2 mt-1">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      value={newUrl}
+                      onChange={(e) => setNewUrl(e.target.value)}
+                      onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addUrl())}
+                      className="w-full px-3 py-2 pl-9 border rounded-lg bg-background"
+                      placeholder="https://example.com/article"
+                    />
+                    <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  </div>
+                  <Button type="button" onClick={addUrl} size="sm" variant="outline">
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Add specific URLs you want to include as reference sources
+                </p>
+                {referenceUrls.length > 0 && (
+                  <div className="space-y-1 mt-2">
+                    {referenceUrls.map((url, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg text-sm"
+                      >
+                        <Globe className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                        <span className="truncate flex-1">{url}</span>
+                        <button
+                          onClick={() => removeUrl(idx)}
+                          className="text-muted-foreground hover:text-destructive"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Advanced Mode: Subtopics */}
@@ -1868,30 +1980,15 @@ function WebGeneratorModal({ onClose }: { onClose: () => void }) {
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">Target Level</label>
-                  <select
-                    value={targetLevel}
-                    onChange={(e) => setTargetLevel(e.target.value)}
-                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
-                  >
-                    <option value="A1">A1 - Beginner</option>
-                    <option value="A2">A2 - Elementary</option>
-                    <option value="B1">B1 - Intermediate</option>
-                    <option value="B2">B2 - Upper Intermediate</option>
-                    <option value="C1">C1 - Advanced</option>
-                    <option value="C2">C2 - Proficient</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium">Language</label>
+                  <label className="text-sm font-medium">Content Language</label>
                   <select
                     value={language}
-                    onChange={(e) => setLanguage(e.target.value as "en" | "de")}
+                    onChange={(e) => setLanguage(e.target.value as "en" | "de" | "multi")}
                     className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
                   >
-                    <option value="en">English</option>
-                    <option value="de">German</option>
+                    <option value="multi">Any Language</option>
+                    <option value="en">English Only</option>
+                    <option value="de">German Only</option>
                   </select>
                 </div>
               </div>
@@ -1906,12 +2003,12 @@ function WebGeneratorModal({ onClose }: { onClose: () => void }) {
                   className="w-4 h-4 rounded"
                 />
                 <label htmlFor="includeExercises" className="text-sm">
-                  Include practice exercises and quizzes
+                  Include exercises, quizzes, and practical examples
                 </label>
               </div>
 
-              {/* Estimate */}
-              <div className="p-4 bg-muted/50 rounded-lg">
+              {/* Summary */}
+              <div className="p-4 bg-muted/50 rounded-lg space-y-2">
                 <div className="flex items-center gap-2 text-sm">
                   <Clock className="w-4 h-4 text-muted-foreground" />
                   <span className="text-muted-foreground">Estimated time:</span>
@@ -1921,7 +2018,13 @@ function WebGeneratorModal({ onClose }: { onClose: () => void }) {
                       : `${Math.ceil(depth * 5 * 2)} minutes`}
                   </span>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
+                {(tags.length > 0 || referenceUrls.length > 0) && (
+                  <div className="text-xs text-muted-foreground">
+                    {tags.length > 0 && <span>{tags.length} tag{tags.length !== 1 ? 's' : ''} • </span>}
+                    {referenceUrls.length > 0 && <span>{referenceUrls.length} reference URL{referenceUrls.length !== 1 ? 's' : ''}</span>}
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
                   Content will be scraped from authoritative sources and synthesized with AI
                 </p>
               </div>
