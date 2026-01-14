@@ -162,11 +162,12 @@ export function AvatarDisplay({
             {/* Profile Image Background */}
             <div className="absolute inset-0 bg-gradient-to-br from-sls-teal via-sls-olive to-sls-teal" />
 
-            {/* Avatar Profile Image */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="relative">
+            {/* Avatar Profile Image with Play Button Below */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center pt-4 pb-28 sm:pb-32">
+              {/* Profile Image Container */}
+              <div className="relative mb-6">
                 {profileImage ? (
-                  <div className="w-48 h-48 rounded-full overflow-hidden border-4 border-white/20 shadow-xl">
+                  <div className="w-36 h-36 sm:w-48 sm:h-48 rounded-full overflow-hidden border-4 border-white/20 shadow-xl">
                     <Image
                       src={profileImage}
                       alt={avatarName}
@@ -176,8 +177,8 @@ export function AvatarDisplay({
                     />
                   </div>
                 ) : (
-                  <div className="w-48 h-48 rounded-full bg-sls-cream/10 backdrop-blur-sm border-4 border-white/20 flex items-center justify-center">
-                    <span className="text-6xl font-bold text-white/80">
+                  <div className="w-36 h-36 sm:w-48 sm:h-48 rounded-full bg-sls-cream/10 backdrop-blur-sm border-4 border-white/20 flex items-center justify-center">
+                    <span className="text-5xl sm:text-6xl font-bold text-white/80">
                       {avatarName.charAt(0)}
                     </span>
                   </div>
@@ -191,43 +192,44 @@ export function AvatarDisplay({
                   )}
                 />
               </div>
-            </div>
 
-            {/* Play Button Overlay */}
-            <button
-              onClick={handleActivate}
-              disabled={dataLoading || !avatarForLiveKit}
-              className="absolute inset-0 flex items-center justify-center group cursor-pointer disabled:cursor-not-allowed"
-            >
-              <div className={cn(
-                "w-20 h-20 rounded-full bg-sls-orange flex items-center justify-center shadow-xl transition-all",
-                "group-hover:scale-110 group-hover:shadow-2xl group-hover:shadow-sls-orange/40",
-                "group-active:scale-95",
-                "group-disabled:opacity-50 group-disabled:scale-100"
-              )}>
-                <Play className="w-8 h-8 text-white ml-1" fill="white" />
-              </div>
-            </button>
+              {/* Play Button - Positioned Below Profile Image */}
+              <button
+                onClick={handleActivate}
+                disabled={dataLoading || !avatarForLiveKit}
+                className="group cursor-pointer disabled:cursor-not-allowed"
+              >
+                <div className={cn(
+                  "w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-sls-orange flex items-center justify-center shadow-xl transition-all",
+                  "group-hover:scale-110 group-hover:shadow-2xl group-hover:shadow-sls-orange/40",
+                  "group-active:scale-95",
+                  "group-disabled:opacity-50 group-disabled:scale-100"
+                )}>
+                  <Play className="w-6 h-6 sm:w-8 sm:h-8 text-white ml-1" fill="white" />
+                </div>
+              </button>
+            </div>
 
             {/* Decorative Particles */}
-            <div className="absolute top-8 right-8 animate-bounce">
-              <Sparkles className="w-6 h-6 text-sls-chartreuse/60" />
+            <div className="absolute top-6 sm:top-8 right-6 sm:right-8 animate-bounce">
+              <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-sls-chartreuse/60" />
             </div>
-            <div className="absolute bottom-20 left-8 animate-pulse">
+            <div className="absolute bottom-24 sm:bottom-28 left-6 sm:left-8 animate-pulse hidden sm:block">
               <Sparkles className="w-4 h-4 text-white/40" />
             </div>
 
             {/* Click to Start Badge */}
-            <div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/90 text-sls-teal text-xs font-semibold">
+            <div className="absolute top-3 sm:top-4 left-3 sm:left-4 flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-white/90 text-sls-teal text-[10px] sm:text-xs font-semibold">
               {dataLoading ? (
                 <>
-                  <div className="w-3 h-3 border-2 border-sls-teal/30 border-t-sls-teal rounded-full animate-spin" />
-                  Loading...
+                  <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 border-2 border-sls-teal/30 border-t-sls-teal rounded-full animate-spin" />
+                  <span className="hidden sm:inline">Loading...</span>
                 </>
               ) : (
                 <>
-                  <Play className="w-3 h-3" />
-                  {t("clickToStart") || "Click to Start"}
+                  <Play className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                  <span className="hidden sm:inline">{t("clickToStart") || "Click to Start"}</span>
+                  <span className="sm:hidden">Play</span>
                 </>
               )}
             </div>
@@ -235,17 +237,17 @@ export function AvatarDisplay({
             {/* Speech Bubble */}
             <div
               className={cn(
-                "absolute bottom-6 left-6 right-6 p-4 rounded-2xl bg-white/95 backdrop-blur-sm shadow-lg transition-all duration-300",
+                "absolute bottom-3 sm:bottom-6 left-3 sm:left-6 right-3 sm:right-6 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-white/95 backdrop-blur-sm shadow-lg transition-all duration-300",
                 "opacity-100 translate-y-0"
               )}
             >
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-sls-teal flex items-center justify-center flex-shrink-0">
-                  <MessageCircle className="w-4 h-4 text-white" />
+              <div className="flex items-start gap-2 sm:gap-3">
+                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-sls-teal flex items-center justify-center flex-shrink-0">
+                  <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
                 </div>
-                <div>
-                  <p className="text-sls-teal font-medium text-sm">{avatarName}</p>
-                  <p className="text-sls-olive text-sm mt-0.5">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sls-teal font-medium text-xs sm:text-sm">{avatarName}</p>
+                  <p className="text-sls-olive text-xs sm:text-sm mt-0.5 line-clamp-2">
                     {greeting}
                   </p>
                 </div>
