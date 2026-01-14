@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getConvexClient } from "@/lib/convex-client";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { runScrapingJob, ScrapingConfig, GenerationScale, SCALE_PRESETS } from "@/lib/knowledge/scraping-orchestrator";
+import {
+  runMultiAgentJob,
+  OrchestratorConfig,
+  GenerationScale,
+  SCALE_PRESETS,
+} from "@/lib/knowledge/agents";
 
 // Lazy-initialized Convex client
 const getConvex = () => getConvexClient();
@@ -60,8 +65,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<GenerateR
     // Get scale preset if specified
     const scalePreset = body.scale ? SCALE_PRESETS[body.scale] : null;
 
-    // Configuration with defaults
-    const config: ScrapingConfig = {
+    // Configuration with defaults (now uses multi-agent orchestrator)
+    const config: OrchestratorConfig = {
       scale: body.scale,
       depth: body.depth || (body.scale === "quick" ? 1 : body.scale === "standard" ? 2 : 3),
       maxSourcesPerSubtopic: scalePreset?.sources || body.maxSourcesPerSubtopic || 5,
@@ -98,9 +103,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<GenerateR
 
     const jobId = jobResult.jobId as Id<"scrapingJobs">;
 
-    // Step 3: Start the scraping job in the background
-    // We don't await this - it runs async
-    runScrapingJob(
+    // Step 3: Start the multi-agent job in the background
+    // We don't await this - it runs async with 3 specialized agents
+    runMultiAgentJob(
       convex,
       jobId,
       knowledgeBaseId,
@@ -108,7 +113,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<GenerateR
       config,
       body.subtopics
     ).catch((error) => {
-      console.error("Background scraping job failed:", error);
+      console.error("Background multi-agent job failed:", error);
       // Error handling is done in the orchestrator
     });
 
