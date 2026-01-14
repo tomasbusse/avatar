@@ -12,13 +12,27 @@ import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 
+// Scale presets for content generation
+export type GenerationScale = "quick" | "standard" | "comprehensive" | "book";
+
+export const SCALE_PRESETS: Record<GenerationScale, { subtopics: number; sources: number; description: string }> = {
+  quick: { subtopics: 5, sources: 5, description: "Quick overview (~25 sources)" },
+  standard: { subtopics: 12, sources: 10, description: "Balanced coverage (~120 sources)" },
+  comprehensive: { subtopics: 25, sources: 15, description: "In-depth (~375 sources)" },
+  book: { subtopics: 50, sources: 20, description: "Full book (~1000 sources)" },
+};
+
 // Types
 export interface ScrapingConfig {
-  depth: number; // 1-3
+  scale?: GenerationScale; // Preset scale level
+  depth: number; // 1-3 (legacy, now derived from scale)
   maxSourcesPerSubtopic: number;
   includeExercises: boolean;
   targetLevel?: string; // A1-C2
   language: string; // en, de, multi
+  tags?: string[]; // Optional categorization tags
+  referenceUrls?: string[]; // Specific URLs to include
+  broadSearch?: boolean; // If true, don't limit to quality domains
 }
 
 export interface WebSource {
@@ -122,26 +136,36 @@ export class ScrapingOrchestrator {
       message: `Analyzing "${topic}" to find key subtopics...`,
     });
 
-    const systemPrompt = `You are an expert English language curriculum designer.
-Given a topic, identify the key subtopics that should be covered for comprehensive learning.
+    // Determine max subtopics based on scale or depth
+    const scalePreset = this.config.scale ? SCALE_PRESETS[this.config.scale] : null;
+    const targetSubtopics = scalePreset
+      ? scalePreset.subtopics
+      : (this.config.depth === 1 ? 5 : this.config.depth === 2 ? 10 : 15);
+
+    const systemPrompt = `You are an expert curriculum designer and knowledge architect.
+Given a topic, identify ALL the key subtopics that should be covered for comprehensive learning.
 
 Guidelines:
-- Identify 8-15 subtopics depending on the topic's breadth
-- Each subtopic should be specific and teachable in one lesson
+- Identify ${targetSubtopics} subtopics (this is the target number, get as close as possible)
+- Each subtopic should be specific and teachable as a focused unit
 - Order from fundamental to advanced concepts
 - Include practical application topics
-- For grammar: include rules, usage, common mistakes
-- For vocabulary: group by theme or situation
+- Be thorough and cover the topic comprehensively
+- Think like a textbook author creating a table of contents
+${targetSubtopics >= 25 ? `- For this comprehensive coverage, break down into sub-categories
+- Include overview sections, deep dives, edge cases, and practical applications
+- Think "book chapter level" not just "lesson level"` : ''}
 
 Output ONLY a JSON array of subtopic names, e.g.:
 ["Subtopic 1", "Subtopic 2", "Subtopic 3"]`;
 
     const response = await this.callAI(systemPrompt, `
 Topic: ${topic}
-Target Level: ${this.config.targetLevel || "B1-B2"}
+Target subtopic count: ${targetSubtopics}
+Target Level: ${this.config.targetLevel || "general audience"}
 Language: ${this.config.language}
 
-List the key subtopics that should be covered:`, 2000);
+List ALL the key subtopics that should be covered for truly comprehensive coverage:`, targetSubtopics >= 25 ? 4000 : 2000);
 
     let subtopics: string[] = [];
     try {
@@ -159,8 +183,10 @@ List the key subtopics that should be covered:`, 2000);
         .filter((l) => l.length > 3 && l.length < 100);
     }
 
-    // Limit based on depth
-    const maxSubtopics = this.config.depth === 1 ? 5 : this.config.depth === 2 ? 10 : 15;
+    // Limit based on scale or depth
+    const maxSubtopics = scalePreset
+      ? scalePreset.subtopics
+      : (this.config.depth === 1 ? 5 : this.config.depth === 2 ? 10 : 15);
     subtopics = subtopics.slice(0, maxSubtopics);
 
     // Update job with discovered subtopics
@@ -184,17 +210,34 @@ List the key subtopics that should be covered:`, 2000);
    * Phase 2: Scrape web content for a subtopic using Tavily
    */
   async scrapeSubtopic(subtopic: string, mainTopic: string): Promise<WebSource[]> {
+    const scalePreset = this.config.scale ? SCALE_PRESETS[this.config.scale] : null;
+    const maxSources = scalePreset?.sources || this.config.maxSourcesPerSubtopic;
+
     this.emit({
       type: "scraping",
       phase: "Searching web",
       current: 0,
-      total: this.config.maxSourcesPerSubtopic,
+      total: maxSources,
       subtopic,
       message: `Searching for "${subtopic}"...`,
     });
 
-    // Build search query
-    const query = `${mainTopic} ${subtopic} English grammar rules examples exercises`;
+    // Build search query - generic, not English-specific
+    const query = `${mainTopic} ${subtopic} comprehensive guide explanation examples`;
+
+    // Build Tavily request - conditionally include domain filtering
+    const tavilyRequest: Record<string, unknown> = {
+      api_key: this.tavilyKey,
+      query,
+      search_depth: "advanced",
+      max_results: Math.min(maxSources * 2, 40), // Tavily max is 40
+      include_raw_content: true,
+    };
+
+    // Only limit domains if not doing broad search
+    if (!this.config.broadSearch && this.config.scale !== "book" && this.config.scale !== "comprehensive") {
+      tavilyRequest.include_domains = QUALITY_DOMAINS;
+    }
 
     // Call Tavily API
     const tavilyResponse = await fetch("https://api.tavily.com/search", {
@@ -202,14 +245,7 @@ List the key subtopics that should be covered:`, 2000);
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        api_key: this.tavilyKey,
-        query,
-        search_depth: "advanced",
-        max_results: this.config.maxSourcesPerSubtopic * 2, // Get more, filter later
-        include_domains: QUALITY_DOMAINS,
-        include_raw_content: true,
-      }),
+      body: JSON.stringify(tavilyRequest),
     });
 
     if (!tavilyResponse.ok) {
@@ -221,8 +257,32 @@ List the key subtopics that should be covered:`, 2000);
 
     // Process and filter results
     const sources: WebSource[] = [];
+
+    // First, add any reference URLs that are relevant to this subtopic
+    if (this.config.referenceUrls?.length) {
+      for (const url of this.config.referenceUrls) {
+        if (sources.length >= maxSources) break;
+        try {
+          // Fetch the URL directly if it's a reference
+          const domain = new URL(url).hostname.replace("www.", "");
+          sources.push({
+            url,
+            title: `Reference: ${domain}`,
+            domain,
+            content: `[Reference URL - content will be fetched during synthesis]`,
+            score: 1.0,
+          });
+        } catch {
+          // Invalid URL, skip
+        }
+      }
+    }
+
     for (const result of results) {
-      if (sources.length >= this.config.maxSourcesPerSubtopic) break;
+      if (sources.length >= maxSources) break;
+
+      // Skip if we already have this URL from references
+      if (sources.some(s => s.url === result.url)) continue;
 
       // Extract content
       const content = result.raw_content || result.content || "";
@@ -234,7 +294,7 @@ List the key subtopics that should be covered:`, 2000);
         url: result.url,
         title: result.title || subtopic,
         domain,
-        content: content.slice(0, 10000), // Limit content size
+        content: content.slice(0, 15000), // Increased content size for comprehensive output
         score: result.score,
       });
 
@@ -242,10 +302,59 @@ List the key subtopics that should be covered:`, 2000);
         type: "scraping",
         phase: "Fetching sources",
         current: sources.length,
-        total: this.config.maxSourcesPerSubtopic,
+        total: maxSources,
         subtopic,
         message: `Fetched ${sources.length} sources from ${domain}`,
       });
+    }
+
+    // For book-level generation, do multiple searches with variations if we need more sources
+    if ((this.config.scale === "book" || this.config.scale === "comprehensive") && sources.length < maxSources * 0.7) {
+      const variations = [
+        `${subtopic} tutorial examples`,
+        `${subtopic} best practices guide`,
+        `${subtopic} advanced techniques`,
+      ];
+
+      for (const varQuery of variations) {
+        if (sources.length >= maxSources) break;
+
+        try {
+          const varResponse = await fetch("https://api.tavily.com/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              api_key: this.tavilyKey,
+              query: varQuery,
+              search_depth: "basic",
+              max_results: 10,
+              include_raw_content: true,
+            }),
+          });
+
+          if (varResponse.ok) {
+            const varData = await varResponse.json();
+            for (const result of varData.results || []) {
+              if (sources.length >= maxSources) break;
+              if (sources.some(s => s.url === result.url)) continue;
+
+              const content = result.raw_content || result.content || "";
+              if (content.length < 200) continue;
+
+              const domain = new URL(result.url).hostname.replace("www.", "");
+              sources.push({
+                url: result.url,
+                title: result.title || subtopic,
+                domain,
+                content: content.slice(0, 15000),
+                score: result.score,
+              });
+            }
+          }
+        } catch {
+          // Ignore variation search errors
+        }
+      }
     }
 
     // Update subtopic status
@@ -285,44 +394,56 @@ List the key subtopics that should be covered:`, 2000);
       .map((s) => `## Source: ${s.title} (${s.domain})\n\n${s.content}`)
       .join("\n\n---\n\n");
 
-    const systemPrompt = `You are a MASTER English language teacher and textbook author (Cambridge/Oxford level).
+    const isBookLevel = this.config.scale === "book" || this.config.scale === "comprehensive";
+    const isLanguageLearning = mainTopic.toLowerCase().includes("english") ||
+                               mainTopic.toLowerCase().includes("german") ||
+                               mainTopic.toLowerCase().includes("language");
+
+    const systemPrompt = `You are a MASTER educator and textbook author with expertise in ${mainTopic}.
 
 # YOUR MISSION
-Create a comprehensive, professional lesson on "${subtopic}" (part of "${mainTopic}").
+Create ${isBookLevel ? "comprehensive, book-chapter-level" : "professional, lesson-level"} content on "${subtopic}" (part of "${mainTopic}").
 Use the provided source content as REFERENCE material, but write everything fresh in your own words.
 
 # TARGET AUDIENCE
-- German speakers learning English at ${this.config.targetLevel || "B1-B2"} level
-- Provide German translations for key content
+${this.config.targetLevel
+  ? `- Target level: ${this.config.targetLevel}`
+  : "- General audience seeking comprehensive understanding"}
+${isLanguageLearning ? "- Provide translations where helpful" : ""}
 
 # WHAT YOU MUST CREATE
 
 ## 1. Professional Explanations
 - Clear, engaging explanations of the concept
-- Proper grammar rule explanations with formulas
-- Natural example sentences showing correct usage
-- All content must be Cambridge/Oxford textbook quality
+- ${isBookLevel ? "In-depth coverage with multiple examples and perspectives" : "Concise but thorough explanations"}
+- Practical, real-world applications
+- All content must be textbook quality
 
-## 2. Grammar Rules (if applicable)
-- Write clear grammatical formulas (e.g., "Subject + has/have + past participle")
-- Include KEYWORDS that identify when this rule applies
+## 2. Key Concepts & Rules (if applicable)
+- Write clear formulas, frameworks, or rules
+- Include KEYWORDS that identify when concepts apply
 - Provide correct/incorrect example pairs
-- Note common mistakes German speakers make
+- Note common mistakes and misconceptions
 
-## 3. Vocabulary
-- 10-20 relevant vocabulary items
-- German translations
-- Natural example sentences
+## 3. Vocabulary / Key Terms
+- ${isBookLevel ? "20-40" : "10-20"} relevant terms and definitions
+${isLanguageLearning ? "- Include translations" : ""}
+- Context and usage examples
 
-## 4. Exercises (${this.config.includeExercises ? "REQUIRED" : "OPTIONAL"})
-- 5-10 practice exercises
-- Multiple types: fill_blank, multiple_choice, error_correction
+## 4. ${this.config.includeExercises ? "Exercises (REQUIRED)" : "Practice Examples"}
+- ${isBookLevel ? "10-20" : "5-10"} practice items
+- Multiple types: fill_blank, multiple_choice, error_correction, matching
 - ALL correct answers must be provided
 - Explanations for each answer
 
-## 5. Common Mistakes
-- Include patterns that German speakers commonly get wrong
-- Provide corrections and explanations
+## 5. Common Mistakes / Misconceptions
+- Patterns people commonly get wrong
+- Corrections and explanations
+
+${isBookLevel ? `## 6. Deep Dive Sections
+- Include advanced topics and edge cases
+- Cross-references to related subtopics
+- Additional resources and further reading suggestions` : ""}
 
 # OUTPUT
 Output ONLY valid JSON matching this schema:
@@ -330,15 +451,17 @@ ${LESSON_SCHEMA}
 
 Timestamps should use: ${Date.now()}`;
 
+    const maxTokens = isBookLevel ? 32000 : 16000;
+
     const response = await this.callAI(
       systemPrompt,
-      `Create a comprehensive lesson on "${subtopic}".
+      `Create a comprehensive ${isBookLevel ? "book chapter" : "lesson"} on "${subtopic}".
 
 SOURCE MATERIAL (use as reference only - write fresh content):
 ${sourceText}
 
 Output ONLY the JSON object:`,
-      16000
+      maxTokens
     );
 
     // Parse JSON response

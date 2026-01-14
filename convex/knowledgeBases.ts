@@ -525,6 +525,58 @@ export const getContentBySource = query({
   },
 });
 
+// Edit content (for manual editing of generated content)
+export const editContent = mutation({
+  args: {
+    contentId: v.id("knowledgeContent"),
+    title: v.optional(v.string()),
+    content: v.optional(v.string()),
+    category: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const existingContent = await ctx.db.get(args.contentId);
+    if (!existingContent) {
+      throw new Error("Content not found");
+    }
+
+    const updates: Record<string, unknown> = {
+      updatedAt: Date.now(),
+    };
+
+    if (args.title !== undefined) updates.title = args.title;
+    if (args.content !== undefined) {
+      updates.content = args.content;
+      // Update word count
+      const wordCount = args.content.split(/\s+/).length;
+      updates.metadata = {
+        ...existingContent.metadata,
+        wordCount,
+      };
+    }
+
+    await ctx.db.patch(args.contentId, updates);
+
+    // Update source name in knowledge base if title changed
+    if (args.title !== undefined && args.title.trim()) {
+      const kb = await ctx.db.get(existingContent.knowledgeBaseId);
+      if (kb) {
+        const newTitle = args.title; // Capture for type narrowing
+        const updatedSources = kb.sources.map((s) =>
+          s.sourceId === existingContent.sourceId
+            ? { ...s, name: newTitle }
+            : s
+        );
+        await ctx.db.patch(existingContent.knowledgeBaseId, {
+          sources: updatedSources,
+          updatedAt: Date.now(),
+        });
+      }
+    }
+
+    return { success: true };
+  },
+});
+
 // Delete content
 export const deleteContent = mutation({
   args: { contentId: v.id("knowledgeContent") },

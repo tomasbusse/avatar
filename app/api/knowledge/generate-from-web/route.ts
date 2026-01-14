@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getConvexClient } from "@/lib/convex-client";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { runScrapingJob, ScrapingConfig } from "@/lib/knowledge/scraping-orchestrator";
+import { runScrapingJob, ScrapingConfig, GenerationScale, SCALE_PRESETS } from "@/lib/knowledge/scraping-orchestrator";
 
 // Lazy-initialized Convex client
 const getConvex = () => getConvexClient();
@@ -11,11 +11,15 @@ export interface GenerateRequest {
   topic: string;
   mode: "simple" | "advanced";
   subtopics?: string[];
+  scale?: GenerationScale;
   depth?: 1 | 2 | 3;
   maxSourcesPerSubtopic?: number;
   includeExercises?: boolean;
   targetLevel?: string;
   language?: string;
+  tags?: string[];
+  referenceUrls?: string[];
+  broadSearch?: boolean;
 }
 
 export interface GenerateResponse {
@@ -53,13 +57,20 @@ export async function POST(request: NextRequest): Promise<NextResponse<GenerateR
       );
     }
 
+    // Get scale preset if specified
+    const scalePreset = body.scale ? SCALE_PRESETS[body.scale] : null;
+
     // Configuration with defaults
     const config: ScrapingConfig = {
-      depth: body.depth || 2,
-      maxSourcesPerSubtopic: body.maxSourcesPerSubtopic || 5,
+      scale: body.scale,
+      depth: body.depth || (body.scale === "quick" ? 1 : body.scale === "standard" ? 2 : 3),
+      maxSourcesPerSubtopic: scalePreset?.sources || body.maxSourcesPerSubtopic || 5,
       includeExercises: body.includeExercises ?? true,
-      targetLevel: body.targetLevel || "B1",
-      language: body.language || "en",
+      targetLevel: body.targetLevel,
+      language: body.language || "multi",
+      tags: body.tags,
+      referenceUrls: body.referenceUrls,
+      broadSearch: body.broadSearch ?? (body.scale === "comprehensive" || body.scale === "book"),
     };
 
     const convex = getConvex();
@@ -101,9 +112,12 @@ export async function POST(request: NextRequest): Promise<NextResponse<GenerateR
       // Error handling is done in the orchestrator
     });
 
-    // Estimate time based on config
-    const estimatedSubtopics = mode === "advanced" ? body.subtopics!.length : config.depth * 5;
-    const estimatedMinutes = Math.ceil(estimatedSubtopics * 2); // ~2 min per subtopic
+    // Estimate time based on scale or config
+    const estimatedSubtopics = mode === "advanced"
+      ? body.subtopics!.length
+      : scalePreset?.subtopics || config.depth * 5;
+    const minutesPerSubtopic = (body.scale === "book" || body.scale === "comprehensive") ? 3 : 2;
+    const estimatedMinutes = Math.ceil(estimatedSubtopics * minutesPerSubtopic);
 
     return NextResponse.json({
       success: true,

@@ -45,6 +45,9 @@ import {
   Zap,
   XCircle,
   CheckCircle,
+  Edit3,
+  BookMarked,
+  Activity,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -783,6 +786,7 @@ function ContentItem({
   const [isGeneratingPptx, setIsGeneratingPptx] = useState(false);
   const [isDownloadingPptx, setIsDownloadingPptx] = useState(false);
   const [isGeneratingShare, setIsGeneratingShare] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   // Fetch presentation data if presentationId exists
   const presentation = useQuery(
@@ -1157,6 +1161,21 @@ function ContentItem({
             </Button>
           )}
 
+          {/* Edit Content Button */}
+          {content.processingStatus === "completed" && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowEditModal(true);
+              }}
+              title="Edit content"
+            >
+              <Edit3 className="w-4 h-4 text-blue-500" />
+            </Button>
+          )}
+
           {/* View Content Button */}
           {content.processingStatus === "completed" && (
             <Button size="sm" variant="ghost" onClick={onView} title="View content">
@@ -1198,7 +1217,136 @@ function ContentItem({
           onClose={() => setShowHtmlSlidesViewer(false)}
         />
       )}
+
+      {/* Edit Content Modal */}
+      {showEditModal && (
+        <EditContentModal
+          content={content}
+          onClose={() => setShowEditModal(false)}
+        />
+      )}
     </>
+  );
+}
+
+// Edit Content Modal
+function EditContentModal({
+  content,
+  onClose,
+}: {
+  content: any;
+  onClose: () => void;
+}) {
+  const editContent = useMutation(api.knowledgeBases.editContent);
+  const [title, setTitle] = useState(content.title || "");
+  const [markdownContent, setMarkdownContent] = useState(content.content || "");
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!title.trim()) {
+      toast.error("Title is required");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await editContent({
+        contentId: content._id,
+        title: title.trim(),
+        content: markdownContent,
+      });
+      toast.success("Content updated successfully");
+      onClose();
+    } catch (error) {
+      toast.error("Failed to update content");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const wordCount = markdownContent.split(/\s+/).filter(Boolean).length;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-4xl max-h-[90vh] flex flex-col">
+        <CardHeader className="flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Edit3 className="w-5 h-5 text-blue-500" />
+              <CardTitle>Edit Content</CardTitle>
+            </div>
+            <Button variant="ghost" size="icon" onClick={onClose}>
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Edit the title and content. Changes will be saved to the knowledge base.
+          </p>
+        </CardHeader>
+        <CardContent className="flex-1 overflow-auto space-y-4">
+          <div>
+            <label className="text-sm font-medium">Title *</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+              placeholder="Content title"
+            />
+          </div>
+
+          <div className="flex-1">
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-sm font-medium">Content (Markdown)</label>
+              <span className="text-xs text-muted-foreground">
+                {wordCount.toLocaleString()} words
+              </span>
+            </div>
+            <textarea
+              value={markdownContent}
+              onChange={(e) => setMarkdownContent(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg bg-background font-mono text-sm min-h-[400px]"
+              placeholder="Markdown content..."
+            />
+          </div>
+
+          {/* Source info */}
+          {content.webSources && content.webSources.length > 0 && (
+            <div className="p-3 bg-muted/50 rounded-lg">
+              <p className="text-xs font-medium text-muted-foreground mb-2">
+                Generated from {content.webSources.length} web sources
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {content.webSources.slice(0, 5).map((source: any, idx: number) => (
+                  <Badge key={idx} variant="outline" className="text-xs">
+                    {source.domain}
+                  </Badge>
+                ))}
+                {content.webSources.length > 5 && (
+                  <Badge variant="outline" className="text-xs">
+                    +{content.webSources.length - 5} more
+                  </Badge>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={isSaving}>
+              {isSaving ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <CheckCircle className="w-4 h-4 mr-2" />
+              )}
+              Save Changes
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -1579,13 +1727,22 @@ interface GenerationProgress {
   errorMessage?: string;
 }
 
+// Scale presets matching the orchestrator
+const SCALE_PRESETS = {
+  quick: { subtopics: 5, sources: 5, description: "Quick overview", estimate: "~5 min" },
+  standard: { subtopics: 12, sources: 10, description: "Balanced coverage", estimate: "~15 min" },
+  comprehensive: { subtopics: 25, sources: 15, description: "In-depth", estimate: "~45 min" },
+  book: { subtopics: 50, sources: 20, description: "Full book", estimate: "~2 hours" },
+};
+
+type GenerationScale = "quick" | "standard" | "comprehensive" | "book";
+
 function WebGeneratorModal({ onClose }: { onClose: () => void }) {
   const [mode, setMode] = useState<"simple" | "advanced">("simple");
   const [topic, setTopic] = useState("");
   const [subtopics, setSubtopics] = useState<string[]>([]);
   const [newSubtopic, setNewSubtopic] = useState("");
-  const [depth, setDepth] = useState<1 | 2 | 3>(2);
-  const [maxSources, setMaxSources] = useState(5);
+  const [scale, setScale] = useState<GenerationScale>("standard");
   const [includeExercises, setIncludeExercises] = useState(true);
   const [language, setLanguage] = useState<"en" | "de" | "multi">("multi");
   const [tags, setTags] = useState<string[]>([]);
@@ -1665,6 +1822,7 @@ function WebGeneratorModal({ onClose }: { onClose: () => void }) {
     setProgress(null);
 
     try {
+      const scaleConfig = SCALE_PRESETS[scale];
       const response = await fetch("/api/knowledge/generate-from-web", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1672,12 +1830,14 @@ function WebGeneratorModal({ onClose }: { onClose: () => void }) {
           topic: topic.trim(),
           mode,
           subtopics: mode === "advanced" ? subtopics : undefined,
-          depth,
-          maxSourcesPerSubtopic: maxSources,
+          scale,
+          depth: scale === "quick" ? 1 : scale === "standard" ? 2 : 3,
+          maxSourcesPerSubtopic: scaleConfig.sources,
           includeExercises,
           language,
           tags: tags.length > 0 ? tags : undefined,
           referenceUrls: referenceUrls.length > 0 ? referenceUrls : undefined,
+          broadSearch: scale === "comprehensive" || scale === "book",
         }),
       });
 
@@ -1948,37 +2108,42 @@ function WebGeneratorModal({ onClose }: { onClose: () => void }) {
                 </div>
               )}
 
-              {/* Configuration Grid */}
-              <div className="grid grid-cols-2 gap-4">
-                {mode === "simple" && (
-                  <div>
-                    <label className="text-sm font-medium">Depth</label>
-                    <select
-                      value={depth}
-                      onChange={(e) => setDepth(Number(e.target.value) as 1 | 2 | 3)}
-                      className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
-                    >
-                      <option value={1}>Basic (3-5 subtopics)</option>
-                      <option value={2}>Standard (5-8 subtopics)</option>
-                      <option value={3}>Comprehensive (8-12 subtopics)</option>
-                    </select>
-                  </div>
-                )}
-
+              {/* Scale Selector */}
+              {mode === "simple" && (
                 <div>
-                  <label className="text-sm font-medium">Sources per Subtopic</label>
-                  <select
-                    value={maxSources}
-                    onChange={(e) => setMaxSources(Number(e.target.value))}
-                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
-                  >
-                    <option value={3}>3 sources (faster)</option>
-                    <option value={5}>5 sources (balanced)</option>
-                    <option value={8}>8 sources (comprehensive)</option>
-                    <option value={10}>10 sources (thorough)</option>
-                  </select>
+                  <label className="text-sm font-medium mb-2 block">Generation Scale</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(Object.entries(SCALE_PRESETS) as [GenerationScale, typeof SCALE_PRESETS[GenerationScale]][]).map(
+                      ([key, preset]) => (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setScale(key)}
+                          className={`p-3 rounded-lg border-2 text-left transition-all ${
+                            scale === key
+                              ? "border-amber-500 bg-amber-50"
+                              : "border-muted hover:border-muted-foreground/30"
+                          }`}
+                        >
+                          <div className="flex justify-between items-start">
+                            <span className="font-medium capitalize">{key}</span>
+                            <span className="text-xs text-muted-foreground">{preset.estimate}</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {preset.description}
+                          </p>
+                          <p className="text-xs text-amber-600 mt-1">
+                            ~{preset.subtopics} topics • {preset.sources} sources each
+                          </p>
+                        </button>
+                      )
+                    )}
+                  </div>
                 </div>
+              )}
 
+              {/* Additional Options */}
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium">Content Language</label>
                   <select
@@ -1991,42 +2156,67 @@ function WebGeneratorModal({ onClose }: { onClose: () => void }) {
                     <option value="de">German Only</option>
                   </select>
                 </div>
-              </div>
 
-              {/* Options */}
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="includeExercises"
-                  checked={includeExercises}
-                  onChange={(e) => setIncludeExercises(e.target.checked)}
-                  className="w-4 h-4 rounded"
-                />
-                <label htmlFor="includeExercises" className="text-sm">
-                  Include exercises, quizzes, and practical examples
-                </label>
+                <div className="flex items-center">
+                  <div className="flex items-center gap-2 mt-6">
+                    <input
+                      type="checkbox"
+                      id="includeExercises"
+                      checked={includeExercises}
+                      onChange={(e) => setIncludeExercises(e.target.checked)}
+                      className="w-4 h-4 rounded"
+                    />
+                    <label htmlFor="includeExercises" className="text-sm">
+                      Include exercises
+                    </label>
+                  </div>
+                </div>
               </div>
 
               {/* Summary */}
-              <div className="p-4 bg-muted/50 rounded-lg space-y-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <Clock className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Estimated time:</span>
-                  <span className="font-medium">
-                    {mode === "advanced"
-                      ? `${Math.ceil(subtopics.length * 2)} minutes`
-                      : `${Math.ceil(depth * 5 * 2)} minutes`}
-                  </span>
+              <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="w-5 h-5 text-amber-600" />
+                    <span className="font-medium text-amber-900">Generation Summary</span>
+                  </div>
+                  <Badge variant="outline" className="bg-white border-amber-300 text-amber-700">
+                    {mode === "advanced" ? `${subtopics.length} custom topics` : SCALE_PRESETS[scale].description}
+                  </Badge>
                 </div>
+
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="bg-white/70 rounded-lg p-2">
+                    <div className="text-lg font-bold text-amber-600">
+                      {mode === "advanced" ? subtopics.length : SCALE_PRESETS[scale].subtopics}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Topics</div>
+                  </div>
+                  <div className="bg-white/70 rounded-lg p-2">
+                    <div className="text-lg font-bold text-orange-600">
+                      ~{mode === "advanced"
+                        ? subtopics.length * SCALE_PRESETS[scale].sources
+                        : SCALE_PRESETS[scale].subtopics * SCALE_PRESETS[scale].sources}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Sources</div>
+                  </div>
+                  <div className="bg-white/70 rounded-lg p-2">
+                    <div className="text-lg font-bold text-purple-600">
+                      {mode === "advanced"
+                        ? `~${Math.ceil(subtopics.length * 3)} min`
+                        : SCALE_PRESETS[scale].estimate}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Time</div>
+                  </div>
+                </div>
+
                 {(tags.length > 0 || referenceUrls.length > 0) && (
-                  <div className="text-xs text-muted-foreground">
-                    {tags.length > 0 && <span>{tags.length} tag{tags.length !== 1 ? 's' : ''} • </span>}
+                  <div className="text-xs text-amber-700 flex items-center gap-2 pt-1 border-t border-amber-200">
+                    {tags.length > 0 && <span>{tags.length} tag{tags.length !== 1 ? 's' : ''}</span>}
+                    {tags.length > 0 && referenceUrls.length > 0 && <span>•</span>}
                     {referenceUrls.length > 0 && <span>{referenceUrls.length} reference URL{referenceUrls.length !== 1 ? 's' : ''}</span>}
                   </div>
                 )}
-                <p className="text-xs text-muted-foreground">
-                  Content will be scraped from authoritative sources and synthesized with AI
-                </p>
               </div>
 
               {/* Actions */}
@@ -2041,90 +2231,148 @@ function WebGeneratorModal({ onClose }: { onClose: () => void }) {
               </div>
             </div>
           ) : (
-            /* Progress View */
+            /* Progress View - Enhanced */
             <div className="space-y-6">
-              {/* Header */}
+              {/* Header with Large Animated Indicator */}
               <div className="text-center">
-                <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
-                  <Sparkles className="w-8 h-8 text-amber-600 animate-pulse" />
+                <div className="relative w-24 h-24 mx-auto mb-4">
+                  {/* Background ring */}
+                  <div className="absolute inset-0 rounded-full border-4 border-muted" />
+                  {/* Progress ring */}
+                  <svg className="absolute inset-0 w-24 h-24 -rotate-90">
+                    <circle
+                      cx="48"
+                      cy="48"
+                      r="44"
+                      fill="none"
+                      strokeWidth="4"
+                      stroke="currentColor"
+                      className="text-amber-500"
+                      strokeDasharray={`${(progress?.progress.percentage || 0) * 2.76} 276`}
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  {/* Center content */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-2xl font-bold text-amber-600">
+                      {progress?.progress.percentage || 0}%
+                    </span>
+                  </div>
                 </div>
                 <h3 className="text-lg font-medium">{topic}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {progress?.phase || "Starting generation..."}
-                </p>
               </div>
 
-              {/* Overall Progress */}
-              {progress && (
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Overall Progress</span>
-                    <span className="font-medium">{progress.progress.percentage}%</span>
+              {/* Current Activity Banner */}
+              <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center animate-pulse">
+                    {progress?.status === "discovering" && <Search className="w-5 h-5" />}
+                    {progress?.status === "scraping" && <Globe className="w-5 h-5" />}
+                    {progress?.status === "synthesizing" && <Sparkles className="w-5 h-5" />}
+                    {progress?.status === "optimizing" && <Zap className="w-5 h-5" />}
+                    {progress?.status === "completed" && <CheckCircle className="w-5 h-5" />}
+                    {!progress?.status && <Loader2 className="w-5 h-5 animate-spin" />}
                   </div>
-                  <div className="h-3 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-amber-500 transition-all duration-500"
-                      style={{ width: `${progress.progress.percentage}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>
-                      {progress.progress.current} / {progress.progress.total} subtopics
-                    </span>
-                    <Badge className={statusColors[progress.status] || "bg-gray-100"}>
-                      {progress.status}
-                    </Badge>
+                  <div className="flex-1">
+                    <div className="font-medium">
+                      {progress?.status === "discovering" && "Discovering Topics..."}
+                      {progress?.status === "scraping" && "Searching Web Sources..."}
+                      {progress?.status === "synthesizing" && "Generating Content..."}
+                      {progress?.status === "optimizing" && "Optimizing for Fast Retrieval..."}
+                      {progress?.status === "completed" && "Generation Complete!"}
+                      {progress?.status === "pending" && "Starting..."}
+                      {!progress && "Initializing..."}
+                    </div>
+                    <div className="text-sm text-white/80">
+                      {progress?.currentSubtopic
+                        ? `Working on: ${progress.currentSubtopic}`
+                        : progress?.phase || "Please wait..."}
+                    </div>
                   </div>
                 </div>
-              )}
 
-              {/* Stats */}
-              {progress?.stats && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-3 bg-muted/50 rounded-lg text-center">
-                    <div className="text-2xl font-bold text-amber-600">
-                      {progress.stats.totalSources}
-                    </div>
-                    <div className="text-xs text-muted-foreground">Sources Found</div>
-                  </div>
-                  <div className="p-3 bg-muted/50 rounded-lg text-center">
-                    <div className="text-2xl font-bold text-purple-600">
-                      {progress.stats.totalWords.toLocaleString()}
-                    </div>
-                    <div className="text-xs text-muted-foreground">Words Generated</div>
-                  </div>
+                {/* Progress bar inside banner */}
+                <div className="mt-3 h-2 bg-white/20 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-white rounded-full transition-all duration-500 ease-out"
+                    style={{ width: `${progress?.progress.percentage || 0}%` }}
+                  />
                 </div>
-              )}
+                <div className="flex justify-between text-xs text-white/70 mt-1">
+                  <span>{progress?.progress.current || 0} / {progress?.progress.total || "?"} topics</span>
+                  <span>{progress?.progress.percentage || 0}% complete</span>
+                </div>
+              </div>
 
-              {/* Subtopics Progress */}
+              {/* Live Stats Grid */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-center">
+                  <div className="text-2xl font-bold text-amber-600">
+                    {progress?.stats?.totalSources || 0}
+                  </div>
+                  <div className="text-xs text-amber-700">Sources Scraped</div>
+                </div>
+                <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg text-center">
+                  <div className="text-2xl font-bold text-purple-600">
+                    {(progress?.stats?.totalWords || 0).toLocaleString()}
+                  </div>
+                  <div className="text-xs text-purple-700">Words Generated</div>
+                </div>
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-center">
+                  <div className="text-2xl font-bold text-green-600">
+                    {progress?.subtopics?.filter(s => s.status === "completed").length || 0}
+                  </div>
+                  <div className="text-xs text-green-700">Topics Done</div>
+                </div>
+              </div>
+
+              {/* Subtopics Progress List */}
               {progress?.subtopics && progress.subtopics.length > 0 && (
                 <div>
-                  <h4 className="text-sm font-medium mb-2">Subtopics</h4>
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                    {progress.subtopics.map((st, idx) => (
-                      <div
-                        key={idx}
-                        className={`flex items-center justify-between p-2 rounded-lg text-sm ${
-                          st.status === progress.currentSubtopic
-                            ? "bg-amber-50 border border-amber-200"
-                            : "bg-muted/30"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          {subtopicStatusIcons[st.status] || (
-                            <Clock className="w-3 h-3 text-gray-400" />
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-medium">Topics Progress</h4>
+                    <span className="text-xs text-muted-foreground">
+                      {progress.subtopics.filter(s => s.status === "completed").length} / {progress.subtopics.length} complete
+                    </span>
+                  </div>
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto border rounded-lg p-2">
+                    {progress.subtopics.map((st, idx) => {
+                      const isActive = st.name === progress.currentSubtopic ||
+                        ["scraping", "synthesizing", "optimizing"].includes(st.status);
+                      return (
+                        <div
+                          key={idx}
+                          className={`flex items-center justify-between p-2 rounded-lg text-sm transition-all ${
+                            isActive
+                              ? "bg-amber-50 border border-amber-300 shadow-sm"
+                              : st.status === "completed"
+                              ? "bg-green-50/50"
+                              : "bg-muted/30"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className={isActive ? "animate-pulse" : ""}>
+                              {subtopicStatusIcons[st.status] || (
+                                <Clock className="w-3 h-3 text-gray-400" />
+                              )}
+                            </div>
+                            <span className={`${st.status === "completed" ? "text-green-700" : ""} ${isActive ? "font-medium" : ""}`}>
+                              {st.name}
+                            </span>
+                            {isActive && (
+                              <span className="text-xs text-amber-600 ml-1">
+                                ({st.status})
+                              </span>
+                            )}
+                          </div>
+                          {st.status === "completed" && (
+                            <span className="text-xs text-green-600">
+                              ✓ {st.sourceCount} sources • {st.wordCount?.toLocaleString()} words
+                            </span>
                           )}
-                          <span className={st.status === "completed" ? "text-green-700" : ""}>
-                            {st.name}
-                          </span>
                         </div>
-                        {st.status === "completed" && (
-                          <span className="text-xs text-muted-foreground">
-                            {st.sourceCount} sources • {st.wordCount.toLocaleString()} words
-                          </span>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -2147,13 +2395,13 @@ function WebGeneratorModal({ onClose }: { onClose: () => void }) {
                 {progress?.type !== "complete" && !error && (
                   <Button variant="outline" onClick={handleCancel}>
                     <XCircle className="w-4 h-4 mr-2" />
-                    Cancel
+                    Cancel Generation
                   </Button>
                 )}
                 {(progress?.type === "complete" || error) && (
-                  <Button onClick={onClose}>
+                  <Button onClick={onClose} className={progress?.type === "complete" ? "bg-green-600 hover:bg-green-700" : ""}>
                     <CheckCircle className="w-4 h-4 mr-2" />
-                    {progress?.type === "complete" ? "Done" : "Close"}
+                    {progress?.type === "complete" ? "View Knowledge Base" : "Close"}
                   </Button>
                 )}
               </div>
