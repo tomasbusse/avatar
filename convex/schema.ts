@@ -2905,4 +2905,76 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_email", ["email"])
     .index("by_created", ["createdAt"]),
+
+  // ============================================
+  // KNOWLEDGE FEEDBACK SYSTEM
+  // ============================================
+
+  // Usage events from avatar interactions
+  knowledgeFeedback: defineTable({
+    knowledgeBaseId: v.id("knowledgeBases"),
+    type: v.union(
+      v.literal("lookup"),
+      v.literal("retrieval"),
+      v.literal("fallback"),
+      v.literal("gap")
+    ),
+    timestamp: v.number(),
+    sessionId: v.string(),
+    studentId: v.optional(v.string()),
+    query: v.string(),
+    queryType: v.union(
+      v.literal("grammar"),
+      v.literal("vocabulary"),
+      v.literal("exercise"),
+      v.literal("general")
+    ),
+    found: v.boolean(),
+    contentId: v.optional(v.id("knowledgeContent")),
+    contentTitle: v.optional(v.string()),
+    rlmLookupTime: v.optional(v.number()),
+    usedInResponse: v.boolean(),
+    studentFoundHelpful: v.optional(v.boolean()),
+    studentAskedFollowUp: v.optional(v.boolean()),
+    lessonTopic: v.optional(v.string()),
+    studentLevel: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_knowledge_base", ["knowledgeBaseId"])
+    .index("by_session", ["sessionId"])
+    .index("by_content", ["contentId"])
+    .index("by_type", ["type"])
+    .index("by_timestamp", ["timestamp"]),
+
+  // Content effectiveness tracking
+  contentEffectiveness: defineTable({
+    contentId: v.id("knowledgeContent"),
+    knowledgeBaseId: v.id("knowledgeBases"),
+    lookupCount: v.number(),
+    helpfulCount: v.number(),
+    followUpCount: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_content", ["contentId"])
+    .index("by_knowledge_base", ["knowledgeBaseId"]),
+
+  // Knowledge gaps identified from avatar interactions
+  knowledgeGaps: defineTable({
+    knowledgeBaseId: v.id("knowledgeBases"),
+    query: v.string(),
+    normalizedQuery: v.string(),
+    queryType: v.string(),
+    occurrenceCount: v.number(),
+    firstSeen: v.number(),
+    lastSeen: v.number(),
+    relatedTopics: v.array(v.string()),
+    resolved: v.boolean(),
+    resolvedAt: v.optional(v.number()),
+    resolvedWithContentId: v.optional(v.id("knowledgeContent")),
+    createdAt: v.number(),
+  })
+    .index("by_knowledge_base", ["knowledgeBaseId"])
+    .index("by_resolved", ["resolved"])
+    .index("by_occurrence", ["occurrenceCount"]),
 });
