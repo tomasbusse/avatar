@@ -12,7 +12,7 @@ import {
 } from "@livekit/components-react";
 import "@livekit/components-styles";
 import { Track } from "livekit-client";
-import { Volume2, VolumeX, X, Video, VideoOff } from "lucide-react";
+import { Volume2, VolumeX, X, Video, VideoOff, Clock, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface LandingAvatarRoomProps {
@@ -26,8 +26,10 @@ interface LandingAvatarRoomProps {
     };
     [key: string]: any;
   };
-  onClose?: () => void;
+  onClose?: (reason?: string) => void;
   className?: string;
+  sessionTimeoutSeconds?: number;
+  warningAtSeconds?: number;
 }
 
 /**
@@ -62,10 +64,21 @@ function generateGuestSessionId(): string {
   return `landing_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 }
 
+/**
+ * Format seconds as MM:SS
+ */
+function formatTime(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+}
+
 export function LandingAvatarRoom({
   avatar,
   onClose,
   className,
+  sessionTimeoutSeconds = 300, // Default 5 minutes
+  warningAtSeconds = 60, // Default warn at 1 minute remaining
 }: LandingAvatarRoomProps) {
   const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -126,7 +139,7 @@ export function LandingAvatarRoom({
         <div className="text-center text-white p-6">
           <p className="text-white/80 mb-4">{error}</p>
           <button
-            onClick={onClose}
+            onClick={() => onClose?.("error")}
             className="px-6 py-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
           >
             Close
@@ -155,13 +168,15 @@ export function LandingAvatarRoom({
       connect={true}
       audio={true}
       video={visionEnabled ?? false}
-      onDisconnected={onClose}
+      onDisconnected={() => onClose?.("disconnected")}
       className={cn("w-full h-full", className)}
     >
       <RoomContent
         avatar={avatar}
         visionEnabled={visionEnabled ?? false}
         onClose={onClose}
+        sessionTimeoutSeconds={sessionTimeoutSeconds}
+        warningAtSeconds={warningAtSeconds}
       />
       <RoomAudioRenderer />
     </LiveKitRoom>
@@ -172,16 +187,26 @@ function RoomContent({
   avatar,
   visionEnabled,
   onClose,
+  sessionTimeoutSeconds,
+  warningAtSeconds,
 }: {
   avatar: LandingAvatarRoomProps["avatar"];
   visionEnabled: boolean;
-  onClose?: () => void;
+  onClose?: (reason?: string) => void;
+  sessionTimeoutSeconds: number;
+  warningAtSeconds: number;
 }) {
   const room = useRoomContext();
   const { localParticipant } = useLocalParticipant();
   const [isMuted, setIsMuted] = useState(false);
   const [showCamera, setShowCamera] = useState(visionEnabled);
   const [audioContextBlocked, setAudioContextBlocked] = useState(false);
+
+  // Session timeout state
+  const [timeRemaining, setTimeRemaining] = useState(sessionTimeoutSeconds);
+  const [showWarning, setShowWarning] = useState(false);
+  const sessionStartRef = useRef(Date.now());
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const { videoTrack: voiceAssistantVideoTrack, agent } = useVoiceAssistant();
 
@@ -199,6 +224,34 @@ function RoomContent({
   );
 
   const avatarName = avatar.name || agent?.identity || "Avatar";
+
+  // Session timeout timer
+  useEffect(() => {
+    timerIntervalRef.current = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - sessionStartRef.current) / 1000);
+      const remaining = Math.max(0, sessionTimeoutSeconds - elapsed);
+      setTimeRemaining(remaining);
+
+      // Show warning when time is running low
+      if (remaining <= warningAtSeconds && remaining > 0) {
+        setShowWarning(true);
+      }
+
+      // Auto-close when timeout reached
+      if (remaining <= 0) {
+        if (timerIntervalRef.current) {
+          clearInterval(timerIntervalRef.current);
+        }
+        handleClose("timeout");
+      }
+    }, 1000);
+
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+    };
+  }, [sessionTimeoutSeconds, warningAtSeconds]);
 
   // Check for blocked audio context
   useEffect(() => {
@@ -241,8 +294,11 @@ function RoomContent({
   }, [localParticipant, showCamera]);
 
   // Handle close/disconnect
-  const handleClose = useCallback(async () => {
+  const handleClose = useCallback(async (reason?: string) => {
     try {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
       if (localParticipant) {
         await localParticipant.setMicrophoneEnabled(false);
         await localParticipant.setCameraEnabled(false);
@@ -251,12 +307,15 @@ function RoomContent({
     } catch (e) {
       console.error("Error disconnecting:", e);
     }
-    onClose?.();
+    onClose?.(reason);
   }, [room, localParticipant, onClose]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
       if (localParticipant) {
         localParticipant.setMicrophoneEnabled(false).catch(() => {});
         localParticipant.setCameraEnabled(false).catch(() => {});
@@ -283,6 +342,16 @@ function RoomContent({
             >
               Unmute
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Timeout Warning Overlay */}
+      {showWarning && timeRemaining > 0 && timeRemaining <= warningAtSeconds && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-40 animate-in slide-in-from-top-4 duration-300">
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-sls-orange/90 backdrop-blur-sm text-white text-sm font-medium shadow-lg">
+            <AlertTriangle className="w-4 h-4" />
+            <span>{formatTime(timeRemaining)} remaining</span>
           </div>
         </div>
       )}
@@ -321,15 +390,27 @@ function RoomContent({
         )}
       </div>
 
-      {/* Live Badge */}
-      <div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-sls-chartreuse/90 text-sls-teal text-xs font-semibold">
-        <span className="w-2 h-2 rounded-full bg-sls-teal animate-pulse" />
-        AI Avatar Live
+      {/* Live Badge with Timer */}
+      <div className="absolute top-4 left-4 flex items-center gap-2">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-sls-chartreuse/90 text-sls-teal text-xs font-semibold">
+          <span className="w-2 h-2 rounded-full bg-sls-teal animate-pulse" />
+          AI Avatar Live
+        </div>
+        {/* Timer Badge */}
+        <div className={cn(
+          "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
+          timeRemaining <= warningAtSeconds
+            ? "bg-sls-orange/90 text-white"
+            : "bg-white/20 backdrop-blur-sm text-white"
+        )}>
+          <Clock className="w-3 h-3" />
+          <span>{formatTime(timeRemaining)}</span>
+        </div>
       </div>
 
       {/* Close Button */}
       <button
-        onClick={handleClose}
+        onClick={() => handleClose("user_closed")}
         className="absolute top-4 right-4 p-2 rounded-full bg-white/20 backdrop-blur-sm text-white transition-all hover:bg-white/30"
         title="End conversation"
       >

@@ -100,6 +100,7 @@ export function ClientAvatarWrapper({ avatarId }: ClientAvatarWrapperProps) {
       isLoading={isLoading}
       avatar={fullAvatar}
       debug={debugMode}
+      locale={locale}
     />
   );
 }

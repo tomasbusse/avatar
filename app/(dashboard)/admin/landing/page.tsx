@@ -784,6 +784,10 @@ function SiteConfigTab() {
   const updateConfig = useMutation(api.landing.updateSiteConfig);
   const upsertSection = useMutation(api.landing.upsertSectionContent);
 
+  // Avatar session config
+  const avatarSessionConfig = useQuery(api.landing.getLandingAvatarConfig);
+  const updateAvatarSessionConfig = useMutation(api.landing.updateLandingAvatarConfig);
+
   // Contact info queries and mutations
   const contactInfo = useQuery(api.landing.getContactInfo);
   const updateContactInfo = useMutation(api.landing.updateContactInfo);
@@ -817,6 +821,12 @@ function SiteConfigTab() {
   const [selectedSubmission, setSelectedSubmission] = useState<Doc<"contactSubmissions"> | null>(null);
   const [aiReplyDialogOpen, setAiReplyDialogOpen] = useState(false);
 
+  // Session timeout state
+  const [sessionTimeout, setSessionTimeout] = useState<number>(300);
+  const [warningAt, setWarningAt] = useState<number>(60);
+  const [showContactOnStop, setShowContactOnStop] = useState(true);
+  const [sessionConfigLoaded, setSessionConfigLoaded] = useState(false);
+
   // Load current values when data is available
   if (!isLoaded && heroContentEN && heroContentDE) {
     const enContent = heroContentEN as Record<string, unknown>;
@@ -842,6 +852,14 @@ function SiteConfigTab() {
       })) || []
     );
     setContactLoaded(true);
+  }
+
+  // Load session config
+  if (!sessionConfigLoaded && avatarSessionConfig) {
+    setSessionTimeout(avatarSessionConfig.sessionTimeoutSeconds ?? 300);
+    setWarningAt(avatarSessionConfig.warningAtSeconds ?? 60);
+    setShowContactOnStop(avatarSessionConfig.showContactFormOnStop ?? true);
+    setSessionConfigLoaded(true);
   }
 
   const handleSaveAvatar = async () => {
@@ -951,6 +969,19 @@ function SiteConfigTab() {
       toast.success("Status updated");
     } catch (error) {
       toast.error("Failed to update status");
+    }
+  };
+
+  const handleSaveSessionConfig = async () => {
+    try {
+      await updateAvatarSessionConfig({
+        sessionTimeoutSeconds: sessionTimeout,
+        warningAtSeconds: warningAt,
+        showContactFormOnStop: showContactOnStop,
+      });
+      toast.success("Avatar session settings updated");
+    } catch (error) {
+      toast.error("Failed to update session settings");
     }
   };
 
@@ -1405,6 +1436,84 @@ function SiteConfigTab() {
           <Button onClick={handleSaveGreeting}>
             <Save className="w-4 h-4 mr-2" />
             Save Greeting Text
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Avatar Session Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="w-5 h-5" />
+            Avatar Session Settings
+          </CardTitle>
+          <CardDescription>
+            Control how long visitors can interact with the AI avatar on the homepage to manage costs
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Session Timeout */}
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="sessionTimeout">Session Timeout (seconds)</Label>
+              <div className="flex items-center gap-4">
+                <Input
+                  id="sessionTimeout"
+                  type="number"
+                  min={60}
+                  max={1800}
+                  value={sessionTimeout}
+                  onChange={(e) => setSessionTimeout(parseInt(e.target.value) || 300)}
+                  className="max-w-32"
+                />
+                <span className="text-sm text-muted-foreground">
+                  = {Math.floor(sessionTimeout / 60)} min {sessionTimeout % 60} sec
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Maximum time a visitor can chat with the avatar before being disconnected (default: 5 minutes)
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="warningAt">Warning Time (seconds before end)</Label>
+              <div className="flex items-center gap-4">
+                <Input
+                  id="warningAt"
+                  type="number"
+                  min={10}
+                  max={300}
+                  value={warningAt}
+                  onChange={(e) => setWarningAt(parseInt(e.target.value) || 60)}
+                  className="max-w-32"
+                />
+                <span className="text-sm text-muted-foreground">
+                  Show warning when {warningAt} seconds remain
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                When this many seconds remain, a warning banner will appear (default: 60 seconds)
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between py-3 px-4 border rounded-lg">
+              <div className="space-y-0.5">
+                <Label htmlFor="showContactOnStop">Show Contact Form on Stop</Label>
+                <p className="text-xs text-muted-foreground">
+                  When the session ends (timeout or user closes), flip to show a contact form
+                </p>
+              </div>
+              <Switch
+                id="showContactOnStop"
+                checked={showContactOnStop}
+                onCheckedChange={setShowContactOnStop}
+              />
+            </div>
+          </div>
+
+          <Button onClick={handleSaveSessionConfig}>
+            <Save className="w-4 h-4 mr-2" />
+            Save Session Settings
           </Button>
         </CardContent>
       </Card>

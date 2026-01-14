@@ -407,6 +407,65 @@ export const getLandingAvatar = query({
   },
 });
 
+// Default landing avatar config
+const DEFAULT_LANDING_AVATAR_CONFIG = {
+  sessionTimeoutSeconds: 300, // 5 minutes default
+  warningAtSeconds: 60, // Show warning at 1 minute remaining
+  allowRestart: true, // Allow user to restart after timeout
+  showContactFormOnStop: true, // Show contact form when stopped
+};
+
+// Get landing avatar session config
+export const getLandingAvatarConfig = query({
+  args: {},
+  handler: async (ctx) => {
+    const config = await ctx.db
+      .query("siteConfig")
+      .withIndex("by_key", (q) => q.eq("key", "landing_avatar_config"))
+      .first();
+    return config?.value ?? DEFAULT_LANDING_AVATAR_CONFIG;
+  },
+});
+
+// Update landing avatar session config
+export const updateLandingAvatarConfig = mutation({
+  args: {
+    sessionTimeoutSeconds: v.optional(v.number()),
+    warningAtSeconds: v.optional(v.number()),
+    allowRestart: v.optional(v.boolean()),
+    showContactFormOnStop: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("siteConfig")
+      .withIndex("by_key", (q) => q.eq("key", "landing_avatar_config"))
+      .first();
+
+    const currentValue = existing?.value ?? DEFAULT_LANDING_AVATAR_CONFIG;
+    const newValue = {
+      ...currentValue,
+      ...Object.fromEntries(
+        Object.entries(args).filter(([_, v]) => v !== undefined)
+      ),
+    };
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        value: newValue,
+        updatedAt: Date.now(),
+      });
+    } else {
+      await ctx.db.insert("siteConfig", {
+        key: "landing_avatar_config",
+        value: newValue,
+        updatedAt: Date.now(),
+      });
+    }
+
+    return { success: true };
+  },
+});
+
 // ============================================
 // LANDING CONTENT
 // ============================================
