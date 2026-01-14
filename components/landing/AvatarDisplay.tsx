@@ -190,6 +190,7 @@ export function AvatarDisplay({
 
     setIsSubmitting(true);
     try {
+      // Save to Convex database
       await submitContact({
         name: contactForm.name,
         email: contactForm.email,
@@ -199,6 +200,25 @@ export function AvatarDisplay({
         locale,
         source: "avatar_session",
       });
+
+      // Send email notification and auto-reply
+      const emailResponse = await fetch("/api/email/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: contactForm.name,
+          email: contactForm.email,
+          phone: contactForm.phone || undefined,
+          company: contactForm.company || undefined,
+          message: contactForm.message,
+          locale,
+        }),
+      });
+
+      if (!emailResponse.ok) {
+        console.warn("Email send failed, but form was saved:", await emailResponse.text());
+      }
+
       setSubmitSuccess(true);
       setContactForm({ name: "", email: "", phone: "", company: "", message: "" });
     } catch (error) {
