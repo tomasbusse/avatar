@@ -4,11 +4,22 @@ import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+// Lazy initialization to avoid build-time errors
+function getAnthropicClient() {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    throw new Error("ANTHROPIC_API_KEY not configured");
+  }
+  return new Anthropic({ apiKey });
+}
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+function getConvexClient() {
+  const url = process.env.NEXT_PUBLIC_CONVEX_URL;
+  if (!url) {
+    throw new Error("NEXT_PUBLIC_CONVEX_URL not configured");
+  }
+  return new ConvexHttpClient(url);
+}
 
 interface AutoresponderRequest {
   name: string;
@@ -125,6 +136,9 @@ function buildKnowledgeContext(knowledge: {
 
 export async function POST(request: NextRequest) {
   try {
+    const anthropic = getAnthropicClient();
+    const convex = getConvexClient();
+
     const body: AutoresponderRequest = await request.json();
     const { name, email, company, message, locale, mode, useGlobalConfig = true } = body;
 

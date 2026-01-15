@@ -125,6 +125,14 @@ async function runJob(jobId: string) {
       console.log("\n💾 Saving to knowledge base...");
       const sourceId = `scraped_${Date.now()}_${i}`;
 
+      // Calculate word count from all content sections
+      const wordCount = [
+        content.content.introduction.content,
+        ...content.content.sections.map(s => s.content),
+        content.content.summary.content,
+        ...content.content.vocabulary.map(v => v.definition + ' ' + v.exampleSentence),
+      ].join(' ').split(/\s+/).filter(Boolean).length;
+
       await convex.mutation(api.knowledgeBases.addScrapedContent, {
         knowledgeBaseId: job.knowledgeBaseId,
         sourceId,
@@ -140,7 +148,7 @@ async function runJob(jobId: string) {
           relevanceScore: s.relevanceScore,
         })),
         metadata: {
-          wordCount: content.metadata.wordCount,
+          wordCount,
           exerciseCount: content.content.exercises.length,
           vocabularyCount: content.content.vocabulary.length,
           grammarRuleCount: content.content.grammarRules.length,
@@ -153,7 +161,7 @@ async function runJob(jobId: string) {
         id: job._id,
         subtopicName: subtopic.name,
         status: "completed",
-        wordCount: content.metadata.wordCount,
+        wordCount,
       });
 
       console.log(`   ✅ Subtopic "${subtopic.name}" completed!\n`);
