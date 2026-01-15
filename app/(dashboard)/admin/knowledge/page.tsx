@@ -1173,10 +1173,19 @@ function ContentItem({
                 e.stopPropagation();
                 setShowCreateGameDialog(true);
               }}
-              title="Create game from this content"
+              title="Create interactive game from this content"
+              className="gap-1"
             >
               <Gamepad2 className="w-4 h-4 text-emerald-500" />
+              <span className="text-xs text-emerald-600 hidden sm:inline">Game</span>
             </Button>
+          )}
+
+          {/* Hint to restructure content that lacks JSON */}
+          {content.processingStatus === "completed" && !hasJsonContent && canRestructure && (
+            <span className="text-xs text-muted-foreground" title="Click the refresh icon to restructure and enable PDF, PPTX, and Game generation">
+              ⚠️ Restructure needed
+            </span>
           )}
 
           {/* Edit Content Button */}

@@ -258,6 +258,16 @@ export async function POST(request: NextRequest) {
       console.error("❌ HTML slides generation error:", err);
     }
 
+    // Trigger PPTX generation (fire-and-forget with logging)
+    fetch(`${baseUrl}/api/knowledge/generate-pptx`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contentId }),
+    }).then(res => {
+      if (res.ok) console.log("✅ PPTX generation triggered");
+      else console.error("❌ PPTX generation failed:", res.status);
+    }).catch(err => console.error("❌ PPTX generation error:", err));
+
     return NextResponse.json({
       success: true,
       title: lessonContent.metadata.title,
