@@ -372,6 +372,37 @@ export default defineSchema({
         })
       ),
     }),
+    // Voice Configuration Library - Multiple named voices for this avatar
+    // Allows managing multiple Cartesia voice IDs with custom names and language tags
+    voiceConfigs: v.optional(
+      v.array(
+        v.object({
+          id: v.string(), // Unique identifier within this avatar (e.g., "emma_en", "emma_de")
+          name: v.string(), // Display name (e.g., "Emma English", "Emma German")
+          voiceId: v.string(), // Cartesia voice ID (e.g., "1463a4e1-56a1-4b41-b257-728d56e93605")
+          language: v.string(), // Language code: "en", "de", "es", etc.
+          provider: v.optional(v.union(
+            v.literal("cartesia"),
+            v.literal("elevenlabs"),
+            v.literal("openai")
+          )), // Default: cartesia
+          model: v.optional(v.string()), // TTS model: "sonic-2", "sonic-3", etc.
+          isDefault: v.optional(v.boolean()), // Is this the default voice for its language?
+          settings: v.optional(
+            v.object({
+              speed: v.optional(v.number()),
+              pitch: v.optional(v.number()),
+              emotion: v.optional(v.union(
+                v.string(),
+                v.array(v.string())
+              )),
+            })
+          ),
+          description: v.optional(v.string()), // Optional notes about the voice
+          createdAt: v.optional(v.number()),
+        })
+      )
+    ),
     // STT (Speech-to-Text) configuration
     sttConfig: v.optional(
       v.object({

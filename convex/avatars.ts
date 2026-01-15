@@ -768,3 +768,302 @@ export const getStorageUrl = mutation({
     return url;
   },
 });
+
+// ============================================
+// VOICE CONFIGURATION MANAGEMENT
+// ============================================
+
+// Voice configuration schema for validation
+const voiceConfigValidator = v.object({
+  id: v.string(),
+  name: v.string(),
+  voiceId: v.string(),
+  language: v.string(),
+  provider: v.optional(v.union(
+    v.literal("cartesia"),
+    v.literal("elevenlabs"),
+    v.literal("openai")
+  )),
+  model: v.optional(v.string()),
+  isDefault: v.optional(v.boolean()),
+  settings: v.optional(
+    v.object({
+      speed: v.optional(v.number()),
+      pitch: v.optional(v.number()),
+      emotion: v.optional(v.union(
+        v.string(),
+        v.array(v.string())
+      )),
+    })
+  ),
+  description: v.optional(v.string()),
+  createdAt: v.optional(v.number()),
+});
+
+// Get all voice configs for an avatar
+export const getVoiceConfigs = query({
+  args: { avatarId: v.id("avatars") },
+  handler: async (ctx, args) => {
+    const avatar = await ctx.db.get(args.avatarId);
+    if (!avatar) return [];
+    return avatar.voiceConfigs || [];
+  },
+});
+
+// Add a new voice configuration to an avatar
+export const addVoiceConfig = mutation({
+  args: {
+    avatarId: v.id("avatars"),
+    config: voiceConfigValidator,
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!user || user.role !== "admin") {
+      throw new Error("Not authorized");
+    }
+
+    const avatar = await ctx.db.get(args.avatarId);
+    if (!avatar) throw new Error("Avatar not found");
+
+    const existingConfigs = avatar.voiceConfigs || [];
+
+    // Check for duplicate ID
+    if (existingConfigs.some(c => c.id === args.config.id)) {
+      throw new Error(`Voice config with ID "${args.config.id}" already exists`);
+    }
+
+    // If this is marked as default for its language, unmark others
+    let updatedConfigs = existingConfigs;
+    if (args.config.isDefault) {
+      updatedConfigs = existingConfigs.map(c =>
+        c.language === args.config.language ? { ...c, isDefault: false } : c
+      );
+    }
+
+    // Add the new config with timestamp
+    const newConfig = {
+      ...args.config,
+      createdAt: Date.now(),
+    };
+
+    await ctx.db.patch(args.avatarId, {
+      voiceConfigs: [...updatedConfigs, newConfig],
+      updatedAt: Date.now(),
+    });
+
+    return { success: true, config: newConfig };
+  },
+});
+
+// Update an existing voice configuration
+export const updateVoiceConfig = mutation({
+  args: {
+    avatarId: v.id("avatars"),
+    configId: v.string(),
+    updates: v.object({
+      name: v.optional(v.string()),
+      voiceId: v.optional(v.string()),
+      language: v.optional(v.string()),
+      provider: v.optional(v.union(
+        v.literal("cartesia"),
+        v.literal("elevenlabs"),
+        v.literal("openai")
+      )),
+      model: v.optional(v.string()),
+      isDefault: v.optional(v.boolean()),
+      settings: v.optional(
+        v.object({
+          speed: v.optional(v.number()),
+          pitch: v.optional(v.number()),
+          emotion: v.optional(v.union(
+            v.string(),
+            v.array(v.string())
+          )),
+        })
+      ),
+      description: v.optional(v.string()),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!user || user.role !== "admin") {
+      throw new Error("Not authorized");
+    }
+
+    const avatar = await ctx.db.get(args.avatarId);
+    if (!avatar) throw new Error("Avatar not found");
+
+    const existingConfigs = avatar.voiceConfigs || [];
+    const configIndex = existingConfigs.findIndex(c => c.id === args.configId);
+
+    if (configIndex === -1) {
+      throw new Error(`Voice config with ID "${args.configId}" not found`);
+    }
+
+    // Get the updated config's language (either from updates or existing)
+    const targetLanguage = args.updates.language || existingConfigs[configIndex].language;
+
+    // If marking as default, unmark others for the same language
+    let updatedConfigs = existingConfigs;
+    if (args.updates.isDefault) {
+      updatedConfigs = existingConfigs.map(c =>
+        c.language === targetLanguage && c.id !== args.configId
+          ? { ...c, isDefault: false }
+          : c
+      );
+    }
+
+    // Update the config
+    updatedConfigs[configIndex] = {
+      ...updatedConfigs[configIndex],
+      ...args.updates,
+    };
+
+    await ctx.db.patch(args.avatarId, {
+      voiceConfigs: updatedConfigs,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true, config: updatedConfigs[configIndex] };
+  },
+});
+
+// Delete a voice configuration
+export const deleteVoiceConfig = mutation({
+  args: {
+    avatarId: v.id("avatars"),
+    configId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!user || user.role !== "admin") {
+      throw new Error("Not authorized");
+    }
+
+    const avatar = await ctx.db.get(args.avatarId);
+    if (!avatar) throw new Error("Avatar not found");
+
+    const existingConfigs = avatar.voiceConfigs || [];
+    const filteredConfigs = existingConfigs.filter(c => c.id !== args.configId);
+
+    if (filteredConfigs.length === existingConfigs.length) {
+      throw new Error(`Voice config with ID "${args.configId}" not found`);
+    }
+
+    await ctx.db.patch(args.avatarId, {
+      voiceConfigs: filteredConfigs,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+// Set a voice config as default for its language
+export const setDefaultVoiceConfig = mutation({
+  args: {
+    avatarId: v.id("avatars"),
+    configId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!user || user.role !== "admin") {
+      throw new Error("Not authorized");
+    }
+
+    const avatar = await ctx.db.get(args.avatarId);
+    if (!avatar) throw new Error("Avatar not found");
+
+    const existingConfigs = avatar.voiceConfigs || [];
+    const targetConfig = existingConfigs.find(c => c.id === args.configId);
+
+    if (!targetConfig) {
+      throw new Error(`Voice config with ID "${args.configId}" not found`);
+    }
+
+    // Unmark all others with same language, mark target as default
+    const updatedConfigs = existingConfigs.map(c => ({
+      ...c,
+      isDefault: c.id === args.configId
+        ? true
+        : c.language === targetConfig.language
+          ? false
+          : c.isDefault,
+    }));
+
+    await ctx.db.patch(args.avatarId, {
+      voiceConfigs: updatedConfigs,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+// Get default voice config for a specific language
+export const getDefaultVoiceForLanguage = query({
+  args: {
+    avatarId: v.id("avatars"),
+    language: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const avatar = await ctx.db.get(args.avatarId);
+    if (!avatar) return null;
+
+    const configs = avatar.voiceConfigs || [];
+
+    // First try to find the default for this language
+    const defaultConfig = configs.find(
+      c => c.language === args.language && c.isDefault
+    );
+    if (defaultConfig) return defaultConfig;
+
+    // Fall back to any voice for this language
+    const anyConfig = configs.find(c => c.language === args.language);
+    if (anyConfig) return anyConfig;
+
+    // Fall back to the primary voiceProvider config
+    if (avatar.voiceProvider.language === args.language) {
+      return {
+        id: "primary",
+        name: "Primary Voice",
+        voiceId: avatar.voiceProvider.voiceId,
+        language: avatar.voiceProvider.language,
+        provider: avatar.voiceProvider.type,
+        model: avatar.voiceProvider.model,
+        isDefault: true,
+        settings: avatar.voiceProvider.settings,
+      };
+    }
+
+    return null;
+  },
+});

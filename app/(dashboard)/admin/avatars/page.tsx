@@ -51,6 +51,7 @@ import {
   LifeStoryEditor,
   SessionStartEditor,
 } from "@/components/admin/AvatarPersonalityEditor";
+import { VoiceConfigManager } from "@/components/admin/VoiceConfigManager";
 
 interface Voice {
   id: string;
@@ -2075,7 +2076,7 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
   const saveProfileImage = useMutation(api.avatars.saveProfileImage);
   const knowledgeBases = useQuery(api.knowledgeBases.list);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [activeTab, setActiveTab] = useState<"basic" | "voice" | "avatar" | "llm" | "vision" | "behavior" | "personality" | "identity" | "knowledge" | "memory" | "lifeStory" | "sessionStart" | "sessionTimer">("basic");
+  const [activeTab, setActiveTab] = useState<"basic" | "voice" | "voiceLibrary" | "avatar" | "llm" | "vision" | "behavior" | "personality" | "identity" | "knowledge" | "memory" | "lifeStory" | "sessionStart" | "sessionTimer">("basic");
   const [modelSearch, setModelSearch] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<{
@@ -2319,7 +2320,8 @@ You are fluent in both German and English.
     { id: "knowledge", label: "Knowledge" },
     { id: "memory", label: "Memory" },
     { id: "avatar", label: "Beyond Presence" },
-    { id: "voice", label: "Cartesia Voice" },
+    { id: "voice", label: "Primary Voice" },
+    { id: "voiceLibrary", label: "🎤 Voice Library" },
     { id: "llm", label: "LLM Config" },
     { id: "vision", label: "👁️ Vision" },
     { id: "behavior", label: "Behavior" },
@@ -2865,6 +2867,13 @@ You are fluent in both German and English.
                   />
                 </div>
               </>
+            )}
+
+            {activeTab === "voiceLibrary" && (
+              <VoiceConfigManager
+                avatarId={avatarId}
+                avatarName={avatar.name}
+              />
             )}
 
             {activeTab === "llm" && (
