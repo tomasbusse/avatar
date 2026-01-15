@@ -121,6 +121,15 @@ export async function POST(request: NextRequest) {
     }
 
     const lessonContent = content.jsonContent as LessonContent;
+
+    // Validate lessonContent has required structure
+    if (!lessonContent.metadata) {
+      return NextResponse.json(
+        { success: false, error: "Content missing metadata structure. Try restructuring the content first." },
+        { status: 400 }
+      );
+    }
+
     console.log(`📎 Generating ${gameType} game from knowledge: ${content.title}`);
 
     // 4. Build prompt based on game type and knowledge content
@@ -178,17 +187,21 @@ export async function POST(request: NextRequest) {
     const data = parsedContent as Record<string, unknown>;
 
     // 7. Create the game in Convex
-    const slug = generateSlug(data.title as string || lessonContent.metadata.title);
+    const gameTitle = (data.title as string) || lessonContent.metadata?.title || content.title || "Knowledge Game";
+    const slug = generateSlug(gameTitle);
+    const gameLevel = (lessonContent.metadata?.level || content.metadata?.level || "A2") as CEFRLevel;
+    const gameTopic = lessonContent.metadata?.topic || content.title || "English";
+    const gameTags = lessonContent.metadata?.tags || [];
 
     const gameId = await getConvex().mutation(api.wordGames.createGame, {
-      title: (data.title as string) || `${lessonContent.metadata.title} - ${gameType}`,
+      title: `${gameTitle} - ${gameType}`,
       slug,
       description: `Generated from knowledge base: ${content.title}`,
       instructions: (data.instructions as string) || "Complete the game to practice what you learned.",
       type: gameType,
       category: (data.category as GameCategory) || determineCategory(gameType, lessonContent),
-      level: lessonContent.metadata.level as CEFRLevel,
-      tags: [lessonContent.metadata.topic, "knowledge-generated", ...(lessonContent.metadata.tags || [])],
+      level: gameLevel,
+      tags: [gameTopic, "knowledge-generated", ...gameTags],
       config: normalizeConfig(data.config),
       hints: Array.isArray(data.hints) ? (data.hints as string[]) : [],
       difficultyConfig: {
@@ -208,9 +221,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       gameId,
-      title: data.title || lessonContent.metadata.title,
+      title: gameTitle,
       type: gameType,
-      level: lessonContent.metadata.level,
+      level: gameLevel,
     });
 
   } catch (error) {
@@ -228,13 +241,13 @@ function buildPromptFromKnowledge(
   lesson: LessonContent,
   itemCount: number
 ): string {
-  const level = lesson.metadata.level;
-  const title = lesson.metadata.title;
+  const level = lesson.metadata?.level || "A2";
+  const title = lesson.metadata?.title || "English Lesson";
 
   // Extract relevant content based on game type
-  const vocabulary = lesson.content.vocabulary || [];
-  const grammarRules = lesson.content.grammarRules || [];
-  const exercises = lesson.content.exercises || [];
+  const vocabulary = lesson.content?.vocabulary || [];
+  const grammarRules = lesson.content?.grammarRules || [];
+  const exercises = lesson.content?.exercises || [];
 
   const basePrompt = `You are an expert English language teacher creating educational games.
 
