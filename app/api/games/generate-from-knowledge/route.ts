@@ -122,15 +122,15 @@ export async function POST(request: NextRequest) {
 
     const lessonContent = content.jsonContent as LessonContent;
 
-    // Validate lessonContent has required structure
-    if (!lessonContent.metadata) {
-      return NextResponse.json(
-        { success: false, error: "Content missing metadata structure. Try restructuring the content first." },
-        { status: 400 }
-      );
-    }
+    // Build metadata from whatever is available in the jsonContent or content record
+    const effectiveMetadata = {
+      level: lessonContent.metadata?.level || (content.metadata as any)?.level || "A2",
+      title: lessonContent.metadata?.title || content.title || "Knowledge Content",
+      topic: lessonContent.metadata?.topic || content.title || "English",
+      tags: lessonContent.metadata?.tags || [],
+    };
 
-    console.log(`📎 Generating ${gameType} game from knowledge: ${content.title}`);
+    console.log(`📎 Generating ${gameType} game from knowledge: ${content.title} (level: ${effectiveMetadata.level})`);
 
     // 4. Build prompt based on game type and knowledge content
     const prompt = buildPromptFromKnowledge(gameType, lessonContent, itemCount);
@@ -186,12 +186,21 @@ export async function POST(request: NextRequest) {
 
     const data = parsedContent as Record<string, unknown>;
 
-    // 7. Create the game in Convex
-    const gameTitle = (data.title as string) || lessonContent.metadata?.title || content.title || "Knowledge Game";
+    // 7. Look up the Convex user by Clerk ID
+    const convexUser = await getConvex().query(api.users.getUserByClerkId, {
+      clerkId: userId,
+    });
+
+    if (!convexUser) {
+      return NextResponse.json(
+        { success: false, error: "User not found in database. Please try logging out and back in." },
+        { status: 404 }
+      );
+    }
+
+    // 8. Create the game in Convex
+    const gameTitle = (data.title as string) || effectiveMetadata.title;
     const slug = generateSlug(gameTitle);
-    const gameLevel = (lessonContent.metadata?.level || content.metadata?.level || "A2") as CEFRLevel;
-    const gameTopic = lessonContent.metadata?.topic || content.title || "English";
-    const gameTags = lessonContent.metadata?.tags || [];
 
     const gameId = await getConvex().mutation(api.wordGames.createGame, {
       title: `${gameTitle} - ${gameType}`,
@@ -200,8 +209,8 @@ export async function POST(request: NextRequest) {
       instructions: (data.instructions as string) || "Complete the game to practice what you learned.",
       type: gameType,
       category: (data.category as GameCategory) || determineCategory(gameType, lessonContent),
-      level: gameLevel,
-      tags: [gameTopic, "knowledge-generated", ...gameTags],
+      level: effectiveMetadata.level as CEFRLevel,
+      tags: [effectiveMetadata.topic, "knowledge-generated", ...effectiveMetadata.tags],
       config: normalizeConfig(data.config),
       hints: Array.isArray(data.hints) ? (data.hints as string[]) : [],
       difficultyConfig: {
@@ -210,7 +219,7 @@ export async function POST(request: NextRequest) {
         timeMultiplier: 1.0,
       },
       status: "draft" as const,
-      createdBy: userId as Id<"users">,
+      createdBy: convexUser._id,
     });
 
     console.log(`✅ Game created: ${gameId}`);
@@ -223,7 +232,7 @@ export async function POST(request: NextRequest) {
       gameId,
       title: gameTitle,
       type: gameType,
-      level: gameLevel,
+      level: effectiveMetadata.level,
     });
 
   } catch (error) {
