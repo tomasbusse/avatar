@@ -121,8 +121,11 @@ const DEFAULT_LLM_MODELS: LLMModel[] = [
   { id: "google/gemini-pro-1.5", name: "🔭 Gemini 1.5 Pro (Vision)" },
 ];
 
-// Cerebras models - ultra-fast inference (2,314 tokens/sec)
+// Cerebras models - ultra-fast inference
+// GLM-4.7: ~1000 tok/s, 131k context, best for agentic/coding tasks
+// Llama models: ~2300 tok/s, great for general conversation
 const CEREBRAS_MODELS: LLMModel[] = [
+  { id: "zai-glm-4.7", name: "🧠 GLM 4.7 (Agentic/Coding - 1000 tok/s)" },
   { id: "llama-3.3-70b", name: "⚡ Llama 3.3 70B (Fastest - 2314 tok/s)" },
   { id: "llama-3.1-70b", name: "⚡ Llama 3.1 70B" },
   { id: "llama-3.1-8b", name: "⚡ Llama 3.1 8B (Ultra Fast)" },
@@ -1789,7 +1792,7 @@ You are fluent in both German and English.
                   <h4 className="font-medium text-green-900 mb-1">LLM Configuration</h4>
                   <p className="text-sm text-green-700">
                     {formData.llmProvider === "cerebras"
-                      ? "⚡ Cerebras offers ultra-fast inference at 2,314 tokens/sec - 70x faster than competitors!"
+                      ? "⚡ Cerebras: GLM-4.7 (1000 tok/s, agentic) or Llama 3.3 (2314 tok/s, fast). Both with 131k context!"
                       : "Configure the AI brain via OpenRouter. Claude Sonnet 4 is recommended for best teaching quality."}
                   </p>
                 </div>
@@ -1810,7 +1813,7 @@ You are fluent in both German and English.
                       className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
                     >
                       <option value="openrouter">OpenRouter (Claude, GPT, Gemini, etc.)</option>
-                      <option value="cerebras">⚡ Cerebras (Ultra-Fast Llama)</option>
+                      <option value="cerebras">⚡ Cerebras (GLM-4.7 + Llama)</option>
                     </select>
                   </div>
 
@@ -2870,7 +2873,7 @@ You are fluent in both German and English.
                   <h4 className="font-medium text-green-900 mb-1">LLM Configuration</h4>
                   <p className="text-sm text-green-700">
                     {formData.llmProvider === "cerebras"
-                      ? "⚡ Cerebras offers ultra-fast inference at 2,314 tokens/sec - 70x faster than competitors!"
+                      ? "⚡ Cerebras: GLM-4.7 (1000 tok/s, agentic) or Llama 3.3 (2314 tok/s, fast). Both with 131k context!"
                       : "Configure the AI brain via OpenRouter. Claude Sonnet 4 is recommended for best teaching quality."}
                   </p>
                 </div>
@@ -2891,7 +2894,7 @@ You are fluent in both German and English.
                       className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
                     >
                       <option value="openrouter">OpenRouter (Claude, GPT, Gemini, etc.)</option>
-                      <option value="cerebras">⚡ Cerebras (Ultra-Fast Llama)</option>
+                      <option value="cerebras">⚡ Cerebras (GLM-4.7 + Llama)</option>
                     </select>
                   </div>
 

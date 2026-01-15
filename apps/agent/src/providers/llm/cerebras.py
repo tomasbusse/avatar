@@ -40,8 +40,11 @@ except ImportError:
 
 
 # Available Cerebras models - optimized for speed
+# GLM-4.7: ~1000 tok/s, 131k context, best for coding/agentic tasks
+# Llama models: ~2300 tok/s, great for general conversation
 CEREBRAS_MODELS = [
-    {"id": "llama-3.3-70b", "name": "Llama 3.3 70B (Fastest)"},
+    {"id": "zai-glm-4.7", "name": "GLM 4.7 (Agentic/Coding - 1000 tok/s)"},
+    {"id": "llama-3.3-70b", "name": "Llama 3.3 70B (Fastest - 2300 tok/s)"},
     {"id": "llama-3.1-70b", "name": "Llama 3.1 70B"},
     {"id": "llama-3.1-8b", "name": "Llama 3.1 8B (Ultra Fast)"},
 ]
