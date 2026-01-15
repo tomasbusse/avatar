@@ -218,7 +218,7 @@ export async function POST(request: NextRequest) {
         distractorDifficulty: "medium" as const,
         timeMultiplier: 1.0,
       },
-      status: "draft" as const,
+      status: "published" as const,
       createdBy: convexUser._id,
       knowledgeContentId: contentId as Id<"knowledgeContent">,
     });

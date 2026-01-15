@@ -1369,6 +1369,19 @@ function ContentItem({
                     >
                       <Share2 className="w-4 h-4" />
                     </Button>
+                    {/* Edit Game */}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.open(`/admin/tools/games/${game._id}/edit`, "_blank");
+                      }}
+                      title="Edit game"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                    </Button>
                     {/* Open Game */}
                     <Button
                       size="sm"
@@ -1378,7 +1391,7 @@ function ContentItem({
                         e.stopPropagation();
                         window.open(`/games/${game.slug}`, "_blank");
                       }}
-                      title="Open game in new tab"
+                      title="Preview game"
                     >
                       <Eye className="w-4 h-4" />
                     </Button>
