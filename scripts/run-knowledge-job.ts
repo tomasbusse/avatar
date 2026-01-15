@@ -108,7 +108,7 @@ async function runJob(jobId: string) {
       // Phase 2: Organization
       console.log("\n📊 Phase 2: Organization Agent structuring content...");
       const organized = await organizationAgent.organize(research, job.topic);
-      console.log(`   ✅ Created ${organized.sections?.length || 0} sections, ${organized.vocabulary?.length || 0} vocabulary items`);
+      console.log(`   ✅ Created ${organized.sections?.length || 0} sections, ${organized.vocabularyPlan?.length || 0} vocabulary items`);
 
       // Phase 3: Writing
       console.log("\n✍️  Phase 3: Knowledge Writer Agent creating content...");
