@@ -118,7 +118,7 @@ async function runJob(jobId: string) {
         status: "optimizing",
       });
 
-      const content = await writerAgent.write(organized, research, job.topic);
+      const content = await writerAgent.write(organized, research);
       console.log(`   ✅ Generated ${content.content.sections.length} sections, ${content.content.vocabulary.length} vocabulary, ${content.content.exercises.length} exercises`);
 
       // Save to database
