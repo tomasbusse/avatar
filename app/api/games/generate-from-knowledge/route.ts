@@ -13,7 +13,7 @@ export const maxDuration = 60;
 const getConvex = () => getConvexClient();
 
 // Available game templates for knowledge-based generation
-export const GAME_TEMPLATES = [
+const GAME_TEMPLATES = [
   {
     type: "matching_pairs" as GameType,
     name: "Matching Pairs",
