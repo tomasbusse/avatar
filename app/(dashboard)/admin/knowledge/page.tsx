@@ -48,8 +48,10 @@ import {
   Edit3,
   BookMarked,
   Activity,
+  Gamepad2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { CreateGameFromKnowledgeDialog } from "@/components/knowledge/create-game-from-knowledge-dialog";
 
 export default function KnowledgeManagementPage() {
   const knowledgeBases = useQuery(api.knowledgeBases.list);
@@ -795,6 +797,7 @@ function ContentItem({
   );
   const [showJsonViewer, setShowJsonViewer] = useState(false);
   const [showHtmlSlidesViewer, setShowHtmlSlidesViewer] = useState(false);
+  const [showCreateGameDialog, setShowCreateGameDialog] = useState(false);
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -1161,6 +1164,21 @@ function ContentItem({
             </Button>
           )}
 
+          {/* Create Game Button */}
+          {content.processingStatus === "completed" && hasJsonContent && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowCreateGameDialog(true);
+              }}
+              title="Create game from this content"
+            >
+              <Gamepad2 className="w-4 h-4 text-emerald-500" />
+            </Button>
+          )}
+
           {/* Edit Content Button */}
           {content.processingStatus === "completed" && (
             <Button
@@ -1225,6 +1243,18 @@ function ContentItem({
           onClose={() => setShowEditModal(false)}
         />
       )}
+
+      {/* Create Game Dialog */}
+      <CreateGameFromKnowledgeDialog
+        open={showCreateGameDialog}
+        onOpenChange={setShowCreateGameDialog}
+        contentId={content._id}
+        contentTitle={content.title}
+        contentLevel={content.metadata?.level || "A2"}
+        onSuccess={(gameId) => {
+          toast.success("Game created! Redirecting to game editor...");
+        }}
+      />
     </>
   );
 }
