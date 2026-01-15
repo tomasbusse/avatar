@@ -105,7 +105,7 @@ const TTS_MODELS = [
 
 // Emotion presets
 const EMOTION_PRESETS = [
-  { value: "", label: "Default" },
+  { value: "none", label: "Default" },
   { value: "positivity:medium", label: "Positive (Warm)" },
   { value: "positivity:high", label: "Enthusiastic" },
   { value: "curiosity:medium", label: "Curious" },
@@ -131,7 +131,7 @@ export function VoiceConfigManager({ avatarId, avatarName }: VoiceConfigManagerP
     model: "sonic-2",
     isDefault: false,
     speed: 1.0,
-    emotion: "",
+    emotion: "none",
     description: "",
   });
 
@@ -157,7 +157,7 @@ export function VoiceConfigManager({ avatarId, avatarName }: VoiceConfigManagerP
       model: "sonic-2",
       isDefault: false,
       speed: 1.0,
-      emotion: "",
+      emotion: "none",
       description: "",
     });
     setUsePreset(true);
@@ -211,8 +211,8 @@ export function VoiceConfigManager({ avatarId, avatarName }: VoiceConfigManagerP
       isDefault: config.isDefault || false,
       speed: config.settings?.speed || 1.0,
       emotion: Array.isArray(config.settings?.emotion)
-        ? config.settings?.emotion[0] || ""
-        : config.settings?.emotion || "",
+        ? config.settings?.emotion[0] || "none"
+        : config.settings?.emotion || "none",
       description: config.description || "",
     });
     setIsAddDialogOpen(true);
@@ -237,7 +237,7 @@ export function VoiceConfigManager({ avatarId, avatarName }: VoiceConfigManagerP
         isDefault: formData.isDefault,
         settings: {
           speed: formData.speed,
-          emotion: formData.emotion ? [formData.emotion] : undefined,
+          emotion: formData.emotion && formData.emotion !== "none" ? [formData.emotion] : undefined,
         },
         description: formData.description || undefined,
       };
@@ -777,7 +777,7 @@ export function VoiceConfigManager({ avatarId, avatarName }: VoiceConfigManagerP
                 </SelectTrigger>
                 <SelectContent>
                   {EMOTION_PRESETS.map((preset) => (
-                    <SelectItem key={preset.value || "default"} value={preset.value}>
+                    <SelectItem key={preset.value} value={preset.value}>
                       {preset.label}
                     </SelectItem>
                   ))}
