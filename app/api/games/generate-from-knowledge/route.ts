@@ -220,12 +220,10 @@ export async function POST(request: NextRequest) {
       },
       status: "draft" as const,
       createdBy: convexUser._id,
+      knowledgeContentId: contentId as Id<"knowledgeContent">,
     });
 
-    console.log(`✅ Game created: ${gameId}`);
-
-    // 8. Link game to knowledge content (optional - for tracking)
-    // This could be added later for better tracking
+    console.log(`✅ Game created: ${gameId} (linked to knowledge content: ${contentId})`)
 
     return NextResponse.json({
       success: true,

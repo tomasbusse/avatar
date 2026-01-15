@@ -795,9 +795,18 @@ function ContentItem({
     api.presentations.getPresentation,
     content.presentationId ? { presentationId: content.presentationId } : "skip"
   );
+
+  // Fetch games linked to this knowledge content
+  const linkedGames = useQuery(
+    api.wordGames.getGamesForKnowledgeContent,
+    { knowledgeContentId: content._id }
+  );
+
   const [showJsonViewer, setShowJsonViewer] = useState(false);
   const [showHtmlSlidesViewer, setShowHtmlSlidesViewer] = useState(false);
   const [showCreateGameDialog, setShowCreateGameDialog] = useState(false);
+  const [showLinkedGames, setShowLinkedGames] = useState(false);
+  const [copiedGameLink, setCopiedGameLink] = useState<string | null>(null);
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -1164,21 +1173,44 @@ function ContentItem({
             </Button>
           )}
 
-          {/* Create Game Button */}
+          {/* Games Button with count */}
           {content.processingStatus === "completed" && hasJsonContent && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowCreateGameDialog(true);
-              }}
-              title="Create interactive game from this content"
-              className="gap-1"
-            >
-              <Gamepad2 className="w-4 h-4 text-emerald-500" />
-              <span className="text-xs text-emerald-600 hidden sm:inline">Game</span>
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowCreateGameDialog(true);
+                }}
+                title="Create interactive game from this content"
+                className="gap-1"
+              >
+                <Gamepad2 className="w-4 h-4 text-emerald-500" />
+                <span className="text-xs text-emerald-600 hidden sm:inline">+Game</span>
+              </Button>
+              {linkedGames && linkedGames.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowLinkedGames(!showLinkedGames);
+                  }}
+                  title={`${linkedGames.length} game(s) linked - click to view/share`}
+                  className="gap-1 px-2"
+                >
+                  <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-700">
+                    {linkedGames.length}
+                  </Badge>
+                  {showLinkedGames ? (
+                    <ChevronUp className="w-3 h-3" />
+                  ) : (
+                    <ChevronDown className="w-3 h-3" />
+                  )}
+                </Button>
+              )}
+            </div>
           )}
 
           {/* Hint to restructure content that lacks JSON */}
@@ -1264,6 +1296,99 @@ function ContentItem({
           toast.success("Game created! Redirecting to game editor...");
         }}
       />
+
+      {/* Linked Games Section */}
+      {showLinkedGames && linkedGames && linkedGames.length > 0 && (
+        <div className="mt-3 p-3 bg-muted/30 rounded-lg border border-border/50">
+          <div className="flex items-center gap-2 mb-2">
+            <Gamepad2 className="w-4 h-4 text-emerald-500" />
+            <span className="text-sm font-medium">Linked Games ({linkedGames.length})</span>
+          </div>
+          <div className="space-y-2">
+            {linkedGames.map((game) => {
+              const gameUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/games/${game.slug}`;
+              const isCopied = copiedGameLink === game._id;
+
+              return (
+                <div
+                  key={game._id}
+                  className="flex items-center justify-between p-2 bg-background rounded border text-sm"
+                >
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <Badge variant="outline" className="text-xs shrink-0">
+                      {game.type.replace(/_/g, " ")}
+                    </Badge>
+                    <span className="truncate">{game.title}</span>
+                    <Badge
+                      variant={game.status === "published" ? "default" : "secondary"}
+                      className={`text-xs shrink-0 ${game.status === "published" ? "bg-green-100 text-green-700" : ""}`}
+                    >
+                      {game.status}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-1 ml-2">
+                    {/* Copy Share Link */}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigator.clipboard.writeText(gameUrl);
+                        setCopiedGameLink(game._id);
+                        toast.success("Game link copied to clipboard!");
+                        setTimeout(() => setCopiedGameLink(null), 2000);
+                      }}
+                      title="Copy game link"
+                    >
+                      {isCopied ? (
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </Button>
+                    {/* Share Button */}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (navigator.share) {
+                          navigator.share({
+                            title: game.title,
+                            text: `Practice English with this interactive game: ${game.title}`,
+                            url: gameUrl,
+                          });
+                        } else {
+                          navigator.clipboard.writeText(gameUrl);
+                          toast.success("Game link copied to clipboard!");
+                        }
+                      }}
+                      title="Share game"
+                    >
+                      <Share2 className="w-4 h-4" />
+                    </Button>
+                    {/* Open Game */}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.open(`/games/${game.slug}`, "_blank");
+                      }}
+                      title="Open game in new tab"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </>
   );
 }

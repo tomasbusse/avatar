@@ -1681,6 +1681,9 @@ export default defineSchema({
       v.literal("archived")
     ),
 
+    // Knowledge Base Link (for games generated from KB content)
+    knowledgeContentId: v.optional(v.id("knowledgeContent")),
+
     // Metadata
     createdBy: v.id("users"),
     createdAt: v.number(),
@@ -1701,7 +1704,8 @@ export default defineSchema({
     .index("by_level", ["level"])
     .index("by_status", ["status"])
     .index("by_category", ["category"])
-    .index("by_created", ["createdAt"]),
+    .index("by_created", ["createdAt"])
+    .index("by_knowledge_content", ["knowledgeContentId"]),
 
   // Game-Lesson Links
   gameLessonLinks: defineTable({

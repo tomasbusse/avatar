@@ -74,6 +74,21 @@ export const getGameBySlug = query({
 });
 
 /**
+ * Get games linked to a knowledge content item
+ */
+export const getGamesForKnowledgeContent = query({
+  args: { knowledgeContentId: v.id("knowledgeContent") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("wordGames")
+      .withIndex("by_knowledge_content", (q) =>
+        q.eq("knowledgeContentId", args.knowledgeContentId)
+      )
+      .collect();
+  },
+});
+
+/**
  * Get games linked to a lesson
  */
 export const getGamesForLesson = query({
@@ -294,6 +309,7 @@ export const createGame = mutation({
       v.union(v.literal("draft"), v.literal("published"), v.literal("archived"))
     ),
     createdBy: v.id("users"),
+    knowledgeContentId: v.optional(v.id("knowledgeContent")),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -332,6 +348,7 @@ export const createGame = mutation({
       hints: args.hints,
       difficultyConfig: args.difficultyConfig,
       status: args.status || "draft",
+      knowledgeContentId: args.knowledgeContentId,
       createdBy: args.createdBy,
       createdAt: now,
       updatedAt: now,
