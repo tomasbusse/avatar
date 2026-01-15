@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -2075,6 +2075,19 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
   const generateUploadUrl = useMutation(api.avatars.generateProfileImageUploadUrl);
   const saveProfileImage = useMutation(api.avatars.saveProfileImage);
   const knowledgeBases = useQuery(api.knowledgeBases.list);
+
+  // Combine default voices with avatar's Voice Library voices
+  const combinedVoices = useMemo(() => {
+    const libraryVoices: Voice[] = (avatar?.voiceConfigs || []).map((vc: { id: string; name: string; voiceId: string; language: string }) => ({
+      id: vc.voiceId,
+      name: `📚 ${vc.name}`,
+      lang: vc.language,
+      isCustom: true,
+    }));
+    // Put library voices first, then default voices
+    return [...libraryVoices, ...allVoices];
+  }, [avatar?.voiceConfigs, allVoices]);
+
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [activeTab, setActiveTab] = useState<"basic" | "voice" | "voiceLibrary" | "avatar" | "llm" | "vision" | "behavior" | "personality" | "identity" | "knowledge" | "memory" | "lifeStory" | "sessionStart" | "sessionTimer">("basic");
   const [modelSearch, setModelSearch] = useState("");
@@ -2743,12 +2756,12 @@ You are fluent in both German and English.
                 <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
                   <h4 className="font-medium text-blue-900 mb-1">Cartesia TTS Configuration</h4>
                   <p className="text-sm text-blue-700">
-                    Configure text-to-speech with Cartesia Sonic-3.
+                    Configure text-to-speech with Cartesia Sonic-3. Voices from your Voice Library appear first (📚).
                   </p>
                 </div>
 
                 <VoiceSelector
-                  voices={allVoices}
+                  voices={combinedVoices}
                   selectedVoiceId={formData.cartesiaVoiceId}
                   onSelect={(id) => setFormData({ ...formData, cartesiaVoiceId: id })}
                 />
