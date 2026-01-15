@@ -375,7 +375,7 @@ export function VoiceConfigManager({ avatarId, avatarName }: VoiceConfigManagerP
             Manage multiple Cartesia voices for {avatarName}
           </p>
         </div>
-        <Button onClick={() => { resetForm(); setEditingConfig(null); setIsAddDialogOpen(true); }}>
+        <Button type="button" onClick={() => { resetForm(); setEditingConfig(null); setIsAddDialogOpen(true); }}>
           <Plus className="w-4 h-4 mr-2" />
           Add Voice
         </Button>
@@ -414,7 +414,7 @@ export function VoiceConfigManager({ avatarId, avatarName }: VoiceConfigManagerP
             <p className="text-sm text-muted-foreground mb-4">
               Add voice configurations for different languages or styles
             </p>
-            <Button variant="outline" onClick={() => setIsAddDialogOpen(true)}>
+            <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(true)}>
               <Plus className="w-4 h-4 mr-2" />
               Add First Voice
             </Button>
@@ -473,6 +473,7 @@ export function VoiceConfigManager({ avatarId, avatarName }: VoiceConfigManagerP
                         </div>
                         <div className="flex items-center gap-1">
                           <Button
+                            type="button"
                             variant="ghost"
                             size="sm"
                             onClick={() => handlePlayVoice(config.voiceId)}
@@ -485,6 +486,7 @@ export function VoiceConfigManager({ avatarId, avatarName }: VoiceConfigManagerP
                           </Button>
                           {!config.isDefault && (
                             <Button
+                              type="button"
                               variant="ghost"
                               size="sm"
                               onClick={() => handleSetDefault(config.id)}
@@ -494,6 +496,7 @@ export function VoiceConfigManager({ avatarId, avatarName }: VoiceConfigManagerP
                             </Button>
                           )}
                           <Button
+                            type="button"
                             variant="ghost"
                             size="sm"
                             onClick={() => openEditDialog(config)}
@@ -501,6 +504,7 @@ export function VoiceConfigManager({ avatarId, avatarName }: VoiceConfigManagerP
                             <Edit className="w-4 h-4" />
                           </Button>
                           <Button
+                            type="button"
                             variant="ghost"
                             size="sm"
                             onClick={() => setDeletingConfigId(config.id)}
@@ -614,6 +618,7 @@ export function VoiceConfigManager({ avatarId, avatarName }: VoiceConfigManagerP
                           <div className="flex items-center justify-between">
                             <span className="font-medium">{preset.name}</span>
                             <Button
+                              type="button"
                               variant="outline"
                               size="sm"
                               onClick={() => handlePlayVoice(preset.voiceId)}
@@ -680,6 +685,7 @@ export function VoiceConfigManager({ avatarId, avatarName }: VoiceConfigManagerP
                   />
                   {formData.voiceId && (
                     <Button
+                      type="button"
                       variant="outline"
                       size="icon"
                       onClick={() => handlePlayVoice(formData.voiceId)}
@@ -814,10 +820,10 @@ export function VoiceConfigManager({ avatarId, avatarName }: VoiceConfigManagerP
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={isSubmitting}>
+            <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {editingConfig ? "Save Changes" : "Add Voice"}
             </Button>
