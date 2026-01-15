@@ -18,7 +18,7 @@ import re
 import httpx
 import time
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, AsyncIterable
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -39,7 +39,7 @@ sentry.initialize(
 )
 
 from livekit import rtc
-from livekit.agents import AutoSubscribe, JobContext, JobProcess, WorkerOptions, cli, llm, function_tool, RunContext
+from livekit.agents import AutoSubscribe, JobContext, JobProcess, WorkerOptions, cli, llm, function_tool, RunContext, ModelSettings
 from livekit.agents.voice import AgentSession, Agent, room_io
 from livekit.agents.llm import ChatMessage, ChatRole
 from livekit.plugins import deepgram, cartesia, bey, silero
@@ -906,6 +906,45 @@ class BeethovenTeacher(Agent):
                 
             except Exception as ve:
                 logger.error(f"[VISION] Failed to attach frames: {ve}")
+
+    async def tts_node(
+        self,
+        text: AsyncIterable[str],
+        model_settings: ModelSettings
+    ) -> AsyncIterable[rtc.AudioFrame]:
+        """
+        Override TTS node to add silence padding at the end of speech.
+        This prevents the last few syllables from being cut off.
+        """
+        import numpy as np
+
+        # Track frame properties for creating silence
+        sample_rate = 24000  # Default for Cartesia
+        num_channels = 1
+
+        # Stream all frames from default TTS
+        async for frame in Agent.default.tts_node(self, text, model_settings):
+            # Capture frame properties from first frame
+            sample_rate = frame.sample_rate
+            num_channels = frame.num_channels
+            yield frame
+
+        # After all frames, append silence padding (250ms) to prevent cut-off
+        # This gives the audio pipeline time to flush and prevents clipping
+        silence_duration_ms = 250
+        samples_for_silence = int(sample_rate * silence_duration_ms / 1000)
+
+        # Create silence frame (int16 zeros)
+        silence_data = np.zeros(samples_for_silence * num_channels, dtype=np.int16)
+        silence_frame = rtc.AudioFrame(
+            data=silence_data.tobytes(),
+            sample_rate=sample_rate,
+            num_channels=num_channels,
+            samples_per_channel=samples_for_silence,
+        )
+
+        yield silence_frame
+        logger.debug(f"[TTS] Added {silence_duration_ms}ms silence padding")
 
 
 def build_system_prompt(avatar_config: Dict[str, Any], memory_context: str = "") -> str:
@@ -2839,14 +2878,15 @@ You are conducting a structured lesson from this presentation.
     if opening_greeting:
         try:
             import asyncio
-            # Small delay to ensure avatar is fully connected
-            await asyncio.sleep(0.5)
+            # Longer delay to ensure Beyond Presence avatar is fully connected (cold starts can be slow)
+            await asyncio.sleep(1.5)
             logger.info(f"🎤 Calling session.say() with greeting...")
             # Use asyncio.wait_for to prevent hanging forever
+            # Increased timeout from 10s to 25s to accommodate Beyond Presence cold starts
             try:
                 await asyncio.wait_for(
                     session.say(opening_greeting, allow_interruptions=True),
-                    timeout=10.0  # 10 second timeout for greeting
+                    timeout=25.0  # 25 second timeout for greeting (Beyond Presence can be slow)
                 )
                 logger.info(f"👋 Delivered opening greeting: '{opening_greeting[:50]}...'")
 
@@ -2863,7 +2903,7 @@ You are conducting a structured lesson from this presentation.
                         logger.warning(f"⚠️ Failed to mark events as followed up: {e}")
 
             except asyncio.TimeoutError:
-                logger.warning(f"⏱️ Opening greeting timed out after 10s - continuing without greeting")
+                logger.warning(f"⏱️ Opening greeting timed out after 25s - continuing without greeting")
         except Exception as e:
             logger.error(f"❌ Failed to deliver opening greeting: {e}")
             logger.exception(e)
