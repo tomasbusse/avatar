@@ -388,6 +388,9 @@ function LessonEditor({
   const linkContent = useMutation(api.knowledgeBases.linkContentToLesson);
   const unlinkContent = useMutation(api.knowledgeBases.unlinkContentFromLesson);
 
+  // Preview state for knowledge base content
+  const [previewSlideIndex, setPreviewSlideIndex] = useState(0);
+
   const isEditing = !!lesson;
 
   // Determine initial content source from lesson data
@@ -773,12 +776,13 @@ function LessonEditor({
                   <label className="text-sm font-medium">Select Content</label>
                   <select
                     value={formData.knowledgeContentId}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setFormData({
                         ...formData,
                         knowledgeContentId: e.target.value,
-                      })
-                    }
+                      });
+                      setPreviewSlideIndex(0); // Reset preview to first slide
+                    }}
                     className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
                   >
                     {allContent === undefined ? (
@@ -803,6 +807,57 @@ function LessonEditor({
                       Go to Admin &gt; Knowledge Bases to upload content with HTML slides.
                     </p>
                   )}
+
+                  {/* HTML Slides Preview */}
+                  {formData.knowledgeContentId && (() => {
+                    const selectedContent = allContent?.find((c: any) => c._id === formData.knowledgeContentId);
+                    const slides = selectedContent?.htmlSlides || [];
+                    if (slides.length === 0) return null;
+
+                    const currentSlide = slides[previewSlideIndex];
+                    return (
+                      <div className="mt-4 border rounded-lg overflow-hidden bg-gray-100">
+                        <div className="flex items-center justify-between px-3 py-2 bg-gray-200 border-b">
+                          <span className="text-sm font-medium">
+                            Slide {previewSlideIndex + 1} of {slides.length}
+                            {currentSlide?.title && `: ${currentSlide.title}`}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setPreviewSlideIndex(Math.max(0, previewSlideIndex - 1))}
+                              disabled={previewSlideIndex === 0}
+                              className="px-2 py-1 text-sm bg-white border rounded hover:bg-gray-50 disabled:opacity-50"
+                            >
+                              ← Prev
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPreviewSlideIndex(Math.min(slides.length - 1, previewSlideIndex + 1))}
+                              disabled={previewSlideIndex >= slides.length - 1}
+                              className="px-2 py-1 text-sm bg-white border rounded hover:bg-gray-50 disabled:opacity-50"
+                            >
+                              Next →
+                            </button>
+                          </div>
+                        </div>
+                        <div className="aspect-video w-full">
+                          <iframe
+                            srcDoc={currentSlide?.html || ''}
+                            className="w-full h-full border-0"
+                            sandbox="allow-same-origin"
+                            title={`Slide ${previewSlideIndex + 1}`}
+                          />
+                        </div>
+                        {currentSlide?.speakerNotes && (
+                          <div className="px-3 py-2 bg-blue-50 border-t text-sm">
+                            <span className="font-medium text-blue-800">Speaker Notes:</span>
+                            <p className="text-blue-700 mt-1">{currentSlide.speakerNotes}</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
