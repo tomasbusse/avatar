@@ -5,7 +5,8 @@ import { getConvexClient } from "@/lib/convex-client";
 const getConvex = () => getConvexClient();
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import puppeteer from "puppeteer";
+import puppeteer from "puppeteer-core";
+import chromium from "@sparticuz/chromium";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { LessonContent } from "@/lib/types/lesson-content";
 import { SLS_COLORS } from "@/lib/brand-colors";
@@ -357,9 +358,19 @@ export async function POST(request: NextRequest) {
     // Step 2: Render to PDF with Puppeteer
     console.log("🖨️ Rendering PDF with Puppeteer...");
 
+    // Use serverless chromium for Vercel deployment
+    const isVercel = process.env.VERCEL === "1";
     const browser = await puppeteer.launch({
+      args: isVercel ? chromium.args : ["--no-sandbox", "--disable-setuid-sandbox"],
+      defaultViewport: { width: 1280, height: 720 },
+      executablePath: isVercel
+        ? await chromium.executablePath()
+        : process.platform === "darwin"
+          ? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+          : process.platform === "win32"
+            ? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+            : "/usr/bin/google-chrome",
       headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
 
     const page = await browser.newPage();

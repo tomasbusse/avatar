@@ -435,7 +435,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const lessonContent = content.jsonContent as LessonContent;
+    let lessonContent = content.jsonContent as LessonContent;
+
+    // Ensure lessonContent has required structure with defaults
+    if (!lessonContent.metadata) {
+      lessonContent = {
+        ...lessonContent,
+        metadata: {
+          title: content.title || "Lesson",
+          titleDe: content.title || "Lektion",
+          level: ((content.metadata as any)?.level || "A2") as "A1" | "A2" | "B1" | "B2" | "C1" | "C2",
+          estimatedMinutes: 20,
+          topic: content.title || "English",
+          subtopics: [],
+          tags: [],
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+      };
+    }
+
+    if (!lessonContent.content) {
+      lessonContent = {
+        ...lessonContent,
+        content: {
+          learningObjectives: [],
+          introduction: { id: "intro-1", title: "Introduction", content: "" },
+          sections: [],
+          vocabulary: [],
+          grammarRules: [],
+          exercises: [],
+          summary: { id: "summary-1", title: "Summary", content: "" },
+        },
+      };
+    }
 
     // Update status to generating
     await getConvex().mutation(api.knowledgeBases.updateProcessingStatus, {
