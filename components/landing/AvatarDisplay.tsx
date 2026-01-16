@@ -62,6 +62,8 @@ interface AvatarDisplayProps {
   externalActivated?: boolean;
   /** Callback when activation state changes (for external control) */
   onActivationChange?: (activated: boolean) => void;
+  /** Hide all LiveKit room controls (close, mute, stop, camera) */
+  hideRoomControls?: boolean;
 }
 
 export function AvatarDisplay({
@@ -79,6 +81,7 @@ export function AvatarDisplay({
   hidePlayButton = false,
   externalActivated,
   onActivationChange,
+  hideRoomControls = false,
 }: AvatarDisplayProps) {
   const t = useTranslations("hero");
   const tContact = useTranslations("contact");
@@ -295,6 +298,7 @@ export function AvatarDisplay({
               className="absolute inset-0"
               sessionTimeoutSeconds={avatarConfig?.sessionTimeoutSeconds ?? 300}
               warningAtSeconds={avatarConfig?.warningAtSeconds ?? 60}
+              hideControls={hideRoomControls}
             />
           )}
 

@@ -30,6 +30,8 @@ interface LandingAvatarRoomProps {
   className?: string;
   sessionTimeoutSeconds?: number;
   warningAtSeconds?: number;
+  /** Hide all UI controls (close button, mute, stop, camera) for external control */
+  hideControls?: boolean;
 }
 
 /**
@@ -79,6 +81,7 @@ export function LandingAvatarRoom({
   className,
   sessionTimeoutSeconds = 300, // Default 5 minutes
   warningAtSeconds = 60, // Default warn at 1 minute remaining
+  hideControls = false,
 }: LandingAvatarRoomProps) {
   const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -177,6 +180,7 @@ export function LandingAvatarRoom({
         onClose={onClose}
         sessionTimeoutSeconds={sessionTimeoutSeconds}
         warningAtSeconds={warningAtSeconds}
+        hideControls={hideControls}
       />
       <RoomAudioRenderer />
     </LiveKitRoom>
@@ -189,12 +193,14 @@ function RoomContent({
   onClose,
   sessionTimeoutSeconds,
   warningAtSeconds,
+  hideControls = false,
 }: {
   avatar: LandingAvatarRoomProps["avatar"];
   visionEnabled: boolean;
   onClose?: (reason?: string) => void;
   sessionTimeoutSeconds: number;
   warningAtSeconds: number;
+  hideControls?: boolean;
 }) {
   const room = useRoomContext();
   const { localParticipant } = useLocalParticipant();
@@ -408,64 +414,68 @@ function RoomContent({
         </div>
       </div>
 
-      {/* Close Button */}
-      <button
-        onClick={() => handleClose("user_closed")}
-        className="absolute top-4 right-4 p-2 rounded-full bg-white/20 backdrop-blur-sm text-white transition-all hover:bg-white/30"
-        title="End conversation"
-      >
-        <X className="w-5 h-5" />
-      </button>
-
-      {/* Controls - Bottom Center */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3">
-        {/* Mute Button */}
+      {/* Close Button - only show if controls are not hidden */}
+      {!hideControls && (
         <button
-          onClick={toggleMute}
-          className={cn(
-            "p-3 rounded-full backdrop-blur-sm transition-all",
-            isMuted
-              ? "bg-red-500/80 hover:bg-red-500"
-              : "bg-white/20 hover:bg-white/30"
-          )}
-          title={isMuted ? "Unmute" : "Mute"}
+          onClick={() => handleClose("user_closed")}
+          className="absolute top-4 right-4 p-2 rounded-full bg-white/20 backdrop-blur-sm text-white transition-all hover:bg-white/30"
+          title="End conversation"
         >
-          {isMuted ? (
-            <VolumeX className="w-5 h-5 text-white" />
-          ) : (
-            <Volume2 className="w-5 h-5 text-white" />
-          )}
+          <X className="w-5 h-5" />
         </button>
+      )}
 
-        {/* Stop Button - Flips to contact form */}
-        <button
-          onClick={() => handleClose("user_stopped")}
-          className="p-3 rounded-full bg-sls-orange/90 hover:bg-sls-orange backdrop-blur-sm transition-all"
-          title="Stop and contact us"
-        >
-          <Square className="w-5 h-5 text-white fill-white" />
-        </button>
-
-        {/* Camera Toggle (only if vision enabled) */}
-        {visionEnabled && (
+      {/* Controls - Bottom Center - only show if controls are not hidden */}
+      {!hideControls && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3">
+          {/* Mute Button */}
           <button
-            onClick={toggleCamera}
+            onClick={toggleMute}
             className={cn(
               "p-3 rounded-full backdrop-blur-sm transition-all",
-              !showCamera
+              isMuted
                 ? "bg-red-500/80 hover:bg-red-500"
                 : "bg-white/20 hover:bg-white/30"
             )}
-            title={showCamera ? "Turn off camera" : "Turn on camera"}
+            title={isMuted ? "Unmute" : "Mute"}
           >
-            {showCamera ? (
-              <Video className="w-5 h-5 text-white" />
+            {isMuted ? (
+              <VolumeX className="w-5 h-5 text-white" />
             ) : (
-              <VideoOff className="w-5 h-5 text-white" />
+              <Volume2 className="w-5 h-5 text-white" />
             )}
           </button>
-        )}
-      </div>
+
+          {/* Stop Button - Flips to contact form */}
+          <button
+            onClick={() => handleClose("user_stopped")}
+            className="p-3 rounded-full bg-sls-orange/90 hover:bg-sls-orange backdrop-blur-sm transition-all"
+            title="Stop and contact us"
+          >
+            <Square className="w-5 h-5 text-white fill-white" />
+          </button>
+
+          {/* Camera Toggle (only if vision enabled) */}
+          {visionEnabled && (
+            <button
+              onClick={toggleCamera}
+              className={cn(
+                "p-3 rounded-full backdrop-blur-sm transition-all",
+                !showCamera
+                  ? "bg-red-500/80 hover:bg-red-500"
+                  : "bg-white/20 hover:bg-white/30"
+              )}
+              title={showCamera ? "Turn off camera" : "Turn on camera"}
+            >
+              {showCamera ? (
+                <Video className="w-5 h-5 text-white" />
+              ) : (
+                <VideoOff className="w-5 h-5 text-white" />
+              )}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* PiP Camera View - Bottom Right (only if vision enabled and camera on) */}
       {visionEnabled && showCamera && (

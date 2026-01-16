@@ -138,49 +138,55 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
               className="absolute inset-0 overflow-hidden flex flex-col"
               style={{ backfaceVisibility: "hidden" }}
             >
-              {/* Avatar area - takes 2/3 of screen */}
+              {/* Avatar area - takes more of screen with reduced bottom panel */}
               {showAvatar && (
-                <div className="flex-1 w-full overflow-hidden" style={{ height: "66%" }}>
+                <div className="flex-1 w-full overflow-hidden" style={{ height: "70%" }}>
                   <ClientAvatarWrapper
                     avatarId={avatarId}
                     hidePlayButton={true}
                     externalActivated={isAvatarActivated}
                     onActivationChange={handleActivationChange}
+                    hideRoomControls={true}
                   />
                 </div>
               )}
 
-              {/* Bottom panel - 1/3 of screen with caller info and buttons */}
+              {/* Bottom panel - reduced height with intro text and buttons */}
               <div
-                className="w-full bg-[#f3e9d2] flex flex-col items-center justify-center px-6 py-4"
-                style={{ height: "34%" }}
+                className="w-full bg-[#f3e9d2] flex flex-col items-center justify-center px-4 py-3"
+                style={{ height: "30%" }}
               >
-                {/* Caller info */}
-                <div className="text-center mb-4">
-                  <h3 className="text-2xl font-serif font-bold text-[#1a3c34]">Helena</h3>
-                  <p className="text-sm text-[#4a4a4a]">
+                {/* Caller info with intro text */}
+                <div className="text-center mb-2">
+                  <h3 className="text-xl font-serif font-bold text-[#1a3c34]">Helena</h3>
+                  <p className="text-xs text-[#4a4a4a] mt-0.5">
                     {locale === "de" ? "KI Englisch Coach" : "AI English Coach"}
+                  </p>
+                  <p className="text-[10px] text-[#6a6a6a] mt-1 max-w-[200px] leading-tight">
+                    {locale === "de"
+                      ? "Klicken Sie auf Play, um Ihre persönliche Lektion zu starten"
+                      : "Click play to start your personalized lesson"}
                   </p>
                 </div>
 
                 {/* Call buttons - SLS brand colors: orange (#B25627) and teal (#003F37) */}
-                <div className="flex items-center justify-center gap-12">
+                <div className="flex items-center justify-center gap-10">
                   {/* Stop button - SLS Orange */}
                   <button
                     onClick={handleStopClick}
-                    className="w-16 h-16 bg-[#B25627] rounded-full flex items-center justify-center shadow-lg hover:bg-[#9a4b24] hover:scale-105 transition-all active:scale-95"
+                    className="w-14 h-14 bg-[#B25627] rounded-full flex items-center justify-center shadow-lg hover:bg-[#9a4b24] hover:scale-105 transition-all active:scale-95"
                     aria-label={locale === "de" ? "Stoppen" : "Stop"}
                   >
-                    <Square className="w-6 h-6 text-white" fill="white" />
+                    <Square className="w-5 h-5 text-white" fill="white" />
                   </button>
 
                   {/* Play button - SLS Teal */}
                   <button
                     onClick={handleStartClick}
-                    className="w-16 h-16 bg-[#003F37] rounded-full flex items-center justify-center shadow-lg hover:bg-[#002a25] hover:scale-105 transition-all active:scale-95"
+                    className="w-14 h-14 bg-[#003F37] rounded-full flex items-center justify-center shadow-lg hover:bg-[#002a25] hover:scale-105 transition-all active:scale-95"
                     aria-label={locale === "de" ? "Abspielen" : "Play"}
                   >
-                    <Play className="w-7 h-7 text-white ml-1" fill="white" />
+                    <Play className="w-6 h-6 text-white ml-0.5" fill="white" />
                   </button>
                 </div>
               </div>

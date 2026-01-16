@@ -23,6 +23,8 @@ interface ClientAvatarWrapperProps {
   externalActivated?: boolean;
   /** Callback when activation state changes (for external control) */
   onActivationChange?: (activated: boolean) => void;
+  /** Hide all LiveKit room controls (close, mute, stop, camera) */
+  hideRoomControls?: boolean;
 }
 
 export function ClientAvatarWrapper({
@@ -32,6 +34,7 @@ export function ClientAvatarWrapper({
   hidePlayButton,
   externalActivated,
   onActivationChange,
+  hideRoomControls,
 }: ClientAvatarWrapperProps) {
   const locale = useLocale();
   const searchParams = useSearchParams();
@@ -121,6 +124,7 @@ export function ClientAvatarWrapper({
       hidePlayButton={hidePlayButton}
       externalActivated={externalActivated}
       onActivationChange={onActivationChange}
+      hideRoomControls={hideRoomControls}
     />
   );
 }
