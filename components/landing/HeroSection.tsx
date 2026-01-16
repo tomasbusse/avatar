@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { ArrowRight, Play, CheckCircle2, MessageCircle, Send, ArrowLeft, User, Mail, Phone, Building2 } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -31,19 +31,10 @@ interface HeroSectionProps {
   showAvatar?: boolean;
 }
 
-// Demo flashcard data for the game preview
-const demoFlashcards = [
-  { front: "Meeting", back: "das Treffen", example: "We have a meeting at 3pm." },
-  { front: "Deadline", back: "die Frist", example: "The deadline is next Friday." },
-  { front: "Schedule", back: "der Zeitplan", example: "Let me check my schedule." },
-];
-
 export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
   const t = useTranslations("hero");
   const locale = useLocale();
   const [showContactForm, setShowContactForm] = useState(false);
-  const [currentCard, setCurrentCard] = useState(0);
-  const [isFlipped, setIsFlipped] = useState(false);
 
   // Contact form state
   const [contactForm, setContactForm] = useState({
@@ -57,22 +48,6 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
   const submitContact = useMutation(api.landing.submitContactForm);
-
-  // Auto-flip flashcard demo
-  useEffect(() => {
-    const flipInterval = setInterval(() => {
-      setIsFlipped((prev) => {
-        if (prev) {
-          // After showing back, move to next card
-          setTimeout(() => {
-            setCurrentCard((c) => (c + 1) % demoFlashcards.length);
-          }, 500);
-        }
-        return !prev;
-      });
-    }, 3000);
-    return () => clearInterval(flipInterval);
-  }, []);
 
   // Handle CTA click to toggle contact form on avatar
   const handleCtaClick = useCallback(() => {
@@ -138,8 +113,6 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
     t("benefit2"),
     t("benefit3"),
   ];
-
-  const card = demoFlashcards[currentCard];
 
   return (
     <section className="relative min-h-screen bg-sls-cream overflow-hidden">
@@ -419,66 +392,44 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
                 <div className="absolute -inset-6 bg-gradient-to-br from-sls-teal/20 via-sls-chartreuse/10 to-sls-teal/15 rounded-[4rem] blur-3xl -z-10" />
               </div>
 
-              {/* RIGHT of Phone: Just Flashcard Game */}
-              <div className="hidden lg:flex flex-col gap-4 max-w-[280px]">
-                {/* Flashcard Game Preview */}
-                <div className="bg-white rounded-2xl p-4 border border-sls-beige shadow-lg shadow-sls-teal/5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-6 h-6 rounded-lg bg-sls-teal/10 flex items-center justify-center">
-                      <span className="text-sls-teal text-sm">🎮</span>
+              {/* RIGHT of Phone: Mission Statement */}
+              <div className="hidden lg:flex flex-col gap-4 max-w-[300px]">
+                {/* Verlauf / Our Approach */}
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-sls-beige shadow-lg shadow-sls-teal/5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-8 h-8 rounded-full bg-sls-teal flex items-center justify-center">
+                      <span className="text-white text-sm font-bold">S</span>
                     </div>
-                    <span className="text-sls-olive font-medium text-xs">Vocabulary Game</span>
+                    <span className="text-sls-teal font-semibold text-sm uppercase tracking-wide">
+                      {locale === "de" ? "Unser Ansatz" : "Our Approach"}
+                    </span>
                   </div>
 
-                  {/* Flashcard */}
-                  <div
-                    className="relative h-36 cursor-pointer"
-                    style={{ perspective: "1000px" }}
-                  >
-                    <div
-                      className={cn(
-                        "absolute inset-0 transition-transform duration-500",
-                      )}
-                      style={{
-                        transformStyle: "preserve-3d",
-                        transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
-                      }}
-                    >
-                      {/* Front */}
-                      <div
-                        className="absolute inset-0 bg-gradient-to-br from-sls-cream to-sls-beige rounded-xl p-4 flex flex-col items-center justify-center border border-sls-beige"
-                        style={{ backfaceVisibility: "hidden" }}
-                      >
-                        <span className="text-[10px] uppercase tracking-wide text-sls-olive/60 mb-1">English</span>
-                        <p className="text-2xl font-bold text-sls-teal text-center">{card.front}</p>
-                      </div>
+                  <h3 className="text-xl font-bold text-sls-teal mb-3">
+                    {locale === "de"
+                      ? "Echte Lehrer. Echte Ergebnisse."
+                      : "Real Teachers. Real Results."}
+                  </h3>
 
-                      {/* Back */}
-                      <div
-                        className="absolute inset-0 bg-gradient-to-br from-sls-teal to-sls-olive rounded-xl p-4 flex flex-col items-center justify-center"
-                        style={{
-                          backfaceVisibility: "hidden",
-                          transform: "rotateY(180deg)",
-                        }}
-                      >
-                        <span className="text-[10px] uppercase tracking-wide text-white/60 mb-1">Deutsch</span>
-                        <p className="text-xl font-bold text-white text-center">{card.back}</p>
-                        <p className="text-[10px] text-white/70 mt-2 italic text-center">&quot;{card.example}&quot;</p>
-                      </div>
+                  <p className="text-sls-olive text-sm leading-relaxed mb-4">
+                    {locale === "de"
+                      ? "Wir verbinden modernste KI-Technologie mit der Expertise erfahrener Sprachlehrer. Jede Lektion wird von echten Pädagogen gestaltet – für authentisches, effektives Lernen."
+                      : "We combine cutting-edge AI technology with the expertise of experienced language teachers. Every lesson is crafted by real educators – for authentic, effective learning."}
+                  </p>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm text-sls-olive">
+                      <div className="w-1.5 h-1.5 rounded-full bg-sls-teal" />
+                      <span>{locale === "de" ? "20+ Jahre Erfahrung" : "20+ years experience"}</span>
                     </div>
-                  </div>
-
-                  {/* Progress indicators */}
-                  <div className="flex justify-center gap-1.5 mt-3">
-                    {demoFlashcards.map((_, i) => (
-                      <div
-                        key={i}
-                        className={cn(
-                          "h-1.5 rounded-full transition-all",
-                          i === currentCard ? "bg-sls-teal w-4" : "bg-sls-beige w-1.5"
-                        )}
-                      />
-                    ))}
+                    <div className="flex items-center gap-2 text-sm text-sls-olive">
+                      <div className="w-1.5 h-1.5 rounded-full bg-sls-teal" />
+                      <span>{locale === "de" ? "Muttersprachliche Lehrer" : "Native-speaking teachers"}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-sls-olive">
+                      <div className="w-1.5 h-1.5 rounded-full bg-sls-teal" />
+                      <span>{locale === "de" ? "Personalisierter Unterricht" : "Personalized instruction"}</span>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { Menu, X, ChevronDown } from "lucide-react";
@@ -58,20 +57,35 @@ export function Header() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
-          {/* Logo */}
+          {/* Logo - Clean text-based design */}
           <Link
             href={`/${locale}`}
-            className="flex items-center gap-3 group"
+            className="flex items-center gap-2 group"
           >
-            {/* Use white logo on dark bg, green logo on light bg */}
-            <Image
-              src={useLightText ? "/images/sls-logo-white.jpg" : "/images/sls-logo-green.jpg"}
-              alt="Simmonds Language Services"
-              width={180}
-              height={60}
-              className="h-12 w-auto transition-transform group-hover:scale-105"
-              priority
-            />
+            {/* Logo mark */}
+            <div className={cn(
+              "w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg transition-all group-hover:scale-105",
+              useLightText
+                ? "bg-white text-sls-teal"
+                : "bg-sls-teal text-white"
+            )}>
+              SL
+            </div>
+            {/* Logo text */}
+            <div className="flex flex-col">
+              <span className={cn(
+                "text-xl font-bold tracking-tight leading-none transition-colors",
+                useLightText ? "text-white" : "text-sls-teal"
+              )}>
+                Simmonds
+              </span>
+              <span className={cn(
+                "text-sm font-medium tracking-wide leading-none transition-colors",
+                useLightText ? "text-white/80" : "text-sls-olive"
+              )}>
+                Languages
+              </span>
+            </div>
           </Link>
 
           {/* Desktop Navigation */}
