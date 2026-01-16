@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useLocale } from "next-intl";
-import { MessageCircle, Send, ArrowLeft, User, Mail, Phone, Building2, Pause, X } from "lucide-react";
+import { MessageCircle, Send, ArrowLeft, User, Mail, Phone, Building2, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import { useMutation } from "convex/react";
@@ -124,37 +124,51 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
               transform: showContactForm ? "rotateY(180deg)" : "rotateY(0deg)",
             }}
           >
-            {/* Front Side - Avatar with controls */}
+            {/* Front Side - Avatar (2/3) + Bottom Panel (1/3) */}
             <div
-              className="absolute inset-0 overflow-hidden"
+              className="absolute inset-0 overflow-hidden flex flex-col"
               style={{ backfaceVisibility: "hidden" }}
             >
-              {/* Avatar fills the screen */}
+              {/* Avatar area - takes 2/3 of screen */}
               {showAvatar && (
-                <div className="absolute inset-0 w-full h-full">
+                <div className="flex-1 w-full overflow-hidden" style={{ height: "66%" }}>
                   <ClientAvatarWrapper avatarId={avatarId} />
                 </div>
               )}
 
-              {/* Controls overlay at bottom of phone screen */}
-              <div className="absolute bottom-4 left-0 right-0 flex justify-center items-center gap-8">
-                {/* Green Start button */}
-                <button
-                  onClick={handleStartClick}
-                  className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center shadow-lg hover:scale-105 transition-transform active:scale-95"
-                  aria-label="Start lesson"
-                >
-                  <Pause className="w-6 h-6 text-white" />
-                </button>
+              {/* Bottom panel - 1/3 of screen with caller info and buttons */}
+              <div
+                className="w-full bg-[#f3e9d2] flex flex-col items-center justify-center px-6 py-4"
+                style={{ height: "34%" }}
+              >
+                {/* Caller info */}
+                <div className="text-center mb-4">
+                  <h3 className="text-2xl font-serif font-bold text-[#1a3c34]">Helena</h3>
+                  <p className="text-sm text-[#4a4a4a]">
+                    {locale === "de" ? "KI Englisch Coach" : "AI English Coach"}
+                  </p>
+                </div>
 
-                {/* Red Stop button - triggers flip */}
-                <button
-                  onClick={handleStopClick}
-                  className="w-14 h-14 bg-red-500 rounded-full flex items-center justify-center shadow-lg hover:scale-105 transition-transform active:scale-95"
-                  aria-label="Stop and show contact form"
-                >
-                  <X className="w-6 h-6 text-white" />
-                </button>
+                {/* Call buttons */}
+                <div className="flex items-center justify-center gap-12">
+                  {/* Red decline button - triggers flip to contact */}
+                  <button
+                    onClick={handleStopClick}
+                    className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 hover:scale-105 transition-all active:scale-95"
+                    aria-label="Contact us"
+                  >
+                    <X className="w-7 h-7 text-white" />
+                  </button>
+
+                  {/* Green accept button */}
+                  <button
+                    onClick={handleStartClick}
+                    className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center shadow-lg hover:bg-green-600 hover:scale-105 transition-all active:scale-95"
+                    aria-label="Start lesson"
+                  >
+                    <Phone className="w-7 h-7 text-white" />
+                  </button>
+                </div>
               </div>
             </div>
 
