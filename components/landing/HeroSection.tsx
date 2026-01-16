@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useLocale } from "next-intl";
-import { MessageCircle, Send, ArrowLeft, User, Mail, Phone, Building2, X } from "lucide-react";
+import { MessageCircle, Send, ArrowLeft, User, Mail, Phone, Building2, X, Play, Square } from "lucide-react";
 import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import { useMutation } from "convex/react";
@@ -29,6 +29,7 @@ interface HeroSectionProps {
 export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
   const locale = useLocale();
   const [showContactForm, setShowContactForm] = useState(false);
+  const [isAvatarActivated, setIsAvatarActivated] = useState(false);
 
   // Contact form state
   const [contactForm, setContactForm] = useState({
@@ -43,8 +44,9 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
 
   const submitContact = useMutation(api.landing.submitContactForm);
 
-  // Handle stop button click to flip to contact form
+  // Handle stop button click - stop avatar and flip to contact form
   const handleStopClick = useCallback(() => {
+    setIsAvatarActivated(false);
     setShowContactForm(true);
     setTimeout(() => {
       const phoneEl = document.querySelector('[data-phone-display]');
@@ -54,10 +56,17 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
     }, 100);
   }, []);
 
-  // Handle start button click - scroll to phone for now
+  // Handle start/play button click - start the avatar
   const handleStartClick = useCallback(() => {
+    setShowContactForm(false);
+    setIsAvatarActivated(true);
     const phoneEl = document.querySelector('[data-phone-display]');
     phoneEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, []);
+
+  // Handle avatar activation state change
+  const handleActivationChange = useCallback((activated: boolean) => {
+    setIsAvatarActivated(activated);
   }, []);
 
   // Handle contact form submission
@@ -107,11 +116,11 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
     <section className="flex flex-col lg:flex-row min-h-screen items-center justify-center p-6 lg:p-20 bg-[#f3e9d2] gap-12 lg:gap-24 overflow-hidden">
       {/* Phone Mockup Section */}
       <div className="relative w-full max-w-[320px] lg:max-w-[380px] shrink-0" data-phone-display>
-        {/* Phone Frame with flip animation */}
+        {/* Phone Frame with flip animation - reduced height by 50px using max-height */}
         <div
           className="relative rounded-[3rem] border-[12px] border-black overflow-hidden shadow-2xl bg-gray-900"
           style={{
-            aspectRatio: "9/19.5",
+            aspectRatio: "9/18",
             perspective: "1000px"
           }}
         >
@@ -132,7 +141,12 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
               {/* Avatar area - takes 2/3 of screen */}
               {showAvatar && (
                 <div className="flex-1 w-full overflow-hidden" style={{ height: "66%" }}>
-                  <ClientAvatarWrapper avatarId={avatarId} />
+                  <ClientAvatarWrapper
+                    avatarId={avatarId}
+                    hidePlayButton={true}
+                    externalActivated={isAvatarActivated}
+                    onActivationChange={handleActivationChange}
+                  />
                 </div>
               )}
 
@@ -149,24 +163,24 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
                   </p>
                 </div>
 
-                {/* Call buttons */}
+                {/* Call buttons - SLS brand colors: orange (#B25627) and teal (#003F37) */}
                 <div className="flex items-center justify-center gap-12">
-                  {/* Red decline button - triggers flip to contact */}
+                  {/* Stop button - SLS Orange */}
                   <button
                     onClick={handleStopClick}
-                    className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 hover:scale-105 transition-all active:scale-95"
-                    aria-label="Contact us"
+                    className="w-16 h-16 bg-[#B25627] rounded-full flex items-center justify-center shadow-lg hover:bg-[#9a4b24] hover:scale-105 transition-all active:scale-95"
+                    aria-label={locale === "de" ? "Stoppen" : "Stop"}
                   >
-                    <X className="w-7 h-7 text-white" />
+                    <Square className="w-6 h-6 text-white" fill="white" />
                   </button>
 
-                  {/* Green accept button */}
+                  {/* Play button - SLS Teal */}
                   <button
                     onClick={handleStartClick}
-                    className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center shadow-lg hover:bg-green-600 hover:scale-105 transition-all active:scale-95"
-                    aria-label="Start lesson"
+                    className="w-16 h-16 bg-[#003F37] rounded-full flex items-center justify-center shadow-lg hover:bg-[#002a25] hover:scale-105 transition-all active:scale-95"
+                    aria-label={locale === "de" ? "Abspielen" : "Play"}
                   >
-                    <Phone className="w-7 h-7 text-white" />
+                    <Play className="w-7 h-7 text-white ml-1" fill="white" />
                   </button>
                 </div>
               </div>

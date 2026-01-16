@@ -17,12 +17,21 @@ interface ClientAvatarWrapperProps {
   avatarId?: string;
   showContactForm?: boolean;
   onContactFormClose?: () => void;
+  /** Hide the internal play button (for external control) */
+  hidePlayButton?: boolean;
+  /** External activation trigger - when true, starts the avatar */
+  externalActivated?: boolean;
+  /** Callback when activation state changes (for external control) */
+  onActivationChange?: (activated: boolean) => void;
 }
 
 export function ClientAvatarWrapper({
   avatarId,
   showContactForm,
   onContactFormClose,
+  hidePlayButton,
+  externalActivated,
+  onActivationChange,
 }: ClientAvatarWrapperProps) {
   const locale = useLocale();
   const searchParams = useSearchParams();
@@ -109,6 +118,9 @@ export function ClientAvatarWrapper({
       locale={locale}
       showContactForm={showContactForm}
       onContactFormClose={onContactFormClose}
+      hidePlayButton={hidePlayButton}
+      externalActivated={externalActivated}
+      onActivationChange={onActivationChange}
     />
   );
 }

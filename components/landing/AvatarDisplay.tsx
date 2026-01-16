@@ -56,6 +56,12 @@ interface AvatarDisplayProps {
     };
     [key: string]: any;
   };
+  /** Hide the internal play button (for external control) */
+  hidePlayButton?: boolean;
+  /** External activation trigger - when true, starts the avatar */
+  externalActivated?: boolean;
+  /** Callback when activation state changes (for external control) */
+  onActivationChange?: (activated: boolean) => void;
 }
 
 export function AvatarDisplay({
@@ -70,6 +76,9 @@ export function AvatarDisplay({
   showContactForm: externalShowContactForm,
   onContactFormClose,
   avatar,
+  hidePlayButton = false,
+  externalActivated,
+  onActivationChange,
 }: AvatarDisplayProps) {
   const t = useTranslations("hero");
   const tContact = useTranslations("contact");
@@ -118,6 +127,19 @@ export function AvatarDisplay({
     }
   }, [externalShowContactForm]);
 
+  // Handle external activation trigger
+  useEffect(() => {
+    if (externalActivated !== undefined && externalActivated !== isActivated) {
+      logDebug("External activation changed", { externalActivated });
+      if (externalActivated && avatar) {
+        setIsFlipped(false);
+        setIsActivated(true);
+      } else if (!externalActivated) {
+        setIsActivated(false);
+      }
+    }
+  }, [externalActivated, avatar]);
+
   // Log initial mount and data changes
   useEffect(() => {
     logDebug("Component mounted", {
@@ -156,12 +178,14 @@ export function AvatarDisplay({
     });
     setIsFlipped(false);
     setIsActivated(true);
+    onActivationChange?.(true);
   };
 
   // Handle closing the LiveKit session
   const handleClose = (reason?: string) => {
     logDebug("LiveKit session closed", { reason });
     setIsActivated(false);
+    onActivationChange?.(false);
 
     // Determine if we should show contact form based on close reason
     // - "user_stopped" (Stop button): Show contact form
@@ -280,22 +304,31 @@ export function AvatarDisplay({
               {/* Profile Image Background */}
               <div className="absolute inset-0 bg-gradient-to-br from-sls-teal via-sls-olive to-sls-teal" />
 
-              {/* Avatar Profile Image with Play Button Below */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center pt-4 pb-28 sm:pb-32">
+              {/* Avatar Profile Image - centered when hidePlayButton is true */}
+              <div className={cn(
+                "absolute inset-0 flex flex-col items-center justify-center",
+                hidePlayButton ? "" : "pt-4 pb-28 sm:pb-32"
+              )}>
                 {/* Profile Image Container */}
                 <div className="relative mb-6">
                   {profileImage ? (
-                    <div className="w-36 h-36 sm:w-48 sm:h-48 rounded-full overflow-hidden border-4 border-white/20 shadow-xl">
+                    <div className={cn(
+                      "rounded-full overflow-hidden border-4 border-white/20 shadow-xl",
+                      hidePlayButton ? "w-40 h-40 sm:w-56 sm:h-56" : "w-36 h-36 sm:w-48 sm:h-48"
+                    )}>
                       <Image
                         src={profileImage}
                         alt={avatarName}
-                        width={192}
-                        height={192}
+                        width={224}
+                        height={224}
                         className="w-full h-full object-cover"
                       />
                     </div>
                   ) : (
-                    <div className="w-36 h-36 sm:w-48 sm:h-48 rounded-full bg-sls-cream/10 backdrop-blur-sm border-4 border-white/20 flex items-center justify-center">
+                    <div className={cn(
+                      "rounded-full bg-sls-cream/10 backdrop-blur-sm border-4 border-white/20 flex items-center justify-center",
+                      hidePlayButton ? "w-40 h-40 sm:w-56 sm:h-56" : "w-36 h-36 sm:w-48 sm:h-48"
+                    )}>
                       <span className="text-5xl sm:text-6xl font-bold text-white/80">
                         {avatarName.charAt(0)}
                       </span>
@@ -311,66 +344,76 @@ export function AvatarDisplay({
                   />
                 </div>
 
-                {/* Play Button - Positioned Below Profile Image */}
-                <button
-                  onClick={handleActivate}
-                  disabled={dataLoading || !avatarForLiveKit}
-                  className="group cursor-pointer disabled:cursor-not-allowed"
+                {/* Play Button - Only show when not hidePlayButton */}
+                {!hidePlayButton && (
+                  <button
+                    onClick={handleActivate}
+                    disabled={dataLoading || !avatarForLiveKit}
+                    className="group cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    <div className={cn(
+                      "w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-sls-orange flex items-center justify-center shadow-xl transition-all",
+                      "group-hover:scale-110 group-hover:shadow-2xl group-hover:shadow-sls-orange/40",
+                      "group-active:scale-95",
+                      "group-disabled:opacity-50 group-disabled:scale-100"
+                    )}>
+                      <Play className="w-6 h-6 sm:w-8 sm:h-8 text-white ml-1" fill="white" />
+                    </div>
+                  </button>
+                )}
+              </div>
+
+              {/* Decorative Particles - hide when hidePlayButton */}
+              {!hidePlayButton && (
+                <>
+                  <div className="absolute top-6 sm:top-8 right-6 sm:right-8 animate-bounce">
+                    <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-sls-chartreuse/60" />
+                  </div>
+                  <div className="absolute bottom-24 sm:bottom-28 left-6 sm:left-8 animate-pulse hidden sm:block">
+                    <Sparkles className="w-4 h-4 text-white/40" />
+                  </div>
+                </>
+              )}
+
+              {/* Click to Start Badge - hide when hidePlayButton */}
+              {!hidePlayButton && (
+                <div className="absolute top-3 sm:top-4 left-3 sm:left-4 flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-white/90 text-sls-teal text-[10px] sm:text-xs font-semibold">
+                  {dataLoading ? (
+                    <>
+                      <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 border-2 border-sls-teal/30 border-t-sls-teal rounded-full animate-spin" />
+                      <span className="hidden sm:inline">Loading...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                      <span className="hidden sm:inline">{t("clickToStart") || "Click to Start"}</span>
+                      <span className="sm:hidden">Play</span>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Speech Bubble - hide when hidePlayButton */}
+              {!hidePlayButton && (
+                <div
+                  className={cn(
+                    "absolute bottom-3 sm:bottom-6 left-3 sm:left-6 right-3 sm:right-6 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-white/95 backdrop-blur-sm shadow-lg transition-all duration-300",
+                    "opacity-100 translate-y-0"
+                  )}
                 >
-                  <div className={cn(
-                    "w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-sls-orange flex items-center justify-center shadow-xl transition-all",
-                    "group-hover:scale-110 group-hover:shadow-2xl group-hover:shadow-sls-orange/40",
-                    "group-active:scale-95",
-                    "group-disabled:opacity-50 group-disabled:scale-100"
-                  )}>
-                    <Play className="w-6 h-6 sm:w-8 sm:h-8 text-white ml-1" fill="white" />
-                  </div>
-                </button>
-              </div>
-
-              {/* Decorative Particles */}
-              <div className="absolute top-6 sm:top-8 right-6 sm:right-8 animate-bounce">
-                <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-sls-chartreuse/60" />
-              </div>
-              <div className="absolute bottom-24 sm:bottom-28 left-6 sm:left-8 animate-pulse hidden sm:block">
-                <Sparkles className="w-4 h-4 text-white/40" />
-              </div>
-
-              {/* Click to Start Badge */}
-              <div className="absolute top-3 sm:top-4 left-3 sm:left-4 flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-white/90 text-sls-teal text-[10px] sm:text-xs font-semibold">
-                {dataLoading ? (
-                  <>
-                    <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 border-2 border-sls-teal/30 border-t-sls-teal rounded-full animate-spin" />
-                    <span className="hidden sm:inline">Loading...</span>
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                    <span className="hidden sm:inline">{t("clickToStart") || "Click to Start"}</span>
-                    <span className="sm:hidden">Play</span>
-                  </>
-                )}
-              </div>
-
-              {/* Speech Bubble */}
-              <div
-                className={cn(
-                  "absolute bottom-3 sm:bottom-6 left-3 sm:left-6 right-3 sm:right-6 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-white/95 backdrop-blur-sm shadow-lg transition-all duration-300",
-                  "opacity-100 translate-y-0"
-                )}
-              >
-                <div className="flex items-start gap-2 sm:gap-3">
-                  <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-sls-teal flex items-center justify-center flex-shrink-0">
-                    <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sls-teal font-medium text-xs sm:text-sm">{avatarName}</p>
-                    <p className="text-sls-olive text-xs sm:text-sm mt-0.5 line-clamp-2">
-                      {greeting}
-                    </p>
+                  <div className="flex items-start gap-2 sm:gap-3">
+                    <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-sls-teal flex items-center justify-center flex-shrink-0">
+                      <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sls-teal font-medium text-xs sm:text-sm">{avatarName}</p>
+                      <p className="text-sls-olive text-xs sm:text-sm mt-0.5 line-clamp-2">
+                        {greeting}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </>
           )}
         </div>
