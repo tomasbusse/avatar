@@ -42,8 +42,8 @@ export function Header() {
     { href: `/${locale}/contact`, label: t("contact") },
   ];
 
-  // Determine if we should use light text (dark background)
-  const useLightText = (isHomePage && !isScrolled) || isMobileMenuOpen;
+  // Determine if we should use light text (only in mobile menu which has dark bg)
+  const useLightText = isMobileMenuOpen;
 
   return (
     <header
