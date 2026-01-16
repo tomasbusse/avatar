@@ -5,7 +5,7 @@ import { useLocale } from "next-intl";
 import { MessageCircle, Send, ArrowLeft, User, Mail, Phone, Building2, X, Play, Square } from "lucide-react";
 import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
 // Dynamically import the avatar wrapper with SSR disabled to prevent hydration errors
@@ -30,6 +30,12 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
   const locale = useLocale();
   const [showContactForm, setShowContactForm] = useState(false);
   const [isAvatarActivated, setIsAvatarActivated] = useState(false);
+
+  // Fetch the landing avatar data for display
+  const landingAvatar = useQuery(api.landing.getLandingAvatar, { locale });
+  const avatarName = landingAvatar?.name || "Helena";
+  // Use description or default title based on avatar name
+  const avatarTitle = landingAvatar?.description || (locale === "de" ? "KI Englisch Coach" : "AI English Coach");
 
   // Contact form state
   const [contactForm, setContactForm] = useState({
@@ -133,14 +139,14 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
               transform: showContactForm ? "rotateY(180deg)" : "rotateY(0deg)",
             }}
           >
-            {/* Front Side - Avatar (2/3) + Bottom Panel (1/3) */}
+            {/* Front Side - Avatar + Bottom Panel (no gap) */}
             <div
-              className="absolute inset-0 overflow-hidden flex flex-col"
+              className="absolute inset-0 overflow-hidden bg-[#f3e9d2]"
               style={{ backfaceVisibility: "hidden" }}
             >
-              {/* Avatar area - takes more of screen with reduced bottom panel */}
+              {/* Avatar area - absolute positioned to fill top portion */}
               {showAvatar && (
-                <div className="flex-1 w-full overflow-hidden" style={{ height: "70%" }}>
+                <div className="absolute top-0 left-0 right-0 bottom-[28%] overflow-hidden">
                   <ClientAvatarWrapper
                     avatarId={avatarId}
                     hidePlayButton={true}
@@ -151,17 +157,12 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
                 </div>
               )}
 
-              {/* Bottom panel - reduced height with intro text and buttons */}
-              <div
-                className="w-full bg-[#f3e9d2] flex flex-col items-center justify-center px-4 py-3"
-                style={{ height: "30%" }}
-              >
+              {/* Bottom panel - absolute positioned at bottom */}
+              <div className="absolute bottom-0 left-0 right-0 h-[28%] bg-[#f3e9d2] flex flex-col items-center justify-center px-4 py-2">
                 {/* Caller info with intro text */}
-                <div className="text-center mb-2">
-                  <h3 className="text-xl font-serif font-bold text-[#1a3c34]">Helena</h3>
-                  <p className="text-xs text-[#4a4a4a] mt-0.5">
-                    {locale === "de" ? "KI Englisch Coach" : "AI English Coach"}
-                  </p>
+                <div className="text-center mb-1.5">
+                  <h3 className="text-lg font-serif font-bold text-[#1a3c34]">{avatarName}</h3>
+                  <p className="text-[11px] text-[#4a4a4a] mt-0.5">{avatarTitle}</p>
                   <p className="text-[10px] text-[#6a6a6a] mt-1 max-w-[200px] leading-tight">
                     {locale === "de"
                       ? "Klicken Sie auf Play, um Ihre persönliche Lektion zu starten"
@@ -174,19 +175,19 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
                   {/* Stop button - SLS Orange */}
                   <button
                     onClick={handleStopClick}
-                    className="w-14 h-14 bg-[#B25627] rounded-full flex items-center justify-center shadow-lg hover:bg-[#9a4b24] hover:scale-105 transition-all active:scale-95"
+                    className="w-12 h-12 bg-[#B25627] rounded-full flex items-center justify-center shadow-lg hover:bg-[#9a4b24] hover:scale-105 transition-all active:scale-95"
                     aria-label={locale === "de" ? "Stoppen" : "Stop"}
                   >
-                    <Square className="w-5 h-5 text-white" fill="white" />
+                    <Square className="w-4 h-4 text-white" fill="white" />
                   </button>
 
                   {/* Play button - SLS Teal */}
                   <button
                     onClick={handleStartClick}
-                    className="w-14 h-14 bg-[#003F37] rounded-full flex items-center justify-center shadow-lg hover:bg-[#002a25] hover:scale-105 transition-all active:scale-95"
+                    className="w-12 h-12 bg-[#003F37] rounded-full flex items-center justify-center shadow-lg hover:bg-[#002a25] hover:scale-105 transition-all active:scale-95"
                     aria-label={locale === "de" ? "Abspielen" : "Play"}
                   >
-                    <Play className="w-6 h-6 text-white ml-0.5" fill="white" />
+                    <Play className="w-5 h-5 text-white ml-0.5" fill="white" />
                   </button>
                 </div>
               </div>
