@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { Menu, X, ChevronDown } from "lucide-react";
@@ -15,6 +16,9 @@ export function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isServicesOpen, setIsServicesOpen] = useState(false);
+
+  // Check if we're on the home page (dark hero)
+  const isHomePage = pathname === `/${locale}` || pathname === "/";
 
   useEffect(() => {
     const handleScroll = () => {
@@ -38,6 +42,9 @@ export function Header() {
     { href: `/${locale}/contact`, label: t("contact") },
   ];
 
+  // Determine if we should use light text (dark background)
+  const useLightText = (isHomePage && !isScrolled) || isMobileMenuOpen;
+
   return (
     <header
       className={cn(
@@ -56,29 +63,15 @@ export function Header() {
             href={`/${locale}`}
             className="flex items-center gap-3 group"
           >
-            <div className={cn(
-              "w-10 h-10 rounded-lg flex items-center justify-center transition-transform group-hover:scale-105",
-              isMobileMenuOpen ? "bg-white" : "bg-sls-teal"
-            )}>
-              <span className={cn(
-                "font-bold text-xl",
-                isMobileMenuOpen ? "text-sls-teal" : "text-sls-cream"
-              )}>S</span>
-            </div>
-            <div className="hidden sm:block">
-              <span className={cn(
-                "font-semibold text-lg tracking-tight",
-                isMobileMenuOpen ? "text-white" : "text-sls-teal"
-              )}>
-                Simmonds
-              </span>
-              <span className={cn(
-                "text-sm block -mt-1",
-                isMobileMenuOpen ? "text-white/80" : "text-sls-olive"
-              )}>
-                Language Services
-              </span>
-            </div>
+            {/* Use white logo on dark bg, green logo on light bg */}
+            <Image
+              src={useLightText ? "/images/sls-logo-white.jpg" : "/images/sls-logo-green.jpg"}
+              alt="Simmonds Language Services"
+              width={180}
+              height={60}
+              className="h-12 w-auto transition-transform group-hover:scale-105"
+              priority
+            />
           </Link>
 
           {/* Desktop Navigation */}
@@ -92,7 +85,9 @@ export function Header() {
               <button
                 className={cn(
                   "flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-                  "text-sls-olive hover:text-sls-teal hover:bg-sls-beige/50"
+                  useLightText
+                    ? "text-white/90 hover:text-white hover:bg-white/10"
+                    : "text-sls-olive hover:text-sls-teal hover:bg-sls-beige/50"
                 )}
               >
                 {t("services")}
@@ -143,9 +138,13 @@ export function Header() {
                 href={item.href}
                 className={cn(
                   "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-                  pathname === item.href
-                    ? "text-sls-teal bg-sls-beige/50"
-                    : "text-sls-olive hover:text-sls-teal hover:bg-sls-beige/50"
+                  useLightText
+                    ? pathname === item.href
+                      ? "text-white bg-white/20"
+                      : "text-white/90 hover:text-white hover:bg-white/10"
+                    : pathname === item.href
+                      ? "text-sls-teal bg-sls-beige/50"
+                      : "text-sls-olive hover:text-sls-teal hover:bg-sls-beige/50"
                 )}
               >
                 {item.label}
