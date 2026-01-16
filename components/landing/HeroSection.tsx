@@ -232,16 +232,40 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
                         transform: showContactForm ? "rotateY(180deg)" : "rotateY(0deg)",
                       }}
                     >
-                      {/* Front Side - Avatar */}
+                      {/* Front Side - Avatar (2/3 height) + Bottom section */}
                       <div
-                        className="absolute inset-0 rounded-[2.5rem] overflow-hidden"
+                        className="absolute inset-0 rounded-[2.5rem] overflow-hidden flex flex-col bg-gradient-to-b from-sls-cream to-white"
                         style={{ backfaceVisibility: "hidden" }}
                       >
+                        {/* Avatar area - 2/3 of screen */}
                         {showAvatar && (
-                          <div className="w-full h-full">
+                          <div className="w-full flex-1" style={{ height: "66%" }}>
                             <ClientAvatarWrapper avatarId={avatarId} />
                           </div>
                         )}
+
+                        {/* Bottom section - name and status */}
+                        <div className="bg-white border-t border-sls-beige px-6 py-4" style={{ height: "34%" }}>
+                          <div className="text-center mb-3">
+                            <h4 className="text-lg font-bold text-sls-teal">Helena</h4>
+                            <p className="text-xs text-sls-olive">
+                              {locale === "de" ? "Ihre persönliche Sprachlehrerin" : "Your personal language teacher"}
+                            </p>
+                          </div>
+
+                          {/* Quick action buttons */}
+                          <div className="flex gap-2 justify-center">
+                            <button
+                              onClick={handleCtaClick}
+                              className="px-4 py-2 rounded-full bg-sls-orange text-white text-xs font-medium hover:bg-sls-orange/90 transition-colors"
+                            >
+                              {locale === "de" ? "Nachricht senden" : "Send message"}
+                            </button>
+                            <button className="px-4 py-2 rounded-full bg-sls-teal/10 text-sls-teal text-xs font-medium hover:bg-sls-teal/20 transition-colors">
+                              {locale === "de" ? "Demo starten" : "Start demo"}
+                            </button>
+                          </div>
+                        </div>
                       </div>
 
                       {/* Back Side - Contact Form */}
@@ -392,43 +416,95 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
                 <div className="absolute -inset-6 bg-gradient-to-br from-sls-teal/20 via-sls-chartreuse/10 to-sls-teal/15 rounded-[4rem] blur-3xl -z-10" />
               </div>
 
-              {/* RIGHT of Phone: Mission Statement */}
-              <div className="hidden lg:flex flex-col gap-4 max-w-[300px]">
-                {/* Verlauf / Our Approach */}
-                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-sls-beige shadow-lg shadow-sls-teal/5">
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="w-8 h-8 rounded-full bg-sls-teal flex items-center justify-center">
-                      <span className="text-white text-sm font-bold">S</span>
-                    </div>
-                    <span className="text-sls-teal font-semibold text-sm uppercase tracking-wide">
-                      {locale === "de" ? "Unser Ansatz" : "Our Approach"}
-                    </span>
+              {/* RIGHT of Phone: Chat-style FAQ */}
+              <div className="hidden lg:flex flex-col gap-3 max-w-[320px]">
+                {/* Header */}
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-6 h-6 rounded-full bg-sls-teal flex items-center justify-center">
+                    <MessageCircle className="w-3 h-3 text-white" />
                   </div>
+                  <span className="text-sls-olive text-xs font-medium uppercase tracking-wide">
+                    {locale === "de" ? "Häufige Fragen" : "Common Questions"}
+                  </span>
+                </div>
 
-                  <h3 className="text-xl font-bold text-sls-teal mb-3">
-                    {locale === "de"
-                      ? "Echte Lehrer. Echte Ergebnisse."
-                      : "Real Teachers. Real Results."}
-                  </h3>
-
-                  <p className="text-sls-olive text-sm leading-relaxed mb-4">
-                    {locale === "de"
-                      ? "Wir verbinden modernste KI-Technologie mit der Expertise erfahrener Sprachlehrer. Jede Lektion wird von echten Pädagogen gestaltet – für authentisches, effektives Lernen."
-                      : "We combine cutting-edge AI technology with the expertise of experienced language teachers. Every lesson is crafted by real educators – for authentic, effective learning."}
-                  </p>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm text-sls-olive">
-                      <div className="w-1.5 h-1.5 rounded-full bg-sls-teal" />
-                      <span>{locale === "de" ? "20+ Jahre Erfahrung" : "20+ years experience"}</span>
+                {/* Q&A 1 */}
+                <div className="space-y-2">
+                  {/* User question */}
+                  <div className="flex justify-end">
+                    <div className="bg-sls-teal text-white rounded-2xl rounded-br-md px-4 py-2.5 max-w-[260px] shadow-sm">
+                      <p className="text-sm">
+                        {locale === "de"
+                          ? "Wie unterscheidet ihr euch von anderen Sprachkursen?"
+                          : "How are you different from other language courses?"}
+                      </p>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-sls-olive">
-                      <div className="w-1.5 h-1.5 rounded-full bg-sls-teal" />
-                      <span>{locale === "de" ? "Muttersprachliche Lehrer" : "Native-speaking teachers"}</span>
+                  </div>
+                  {/* Helena answer */}
+                  <div className="flex items-start gap-2">
+                    <div className="w-7 h-7 rounded-full bg-sls-orange/20 flex items-center justify-center flex-shrink-0">
+                      <span className="text-sls-orange text-xs font-bold">H</span>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-sls-olive">
-                      <div className="w-1.5 h-1.5 rounded-full bg-sls-teal" />
-                      <span>{locale === "de" ? "Personalisierter Unterricht" : "Personalized instruction"}</span>
+                    <div className="bg-white border border-sls-beige rounded-2xl rounded-tl-md px-4 py-2.5 max-w-[240px] shadow-sm">
+                      <p className="text-sm text-sls-olive">
+                        {locale === "de"
+                          ? "Wir verbinden echte Lehrerexpertise mit KI-Technologie – jede Lektion von Pädagogen gestaltet!"
+                          : "We combine real teacher expertise with AI technology – every lesson crafted by educators!"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Q&A 2 */}
+                <div className="space-y-2">
+                  {/* User question */}
+                  <div className="flex justify-end">
+                    <div className="bg-sls-teal text-white rounded-2xl rounded-br-md px-4 py-2.5 max-w-[260px] shadow-sm">
+                      <p className="text-sm">
+                        {locale === "de"
+                          ? "Kann ich jederzeit üben?"
+                          : "Can I practice anytime?"}
+                      </p>
+                    </div>
+                  </div>
+                  {/* Helena answer */}
+                  <div className="flex items-start gap-2">
+                    <div className="w-7 h-7 rounded-full bg-sls-orange/20 flex items-center justify-center flex-shrink-0">
+                      <span className="text-sls-orange text-xs font-bold">H</span>
+                    </div>
+                    <div className="bg-white border border-sls-beige rounded-2xl rounded-tl-md px-4 py-2.5 max-w-[240px] shadow-sm">
+                      <p className="text-sm text-sls-olive">
+                        {locale === "de"
+                          ? "Ja! Ich bin 24/7 für dich da. Übe wann und wo du willst."
+                          : "Yes! I'm available 24/7. Practice whenever and wherever you want."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Q&A 3 */}
+                <div className="space-y-2">
+                  {/* User question */}
+                  <div className="flex justify-end">
+                    <div className="bg-sls-teal text-white rounded-2xl rounded-br-md px-4 py-2.5 max-w-[260px] shadow-sm">
+                      <p className="text-sm">
+                        {locale === "de"
+                          ? "Ist das für Anfänger geeignet?"
+                          : "Is this suitable for beginners?"}
+                      </p>
+                    </div>
+                  </div>
+                  {/* Helena answer */}
+                  <div className="flex items-start gap-2">
+                    <div className="w-7 h-7 rounded-full bg-sls-orange/20 flex items-center justify-center flex-shrink-0">
+                      <span className="text-sls-orange text-xs font-bold">H</span>
+                    </div>
+                    <div className="bg-white border border-sls-beige rounded-2xl rounded-tl-md px-4 py-2.5 max-w-[240px] shadow-sm">
+                      <p className="text-sm text-sls-olive">
+                        {locale === "de"
+                          ? "Absolut! Ich passe mich deinem Niveau an – von A1 bis C2."
+                          : "Absolutely! I adapt to your level – from A1 to C2."}
+                      </p>
                     </div>
                   </div>
                 </div>
