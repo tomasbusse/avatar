@@ -136,35 +136,25 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
                 </div>
               )}
 
-              {/* Controls overlay on phone screen */}
-              <div className="absolute bottom-10 left-0 right-0 flex justify-around items-center px-4">
+              {/* Controls overlay at bottom of phone screen */}
+              <div className="absolute bottom-4 left-0 right-0 flex justify-center items-center gap-8">
                 {/* Green Start button */}
-                <div className="flex flex-col items-center gap-2">
-                  <button
-                    onClick={handleStartClick}
-                    className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center shadow-lg hover:scale-105 transition-transform active:scale-95"
-                    aria-label="Start lesson"
-                  >
-                    <Pause className="w-6 h-6 text-white" />
-                  </button>
-                  <span className="text-white text-xs font-medium uppercase tracking-widest drop-shadow-lg">
-                    {locale === "de" ? "Start" : "Start"}
-                  </span>
-                </div>
+                <button
+                  onClick={handleStartClick}
+                  className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center shadow-lg hover:scale-105 transition-transform active:scale-95"
+                  aria-label="Start lesson"
+                >
+                  <Pause className="w-6 h-6 text-white" />
+                </button>
 
                 {/* Red Stop button - triggers flip */}
-                <div className="flex flex-col items-center gap-2">
-                  <button
-                    onClick={handleStopClick}
-                    className="w-14 h-14 bg-red-500 rounded-full flex items-center justify-center shadow-lg hover:scale-105 transition-transform active:scale-95"
-                    aria-label="Stop and show contact form"
-                  >
-                    <X className="w-6 h-6 text-white" />
-                  </button>
-                  <span className="text-white text-xs font-medium uppercase tracking-widest drop-shadow-lg">
-                    {locale === "de" ? "Stopp" : "Stop"}
-                  </span>
-                </div>
+                <button
+                  onClick={handleStopClick}
+                  className="w-14 h-14 bg-red-500 rounded-full flex items-center justify-center shadow-lg hover:scale-105 transition-transform active:scale-95"
+                  aria-label="Stop and show contact form"
+                >
+                  <X className="w-6 h-6 text-white" />
+                </button>
               </div>
             </div>
 
