@@ -238,16 +238,16 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
 
               {/* Mobile Phone Mockup with Avatar inside */}
               <div className="relative" data-phone-display>
-                {/* Phone Frame */}
-                <div className="relative bg-gray-900 rounded-[3rem] p-3 shadow-2xl shadow-sls-teal/20">
+                {/* Phone Frame - Dark green border */}
+                <div className="relative bg-sls-teal rounded-[3rem] p-4 shadow-2xl shadow-sls-teal/30">
                   {/* Phone notch */}
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-7 bg-gray-900 rounded-b-2xl z-10 flex items-center justify-center">
-                    <div className="w-16 h-4 bg-black rounded-full" />
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-36 h-8 bg-sls-teal rounded-b-2xl z-10 flex items-center justify-center">
+                    <div className="w-20 h-5 bg-black/80 rounded-full" />
                   </div>
 
-                  {/* Phone screen - Flippable Avatar/Contact Form */}
+                  {/* Phone screen - Flippable Avatar/Contact Form - LARGER */}
                   <div
-                    className="relative w-64 h-[440px] rounded-[2.5rem] overflow-hidden bg-gradient-to-br from-sls-cream to-white"
+                    className="relative w-80 h-[580px] rounded-[2.5rem] overflow-hidden"
                     style={{ perspective: "1000px" }}
                   >
                     <div
@@ -273,14 +273,14 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
 
                       {/* Back Side - Contact Form */}
                       <div
-                        className="absolute inset-0 bg-gradient-to-br from-sls-cream to-white rounded-[2.5rem] overflow-hidden p-5"
+                        className="absolute inset-0 bg-gradient-to-br from-sls-cream to-white rounded-[2.5rem] overflow-hidden p-6"
                         style={{
                           backfaceVisibility: "hidden",
                           transform: "rotateY(180deg)",
                         }}
                       >
                         {/* Header */}
-                        <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center justify-between mb-4">
                           <button
                             onClick={() => {
                               setShowContactForm(false);
@@ -299,7 +299,7 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
 
                         {/* Success State */}
                         {submitSuccess ? (
-                          <div className="flex-1 flex flex-col items-center justify-center text-center h-[340px]">
+                          <div className="flex-1 flex flex-col items-center justify-center text-center h-[480px]">
                             <div className="w-12 h-12 rounded-full bg-sls-teal/10 flex items-center justify-center mb-3">
                               <Send className="w-6 h-6 text-sls-teal" />
                             </div>
@@ -324,7 +324,7 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
                           </div>
                         ) : (
                           /* Contact Form */
-                          <form onSubmit={handleContactSubmit} className="flex flex-col gap-2 h-[340px]">
+                          <form onSubmit={handleContactSubmit} className="flex flex-col gap-3 h-[480px]">
                             <p className="text-xs text-sls-olive mb-1">
                               {locale === "de"
                                 ? "Hinterlassen Sie uns eine Nachricht!"
@@ -416,7 +416,7 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
                 </div>
 
                 {/* Phone glow effect */}
-                <div className="absolute -inset-4 bg-gradient-to-r from-sls-teal/10 via-sls-orange/10 to-sls-teal/10 rounded-[4rem] blur-2xl -z-10" />
+                <div className="absolute -inset-6 bg-gradient-to-br from-sls-teal/20 via-sls-chartreuse/10 to-sls-teal/15 rounded-[4rem] blur-3xl -z-10" />
               </div>
 
               {/* RIGHT of Phone: Just Flashcard Game */}
