@@ -1,6 +1,6 @@
 import * as Sentry from "@sentry/nextjs";
 import type { Metadata } from "next";
-import { Blinker, Inter } from "next/font/google";
+import { Blinker, Inter, Playfair_Display } from "next/font/google";
 import { ConvexClientProvider } from "@/components/providers/convex-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { Toaster } from "sonner";
@@ -15,6 +15,11 @@ const blinker = Blinker({
   variable: "--font-blinker",
 });
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-playfair",
+});
 
 export function generateMetadata(): Metadata {
   return {
@@ -33,7 +38,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${blinker.variable} ${inter.variable} font-sans`}>
+      <body className={`${blinker.variable} ${inter.variable} ${playfair.variable} font-sans`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="light"

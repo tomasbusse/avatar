@@ -74,6 +74,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["var(--font-blinker)", "var(--font-inter)", "system-ui", "sans-serif"],
+        serif: ["var(--font-playfair)", "Playfair Display", "Georgia", "serif"],
         mono: ["JetBrains Mono", "monospace"],
       },
       keyframes: {
