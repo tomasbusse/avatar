@@ -42,7 +42,7 @@ from livekit import rtc
 from livekit.agents import AutoSubscribe, JobContext, JobProcess, WorkerOptions, cli, llm, function_tool, RunContext, ModelSettings
 from livekit.agents.voice import AgentSession, Agent, room_io
 from livekit.agents.llm import ChatMessage, ChatRole
-from livekit.plugins import deepgram, cartesia, bey, silero
+from livekit.plugins import deepgram, cartesia, bey, hedra, silero
 try:
     from livekit.plugins import noise_cancellation
     NOISE_CANCELLATION_AVAILABLE = True
@@ -1981,6 +1981,15 @@ async def entrypoint(ctx: JobContext):
         session_data = await convex.get_session_by_room(room_name)
         await convex.close()
 
+    # ==========================================================================
+    # EXTRACT AVATAR PROVIDER INFO EARLY - Needed for parallel initialization
+    # ==========================================================================
+    avatar_provider_config = avatar_config.get("avatar_provider") or avatar_config.get("avatarProvider") or {}
+    avatar_provider_type = avatar_provider_config.get("type", "beyond_presence")
+    avatar_provider_id = avatar_provider_config.get("avatarId") or avatar_provider_config.get("avatar_id")
+    avatar_name = avatar_config.get("name", "Ludwig")
+    logger.info(f"🎭 Avatar provider: type={avatar_provider_type}, id={avatar_provider_id}, name={avatar_name}")
+
     # Check for structured lesson with pre-loaded presentation
     is_structured_lesson = False
     if session_data:
@@ -2395,30 +2404,47 @@ async def entrypoint(ctx: JobContext):
     )
 
     # ==========================================================================
-    # PARALLEL AVATAR INITIALIZATION - Start Beyond Presence cold start early!
+    # PARALLEL AVATAR INITIALIZATION - Start avatar cold start early!
     # ==========================================================================
-    # Beyond Presence takes 10-15 seconds for cold start. By starting it here
-    # (right after session creation), we overlap that time with event handler setup,
-    # agent creation, and other initialization - saving ~500ms-1s of total startup time.
+    # Avatar providers take time for cold start. By starting here (right after
+    # session creation), we overlap that time with event handler setup, agent
+    # creation, and other initialization - saving startup time.
     # Per LiveKit docs: avatar.start() can be called before session.start()
     avatar_start_task = None
     avatar = None
     audio_only_mode = False
     avatar_error_reason = None
 
-    if config.bey_api_key and avatar_id:
-        logger.info(f"🚀 Starting Beyond Presence avatar initialization in parallel...")
-        avatar = bey.AvatarSession(
-            avatar_id=avatar_id,
+    # Create avatar based on provider type
+    if avatar_provider_type == "hedra" and config.hedra_api_key and avatar_provider_id:
+        # Hedra Realtime Avatars - sub-100ms latency, $0.05/min
+        logger.info(f"🚀 Starting Hedra avatar initialization in parallel...")
+        avatar = hedra.AvatarSession(
+            avatar_id=avatar_provider_id,
             avatar_participant_name=avatar_name,
         )
-        # Start avatar.start() as background task - runs during event handler setup
         avatar_start_task = asyncio.create_task(
             avatar.start(session, room=ctx.room),
-            name="avatar_start"
+            name="avatar_start_hedra"
         )
+    elif avatar_provider_type == "beyond_presence" and config.bey_api_key and avatar_provider_id:
+        # Beyond Presence - hyper-realistic avatars
+        logger.info(f"🚀 Starting Beyond Presence avatar initialization in parallel...")
+        avatar = bey.AvatarSession(
+            avatar_id=avatar_provider_id,
+            avatar_participant_name=avatar_name,
+        )
+        avatar_start_task = asyncio.create_task(
+            avatar.start(session, room=ctx.room),
+            name="avatar_start_bey"
+        )
+    elif avatar_provider_id:
+        # Have avatar ID but missing API key
+        logger.warning(f"⚠️ Avatar provider '{avatar_provider_type}' configured but API key missing - Will run in audio-only mode")
+        audio_only_mode = True
+        avatar_error_reason = "missing_api_key"
     else:
-        logger.warning(f"⚠️ Missing API Key or Avatar ID - Will run in audio-only mode")
+        logger.warning(f"⚠️ No avatar ID configured - Will run in audio-only mode")
         audio_only_mode = True
         avatar_error_reason = "missing_config"
 
@@ -2588,20 +2614,10 @@ async def entrypoint(ctx: JobContext):
         """Sync callback that dispatches to async handler."""
         asyncio.create_task(_handle_session_close_async(event))
 
-    # Get Beyond Presence avatar settings
-    # Check both camelCase (from room metadata) and snake_case formats
-    avatar_provider = avatar_config.get("avatar_provider") or avatar_config.get("avatarProvider") or {}
-    # Avatar ID can be avatarId (camelCase from frontend) or avatar_id (snake_case)
-    avatar_id = avatar_provider.get("avatarId") or avatar_provider.get("avatar_id")
-    avatar_name = avatar_config.get("name", "Ludwig")
-
-    logger.info(f"🔍 Avatar provider lookup: avatar_provider keys={list(avatar_provider.keys()) if avatar_provider else 'None'}, avatar_id={avatar_id}")
-
-    logger.info(f"📺 Avatar configured: {avatar_name} (will start after session)")
-
-    # Track avatar mode for session (will be set after avatar start attempt)
-    audio_only_mode = False
-    avatar_error_reason = None
+    # Note: Avatar provider config was extracted earlier (after avatar_config loaded)
+    # and avatar initialization was started in parallel (after session creation)
+    # Variables available: avatar_provider_type, avatar_provider_id, avatar_name,
+    #                     avatar, avatar_start_task, audio_only_mode, avatar_error_reason
 
     # Create agent with instructions - build rich prompt from personality/identity
     # Include memory context for returning students

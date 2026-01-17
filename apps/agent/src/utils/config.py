@@ -25,6 +25,9 @@ class Config(BaseSettings):
     bey_api_key: Optional[str] = None
     bey_avatar_id: Optional[str] = None
 
+    # Hedra
+    hedra_api_key: Optional[str] = None
+
     # AI Providers
     openrouter_api_key: str = ""
     deepgram_api_key: str = ""
