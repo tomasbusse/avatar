@@ -780,7 +780,7 @@ function PagesTab() {
 // ============ Site Config Tab ============
 function SiteConfigTab() {
   const siteConfig = useQuery(api.landing.getFullSiteConfig);
-  const avatars = useQuery(api.avatars.listActiveAvatars);
+  const avatars = useQuery(api.avatars.listAllAvatars);
   const updateConfig = useMutation(api.landing.updateSiteConfig);
   const upsertSection = useMutation(api.landing.upsertSectionContent);
 
