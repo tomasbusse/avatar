@@ -369,6 +369,7 @@ export const getLandingAvatar = query({
   },
   handler: async (ctx, args) => {
     const locale = args.locale || "en";
+    const otherLocale = locale === "en" ? "de" : "en";
 
     // Try locale-specific avatar first (e.g., landing_hero_avatar_en or landing_hero_avatar_de)
     const localeConfig = await ctx.db
@@ -380,6 +381,20 @@ export const getLandingAvatar = query({
       const avatar = await ctx.db
         .query("avatars")
         .filter((q) => q.eq(q.field("_id"), localeConfig.value))
+        .first();
+      if (avatar) return avatar;
+    }
+
+    // Try other locale's avatar as fallback (so DE uses EN avatar if DE not configured)
+    const otherLocaleConfig = await ctx.db
+      .query("siteConfig")
+      .withIndex("by_key", (q) => q.eq("key", `landing_hero_avatar_${otherLocale}`))
+      .first();
+
+    if (otherLocaleConfig?.value) {
+      const avatar = await ctx.db
+        .query("avatars")
+        .filter((q) => q.eq(q.field("_id"), otherLocaleConfig.value))
         .first();
       if (avatar) return avatar;
     }
