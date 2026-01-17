@@ -128,14 +128,26 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   try {
-    // Check if agent is running
-    const { stdout } = await execAsync('pgrep -f "python.*main.py" || echo "not running"');
-    const isRunning = stdout.trim() !== "not running";
+    // Check if agent is running using full path to pgrep
+    let isRunning = false;
+    let pid: string | null = null;
+
+    try {
+      const { stdout } = await execAsync('/usr/bin/pgrep -f "python.*main.py"', { shell: "/bin/bash" });
+      const pids = stdout.trim();
+      if (pids) {
+        isRunning = true;
+        pid = pids.split("\n")[0]; // Return first PID
+      }
+    } catch {
+      // pgrep returns exit code 1 when no process found - this is expected
+      isRunning = false;
+    }
 
     // Get recent logs
     let logs = "";
     try {
-      const { stdout: logOutput } = await execAsync("tail -30 /tmp/agent_bilingual.log");
+      const { stdout: logOutput } = await execAsync("tail -30 /tmp/agent_bilingual.log", { shell: "/bin/bash" });
       logs = logOutput;
     } catch {
       logs = "No logs available";
@@ -143,10 +155,11 @@ export async function GET() {
 
     return NextResponse.json({
       running: isRunning,
-      pid: isRunning ? stdout.trim() : null,
+      pid,
       logs: logs.slice(-1000),
     });
   } catch (error: any) {
+    console.error("Agent status check error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
