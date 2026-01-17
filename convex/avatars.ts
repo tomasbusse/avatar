@@ -1028,6 +1028,65 @@ export const setDefaultVoiceConfig = mutation({
   },
 });
 
+// Clone an existing avatar with a new name and slug
+export const cloneAvatar = mutation({
+  args: {
+    avatarId: v.id("avatars"),
+    newName: v.string(),
+    newSlug: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!user || user.role !== "admin") {
+      throw new Error("Not authorized");
+    }
+
+    // Get the source avatar
+    const sourceAvatar = await ctx.db.get(args.avatarId);
+    if (!sourceAvatar) {
+      throw new Error("Source avatar not found");
+    }
+
+    // Check if slug already exists
+    const existingSlug = await ctx.db
+      .query("avatars")
+      .withIndex("by_slug", (q) => q.eq("slug", args.newSlug))
+      .unique();
+
+    if (existingSlug) {
+      throw new Error(`Slug "${args.newSlug}" already exists`);
+    }
+
+    const now = Date.now();
+
+    // Create clone with new name and slug, copy everything else
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { _id, _creationTime, name, slug, createdAt, updatedAt, ...restOfAvatar } = sourceAvatar;
+
+    const newAvatarId = await ctx.db.insert("avatars", {
+      ...restOfAvatar,
+      name: args.newName,
+      slug: args.newSlug,
+      isActive: false, // Start as inactive so admin can configure before enabling
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return {
+      success: true,
+      newAvatarId,
+      message: `Avatar "${args.newName}" cloned from "${sourceAvatar.name}"`,
+    };
+  },
+});
+
 // Get default voice config for a specific language
 export const getDefaultVoiceForLanguage = query({
   args: {

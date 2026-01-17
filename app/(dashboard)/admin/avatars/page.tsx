@@ -40,6 +40,7 @@ import {
   Clock,
   XCircle,
   Upload,
+  Copy,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRef } from "react";
@@ -145,6 +146,12 @@ export default function AvatarsPage() {
   const [forceDelete, setForceDelete] = useState(false);
   const [isEndingSessions, setIsEndingSessions] = useState(false);
 
+  // Clone avatar state
+  const [cloningAvatar, setCloningAvatar] = useState<{ id: Id<"avatars">; name: string } | null>(null);
+  const [cloneName, setCloneName] = useState("");
+  const [cloneSlug, setCloneSlug] = useState("");
+  const [isCloning, setIsCloning] = useState(false);
+
   const [dynamicModels, setDynamicModels] = useState<LLMModel[]>(DEFAULT_LLM_MODELS);
 
   useEffect(() => {
@@ -175,6 +182,7 @@ export default function AvatarsPage() {
 
   const avatars = useQuery(api.avatars.listActiveAvatars);
   const deleteAvatarMutation = useMutation(api.avatars.deleteAvatar);
+  const cloneAvatarMutation = useMutation(api.avatars.cloneAvatar);
   const deletionInfo = useQuery(
     api.avatars.getAvatarDeletionInfo,
     deletingAvatar ? { avatarId: deletingAvatar } : "skip"
@@ -232,6 +240,32 @@ export default function AvatarsPage() {
       setIsDeleting(false);
       setDeletingAvatar(null);
       setForceDelete(false);
+    }
+  };
+
+  const handleCloneAvatar = async () => {
+    if (!cloningAvatar || !cloneName.trim() || !cloneSlug.trim()) return;
+
+    setIsCloning(true);
+    try {
+      const result = await cloneAvatarMutation({
+        avatarId: cloningAvatar.id,
+        newName: cloneName.trim(),
+        newSlug: cloneSlug.trim().toLowerCase().replace(/\s+/g, "-"),
+      });
+
+      toast.success(result.message);
+      // Open the editor for the new avatar
+      setEditingAvatar(result.newAvatarId);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to clone avatar"
+      );
+    } finally {
+      setIsCloning(false);
+      setCloningAvatar(null);
+      setCloneName("");
+      setCloneSlug("");
     }
   };
 
@@ -448,7 +482,7 @@ export default function AvatarsPage() {
                     </div>
                   )}
 
-                  <div className="flex gap-2 mt-4">
+                  <div className="flex gap-2 mt-4 flex-wrap">
                     <Button
                       variant="outline"
                       size="sm"
@@ -456,6 +490,18 @@ export default function AvatarsPage() {
                     >
                       <Settings className="w-4 h-4 mr-1" />
                       Edit
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setCloningAvatar({ id: avatar._id, name: avatar.name });
+                        setCloneName(`${avatar.name} (Copy)`);
+                        setCloneSlug(`${avatar.slug}-copy`);
+                      }}
+                    >
+                      <Copy className="w-4 h-4 mr-1" />
+                      Clone
                     </Button>
                     <Button
                       variant="outline"
@@ -694,6 +740,86 @@ export default function AvatarsPage() {
                   <>
                     <Trash2 className="w-4 h-4 mr-2" />
                     Delete Avatar
+                  </>
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Clone Avatar Dialog */}
+        <AlertDialog
+          open={cloningAvatar !== null}
+          onOpenChange={(open) => {
+            if (!open) {
+              setCloningAvatar(null);
+              setCloneName("");
+              setCloneSlug("");
+            }
+          }}
+        >
+          <AlertDialogContent className="max-w-md">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <Copy className="w-5 h-5" />
+                Clone Avatar
+              </AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-4 pt-2">
+                  <p>
+                    Create a copy of <strong>{cloningAvatar?.name}</strong> with all settings.
+                  </p>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-sm font-medium text-foreground">New Name</label>
+                      <input
+                        type="text"
+                        value={cloneName}
+                        onChange={(e) => {
+                          setCloneName(e.target.value);
+                          // Auto-generate slug from name
+                          setCloneSlug(e.target.value.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, ""));
+                        }}
+                        className="w-full mt-1 px-3 py-2 border rounded-md text-foreground bg-background"
+                        placeholder="e.g. Emma German"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-foreground">Slug (URL identifier)</label>
+                      <input
+                        type="text"
+                        value={cloneSlug}
+                        onChange={(e) => setCloneSlug(e.target.value.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, ""))}
+                        className="w-full mt-1 px-3 py-2 border rounded-md text-foreground bg-background font-mono text-sm"
+                        placeholder="e.g. emma-german"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    The cloned avatar will start as inactive. You can configure and activate it after creation.
+                  </p>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isCloning}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleCloneAvatar();
+                }}
+                disabled={isCloning || !cloneName.trim() || !cloneSlug.trim()}
+                className="bg-primary hover:bg-primary/90"
+              >
+                {isCloning ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Cloning...
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4 mr-2" />
+                    Clone Avatar
                   </>
                 )}
               </AlertDialogAction>
