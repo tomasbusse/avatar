@@ -41,6 +41,10 @@ import {
   XCircle,
   Upload,
   Copy,
+  Power,
+  RefreshCw,
+  Terminal,
+  Circle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRef } from "react";
@@ -154,8 +158,57 @@ export default function AvatarsPage() {
 
   const [dynamicModels, setDynamicModels] = useState<LLMModel[]>(DEFAULT_LLM_MODELS);
 
+  // Agent control state
+  const [agentStatus, setAgentStatus] = useState<{
+    running: boolean;
+    pid: string | null;
+    logs: string;
+  } | null>(null);
+  const [agentLoading, setAgentLoading] = useState(false);
+  const [showAgentLogs, setShowAgentLogs] = useState(false);
+
+  // Fetch agent status
+  const fetchAgentStatus = async () => {
+    try {
+      const response = await fetch("/api/agent/restart");
+      const data = await response.json();
+      setAgentStatus(data);
+    } catch (error) {
+      console.error("Failed to fetch agent status:", error);
+    }
+  };
+
+  // Agent control actions
+  const controlAgent = async (action: "start" | "stop" | "restart") => {
+    setAgentLoading(true);
+    try {
+      const response = await fetch("/api/agent/restart", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast.success(data.message);
+      } else {
+        toast.error(data.message || data.error);
+      }
+      // Refresh status after action
+      await fetchAgentStatus();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to control agent");
+    } finally {
+      setAgentLoading(false);
+    }
+  };
+
   useEffect(() => {
     setCustomVoices(getStoredVoices());
+    // Fetch agent status on mount
+    fetchAgentStatus();
+    // Poll agent status every 10 seconds
+    const interval = setInterval(fetchAgentStatus, 10000);
+    return () => clearInterval(interval);
 
     // Fetch all models from OpenRouter
     const fetchModels = async () => {
@@ -311,6 +364,77 @@ export default function AvatarsPage() {
             </Button>
           </div>
         </div>
+
+        {/* Agent Control Panel */}
+        <Card className="bg-muted/30">
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Terminal className="w-5 h-5 text-muted-foreground" />
+                  <span className="font-medium">Python Agent</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Circle
+                    className={`w-3 h-3 ${agentStatus?.running ? 'fill-green-500 text-green-500' : 'fill-red-500 text-red-500'}`}
+                  />
+                  <span className={`text-sm ${agentStatus?.running ? 'text-green-600' : 'text-red-600'}`}>
+                    {agentStatus?.running ? `Running (PID: ${agentStatus.pid})` : 'Stopped'}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAgentLogs(!showAgentLogs)}
+                  disabled={!agentStatus?.logs}
+                >
+                  <Terminal className="w-4 h-4 mr-1" />
+                  Logs
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => controlAgent('start')}
+                  disabled={agentLoading || agentStatus?.running}
+                >
+                  <Power className="w-4 h-4 mr-1" />
+                  Start
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => controlAgent('stop')}
+                  disabled={agentLoading || !agentStatus?.running}
+                >
+                  <Power className="w-4 h-4 mr-1" />
+                  Stop
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => controlAgent('restart')}
+                  disabled={agentLoading}
+                >
+                  {agentLoading ? (
+                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4 mr-1" />
+                  )}
+                  Restart
+                </Button>
+              </div>
+            </div>
+            {showAgentLogs && agentStatus?.logs && (
+              <div className="mt-4">
+                <pre className="bg-black text-green-400 p-4 rounded-lg text-xs font-mono overflow-x-auto max-h-64 overflow-y-auto">
+                  {agentStatus.logs}
+                </pre>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {!avatars ? (
           <div className="flex items-center justify-center py-16">
