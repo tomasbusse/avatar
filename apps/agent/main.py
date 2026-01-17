@@ -2393,7 +2393,35 @@ async def entrypoint(ctx: JobContext):
         allow_interruptions=True,        # Let user interrupt if needed
         preemptive_generation=True,      # Start TTS/LLM before turn ends (saves 150-300ms)
     )
-    
+
+    # ==========================================================================
+    # PARALLEL AVATAR INITIALIZATION - Start Beyond Presence cold start early!
+    # ==========================================================================
+    # Beyond Presence takes 10-15 seconds for cold start. By starting it here
+    # (right after session creation), we overlap that time with event handler setup,
+    # agent creation, and other initialization - saving ~500ms-1s of total startup time.
+    # Per LiveKit docs: avatar.start() can be called before session.start()
+    avatar_start_task = None
+    avatar = None
+    audio_only_mode = False
+    avatar_error_reason = None
+
+    if config.bey_api_key and avatar_id:
+        logger.info(f"🚀 Starting Beyond Presence avatar initialization in parallel...")
+        avatar = bey.AvatarSession(
+            avatar_id=avatar_id,
+            avatar_participant_name=avatar_name,
+        )
+        # Start avatar.start() as background task - runs during event handler setup
+        avatar_start_task = asyncio.create_task(
+            avatar.start(session, room=ctx.room),
+            name="avatar_start"
+        )
+    else:
+        logger.warning(f"⚠️ Missing API Key or Avatar ID - Will run in audio-only mode")
+        audio_only_mode = True
+        avatar_error_reason = "missing_config"
+
     # Track current TTS language for bilingual mode
     current_tts_language = {"lang": tts_language}  # Use dict for mutability in closure
 
@@ -2758,31 +2786,15 @@ You are conducting a structured lesson from this presentation.
     else:
         agent = Agent(instructions=final_prompt)
     
-    # Start the session FIRST (before avatar, so audio pipeline is ready)
-    # With noise cancellation (if available) and optimized room options
-    room_opts_kwargs = {}
-    if NOISE_CANCELLATION_AVAILABLE and noise_cancellation:
-        room_opts_kwargs["audio_input"] = room_io.AudioInputOptions(
-            noise_cancellation=noise_cancellation.BVC(),  # Background Voice Cancellation
-        )
-
-    await session.start(
-        room=ctx.room,
-        agent=agent,
-        room_options=room_io.RoomOptions(**room_opts_kwargs) if room_opts_kwargs else None,
-    )
-
-    logger.info(f"✨ Session started (Vision: {'ON' if vision_enabled else 'OFF'})")
-
-    # NOW start the avatar (after session is ready, so TTS audio can flow to avatar)
-    if config.bey_api_key and avatar_id:
+    # ==========================================================================
+    # AWAIT AVATAR START TASK - Started earlier for parallel initialization
+    # ==========================================================================
+    # Avatar was started in background while we set up event handlers.
+    # Per LiveKit docs: avatar.start() should complete BEFORE session.start()
+    if avatar_start_task is not None:
         try:
-            logger.info(f"📺 Starting avatar: {avatar_name}")
-            avatar = bey.AvatarSession(
-                avatar_id=avatar_id,
-                avatar_participant_name=avatar_name,
-            )
-            await avatar.start(session, room=ctx.room)
+            logger.info(f"⏳ Awaiting avatar initialization (started earlier in parallel)...")
+            await avatar_start_task
             logger.info(f"✅ Avatar '{avatar_name}' connected!")
         except Exception as e:
             error_str = str(e).lower()
@@ -2812,16 +2824,30 @@ You are conducting a structured lesson from this presentation.
 
             if audio_only_mode:
                 logger.info(f"🎧 Continuing session in AUDIO-ONLY mode (no avatar video)")
-    else:
-        logger.warning(f"⚠️ Missing API Key or Avatar ID - Running in audio-only mode")
-        audio_only_mode = True
-        avatar_error_reason = "missing_config"
 
     # Store audio-only state in job context for potential use
     if audio_only_mode:
         ctx.userdata["audio_only_mode"] = True
         ctx.userdata["avatar_error_reason"] = avatar_error_reason
         logger.info(f"📋 Session state: audio_only_mode={audio_only_mode}, reason={avatar_error_reason}")
+
+    # ==========================================================================
+    # START SESSION - After avatar is ready (per LiveKit docs order)
+    # ==========================================================================
+    # With noise cancellation (if available) and optimized room options
+    room_opts_kwargs = {}
+    if NOISE_CANCELLATION_AVAILABLE and noise_cancellation:
+        room_opts_kwargs["audio_input"] = room_io.AudioInputOptions(
+            noise_cancellation=noise_cancellation.BVC(),  # Background Voice Cancellation
+        )
+
+    await session.start(
+        room=ctx.room,
+        agent=agent,
+        room_options=room_io.RoomOptions(**room_opts_kwargs) if room_opts_kwargs else None,
+    )
+
+    logger.info(f"✨ Session started (Vision: {'ON' if vision_enabled else 'OFF'})")
 
     logger.info(f"✨ Agent '{avatar_name}' ready (Vision: {'ON' if vision_enabled else 'OFF'})")
 
