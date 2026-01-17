@@ -80,6 +80,13 @@ export const createAvatar = mutation({
           resolution: v.optional(v.string()),
           fps: v.optional(v.number()),
           background: v.optional(v.string()),
+          aspectRatio: v.optional(v.union(
+            v.literal("1:1"),
+            v.literal("3:4"),
+            v.literal("4:3"),
+            v.literal("16:9"),
+            v.literal("9:16")
+          )),
         })
       ),
     }),
