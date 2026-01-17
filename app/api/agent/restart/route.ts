@@ -128,19 +128,21 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   try {
-    // Check if agent is running using full path to pgrep
+    // Check if agent is running using ps + grep (more reliable than pgrep in Node.js)
     let isRunning = false;
     let pid: string | null = null;
 
     try {
-      const { stdout } = await execAsync('/usr/bin/pgrep -f "python.*main.py"', { shell: "/bin/bash" });
-      const pids = stdout.trim();
-      if (pids) {
+      const { stdout } = await execAsync(
+        'ps aux | grep "[p]ython.*main.py" | awk \'{print $2}\' | head -1',
+        { shell: "/bin/bash" }
+      );
+      const foundPid = stdout.trim();
+      if (foundPid) {
         isRunning = true;
-        pid = pids.split("\n")[0]; // Return first PID
+        pid = foundPid;
       }
     } catch {
-      // pgrep returns exit code 1 when no process found - this is expected
       isRunning = false;
     }
 
