@@ -119,9 +119,9 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
   };
 
   return (
-    <section className="flex flex-col lg:flex-row min-h-screen items-center justify-center p-6 lg:p-20 bg-[#f3e9d2] gap-12 lg:gap-24 overflow-hidden">
+    <section className="flex flex-col lg:flex-row min-h-[90vh] lg:min-h-screen items-center justify-center px-4 py-8 sm:p-6 lg:p-16 xl:p-20 bg-[#f3e9d2] gap-8 lg:gap-16 xl:gap-24 overflow-hidden">
       {/* Phone Mockup Section */}
-      <div className="relative w-full max-w-[320px] lg:max-w-[380px] shrink-0" data-phone-display>
+      <div className="relative w-full max-w-[280px] sm:max-w-[300px] lg:max-w-[340px] shrink-0" data-phone-display>
         {/* Phone Frame with flip animation - reduced height by 50px using max-height */}
         <div
           className="relative rounded-[3rem] border-[12px] border-black overflow-hidden shadow-2xl bg-gray-900"
@@ -240,7 +240,7 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
                     }}
                     className="px-6 py-2.5 rounded-xl bg-[#b3592d] text-white text-sm font-semibold hover:bg-[#9a4b24] transition-colors"
                   >
-                    {locale === "de" ? "Zurück zu Helena" : "Back to Helena"}
+                    {locale === "de" ? `Zurück zu ${avatarName}` : `Back to ${avatarName}`}
                   </button>
                 </div>
               ) : (
@@ -340,36 +340,73 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
       </div>
 
       {/* Content Section */}
-      <div className="max-w-xl text-center lg:text-left flex flex-col gap-6">
-        <h1 className="text-[#1a3c34] text-5xl lg:text-7xl font-serif leading-tight">
-          Helena, {locale === "de" ? "Ihre" : "your"} <br />
-          <span className="text-[#b3592d]">AI/Professional</span> <br />
-          {locale === "de" ? "Englisch Coach" : "English Coach"}
+      <div className="max-w-xl text-center lg:text-left flex flex-col gap-5">
+        {/* Brand tagline */}
+        <p className="text-[#b3592d] text-sm font-semibold uppercase tracking-widest">
+          {locale === "de" ? "Seit über 20 Jahren" : "Over 20 years of excellence"}
+        </p>
+
+        <h1 className="text-[#1a3c34] text-4xl lg:text-6xl font-serif leading-tight">
+          {locale === "de" ? "Treffen Sie" : "Meet"} {avatarName}, <br />
+          {locale === "de" ? "Ihre" : "your"}{" "}
+          <span className="text-[#b3592d]">AI</span>{" "}
+          {locale === "de" ? "Sprachpartnerin" : "Practice Partner"}
         </h1>
 
         <p className="text-[#4a4a4a] text-lg leading-relaxed max-w-lg">
           {locale === "de"
-            ? "Erleben Sie maßgeschneidertes Business-Englisch-Training für gehobene Karrieren. Personalisierter, ergebnisorientierter Sprachunterricht für Fachkräfte, weltweit verfügbar. Verbessern Sie Ihre Kommunikation mit Selbstvertrauen."
-            : "Experience bespoke Business English training tailored for elevated careers. Personalized, results-driven coaching for professionals, delivered globally. Elevate your communication with confidence."}
+            ? "Business und Professional English für echte Arbeitssituationen. Maßgeschneidertes Training statt Standardprogramme — mit modernster KI-Technologie als digitaler Übungspartner."
+            : "Business and Professional English for real workplace situations. Tailored training instead of standard programs — with cutting-edge AI technology as your digital practice partner."}
         </p>
 
-        <button
-          onClick={handleStartClick}
-          className="bg-[#b3592d] text-white px-8 py-4 rounded-xl text-lg font-semibold hover:bg-[#9a4b24] transition-all w-fit self-center lg:self-start shadow-md active:scale-95"
-        >
-          {locale === "de" ? "Lektion mit Helena starten" : "Start Lesson with Helena"}
-        </button>
+        {/* CTA Buttons */}
+        <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
+          <button
+            onClick={handleStartClick}
+            className="bg-[#003F37] text-white px-8 py-4 rounded-xl text-lg font-semibold hover:bg-[#002a25] transition-all shadow-md active:scale-95"
+          >
+            {locale === "de" ? `Mit ${avatarName} sprechen` : `Talk to ${avatarName}`}
+          </button>
+          <button
+            onClick={() => {
+              setShowContactForm(true);
+              setTimeout(() => {
+                const phoneEl = document.querySelector('[data-phone-display]');
+                phoneEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }, 100);
+            }}
+            className="bg-transparent border-2 border-[#003F37] text-[#003F37] px-8 py-4 rounded-xl text-lg font-semibold hover:bg-[#003F37]/10 transition-all active:scale-95"
+          >
+            {locale === "de" ? "Kontakt aufnehmen" : "Get in touch"}
+          </button>
+        </div>
+
+        {/* Features list */}
+        <div className="flex flex-wrap gap-4 justify-center lg:justify-start pt-2 text-sm text-[#4a4a4a]">
+          <span className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#b3592d]" />
+            {locale === "de" ? "Hannover & Berlin" : "Hannover & Berlin"}
+          </span>
+          <span className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#b3592d]" />
+            {locale === "de" ? "Online & Präsenz" : "Online & In-person"}
+          </span>
+          <span className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#b3592d]" />
+            {locale === "de" ? "Einzel & Gruppen" : "Individual & Groups"}
+          </span>
+        </div>
 
         {/* Decorative Separator */}
-        <div className="flex items-center gap-4 py-4 justify-center lg:justify-start">
+        <div className="flex items-center gap-4 py-2 justify-center lg:justify-start">
           <div className="h-px bg-gray-300 flex-grow max-w-[100px]" />
           <div className="w-2 h-2 rotate-45 border border-gray-400" />
           <div className="h-px bg-gray-300 flex-grow max-w-[100px]" />
         </div>
 
         {/* Testimonial */}
-        <div className="relative pl-8 pt-4 italic">
-          <span className="absolute left-0 top-0 text-6xl text-[#b3592d] opacity-40 font-serif">"</span>
+        <div className="relative pl-8 pt-2 italic">
+          <span className="absolute left-0 top-0 text-5xl text-[#b3592d] opacity-40 font-serif">"</span>
           <div className="flex gap-1 mb-2 justify-center lg:justify-start">
             {[1, 2, 3, 4, 5].map((i) => (
               <svg key={i} className="w-4 h-4 text-orange-400 fill-current" viewBox="0 0 20 20">
@@ -377,13 +414,13 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
               </svg>
             ))}
           </div>
-          <p className="text-[#1a3c34] text-2xl font-serif mb-2 leading-snug">
+          <p className="text-[#1a3c34] text-xl font-serif mb-2 leading-snug">
             {locale === "de"
-              ? "Der personalisierte Ansatz hat mein Selbstvertrauen enorm gestärkt. Sehr empfehlenswert!"
-              : "The personalized approach has boosted my confidence immensely. Highly recommend!"}
+              ? "Das Training ist genau auf meine Bedürfnisse im Job zugeschnitten. Endlich echte Fortschritte!"
+              : "The training is tailored exactly to my job needs. Finally real progress!"}
           </p>
           <p className="text-sm font-bold text-gray-700 uppercase tracking-tighter not-italic">
-            — Sarah L., Marketing Director
+            — Thomas M., Project Manager
           </p>
         </div>
       </div>
