@@ -2337,7 +2337,7 @@ async def entrypoint(ctx: JobContext):
                     logger.info(f"   📹 Track: {source_name}/{kind_name}, subscribed={pub.subscribed}, track={pub.track is not None}")
         
         # Run initial check after a short delay
-        import asyncio
+        # Note: asyncio is imported at module level (line 10)
         asyncio.create_task(asyncio.sleep(2.0))
         asyncio.create_task(log_video_tracks())
         
@@ -2937,7 +2937,7 @@ You are conducting a structured lesson from this presentation.
 
     if opening_greeting:
         try:
-            import asyncio
+            # Note: asyncio is imported at module level (line 10)
             # Longer delay to ensure Beyond Presence avatar is fully connected (cold starts can be slow)
             await asyncio.sleep(1.5)
             logger.info(f"🎤 Calling session.say() with greeting...")
