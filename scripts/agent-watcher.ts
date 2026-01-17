@@ -9,7 +9,7 @@
 
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
-import { exec } from "child_process";
+import { exec, spawn } from "child_process";
 import { promisify } from "util";
 import * as fs from "fs";
 
@@ -66,19 +66,35 @@ async function startAgent(): Promise<void> {
   // Clear cache
   try {
     await execAsync(`find ${AGENT_DIR} -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true`);
-  } catch {}
+  } catch (e) {
+    console.log("   Cache clear skipped");
+  }
 
   // Create log file
-  await execAsync('echo "=== Agent started at $(date) ===" > /tmp/agent_bilingual.log', { shell: "/bin/bash" });
+  try {
+    await execAsync('echo "=== Agent started at $(date) ===" > /tmp/agent_bilingual.log', { shell: "/bin/bash" });
+    console.log("   Log file created");
+  } catch (e) {
+    console.error("   Failed to create log file:", e);
+  }
 
-  // Start agent
-  await execAsync(
-    `cd ${AGENT_DIR} && ./venv/bin/python main.py dev >> /tmp/agent_bilingual.log 2>&1 &`,
-    { shell: "/bin/bash" }
-  );
+  // Start agent using spawn to avoid blocking
+  try {
+    const agent = spawn("bash", ["-c", `cd ${AGENT_DIR} && ./venv/bin/python main.py dev >> /tmp/agent_bilingual.log 2>&1`], {
+      detached: true,
+      stdio: "ignore"
+    });
+    agent.unref();
+    console.log("   Agent process spawned");
+  } catch (e) {
+    console.error("   Failed to spawn agent:", e);
+    throw e;
+  }
 
   // Wait for startup
+  console.log("   Waiting for startup...");
   await new Promise(r => setTimeout(r, 4000));
+  console.log("   Startup wait complete");
 }
 
 async function updateStatus(): Promise<void> {
@@ -95,31 +111,46 @@ async function updateStatus(): Promise<void> {
 async function processCommand(command: string): Promise<void> {
   console.log(`📝 Processing command: ${command}`);
 
-  switch (command) {
-    case "stop":
-      await stopAgent();
-      break;
-    case "start":
-      const status = await getAgentStatus();
-      if (!status.running) {
+  try {
+    switch (command) {
+      case "stop":
+        await stopAgent();
+        break;
+      case "start":
+        const status = await getAgentStatus();
+        if (!status.running) {
+          await startAgent();
+        } else {
+          console.log("Agent already running");
+        }
+        break;
+      case "restart":
+        await stopAgent();
+        await new Promise(r => setTimeout(r, 1000));
         await startAgent();
-      } else {
-        console.log("Agent already running");
-      }
-      break;
-    case "restart":
-      await stopAgent();
-      await new Promise(r => setTimeout(r, 1000));
-      await startAgent();
-      break;
+        break;
+    }
+    console.log(`✅ Command '${command}' executed`);
+  } catch (error) {
+    console.error(`❌ Error executing command '${command}':`, error);
   }
 
-  // Clear the command
-  await convex.mutation(api.agentControl.clearCommand);
+  // Always clear the command and update status
+  try {
+    await convex.mutation(api.agentControl.clearCommand);
+    console.log("✅ Command cleared");
+  } catch (error) {
+    console.error("❌ Error clearing command:", error);
+  }
 
   // Update status after command
   await new Promise(r => setTimeout(r, 1000));
-  await updateStatus();
+  try {
+    await updateStatus();
+    console.log("✅ Status updated");
+  } catch (error) {
+    console.error("❌ Error updating status:", error);
+  }
 }
 
 function checkAndCreateLock(): boolean {
