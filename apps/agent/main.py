@@ -8,6 +8,7 @@ Beethoven Agent - Ultra Low Latency Voice + Vision
 """
 
 import asyncio
+import atexit
 import logging
 import io
 import base64
@@ -15,6 +16,8 @@ import json
 import os
 import random
 import re
+import signal
+import sys
 import httpx
 import time
 from datetime import datetime
@@ -67,6 +70,58 @@ logger = logging.getLogger("beethoven-agent")
 
 # Global config loaded once at startup
 _config = None
+
+# =============================================================================
+# CLEANUP HANDLERS - Prevent zombie Hedra/Bey sessions on shutdown
+# =============================================================================
+# Track active avatar sessions for cleanup
+_active_avatar_sessions: list = []
+_cleanup_in_progress = False
+
+
+def _cleanup_avatar_sessions():
+    """Synchronously cleanup all active avatar sessions."""
+    global _cleanup_in_progress
+    if _cleanup_in_progress:
+        return
+    _cleanup_in_progress = True
+
+    if _active_avatar_sessions:
+        logger.info(f"🧹 Cleaning up {len(_active_avatar_sessions)} active avatar session(s)...")
+        for avatar in _active_avatar_sessions:
+            try:
+                # Try to close the avatar session
+                if hasattr(avatar, 'aclose'):
+                    # Run async cleanup in sync context
+                    try:
+                        loop = asyncio.get_event_loop()
+                        if loop.is_running():
+                            loop.create_task(avatar.aclose())
+                        else:
+                            loop.run_until_complete(avatar.aclose())
+                    except Exception:
+                        pass
+                logger.info(f"✅ Closed avatar session")
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to cleanup avatar session: {e}")
+        _active_avatar_sessions.clear()
+    _cleanup_in_progress = False
+
+
+def _signal_handler(signum, frame):
+    """Handle SIGTERM/SIGINT for graceful shutdown."""
+    sig_name = signal.Signals(signum).name
+    logger.info(f"🛑 Received {sig_name} - initiating graceful shutdown...")
+    _cleanup_avatar_sessions()
+    sys.exit(0)
+
+
+# Register signal handlers
+signal.signal(signal.SIGTERM, _signal_handler)
+signal.signal(signal.SIGINT, _signal_handler)
+
+# Register atexit handler as backup
+atexit.register(_cleanup_avatar_sessions)
 
 
 # =============================================================================
@@ -2423,6 +2478,7 @@ async def entrypoint(ctx: JobContext):
             avatar_id=avatar_provider_id,
             avatar_participant_name=avatar_name,
         )
+        _active_avatar_sessions.append(avatar)  # Track for cleanup on shutdown
         avatar_start_task = asyncio.create_task(
             avatar.start(session, room=ctx.room),
             name="avatar_start_hedra"
@@ -2434,6 +2490,7 @@ async def entrypoint(ctx: JobContext):
             avatar_id=avatar_provider_id,
             avatar_participant_name=avatar_name,
         )
+        _active_avatar_sessions.append(avatar)  # Track for cleanup on shutdown
         avatar_start_task = asyncio.create_task(
             avatar.start(session, room=ctx.room),
             name="avatar_start_bey"
