@@ -3033,4 +3033,18 @@ export default defineSchema({
     .index("by_knowledge_base", ["knowledgeBaseId"])
     .index("by_resolved", ["resolved"])
     .index("by_occurrence", ["occurrenceCount"]),
+
+  // Agent control - for remote start/stop/restart of Python agent
+  agentControl: defineTable({
+    running: v.boolean(),
+    pid: v.union(v.string(), v.null()),
+    logs: v.string(),
+    lastUpdate: v.number(),
+    pendingCommand: v.union(
+      v.literal("start"),
+      v.literal("stop"),
+      v.literal("restart"),
+      v.null()
+    ),
+  }),
 });
