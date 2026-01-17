@@ -186,6 +186,7 @@ export function LessonRoom({
         roomName={roomName}
         durationMinutes={durationMinutes}
         onEnd={onSessionEnd}
+        avatarProp={avatar}
       />
       <RoomAudioRenderer />
     </LiveKitRoom>
@@ -197,11 +198,13 @@ function RoomContent({
   roomName,
   durationMinutes,
   onEnd,
+  avatarProp,
 }: {
   sessionId: string;
   roomName: string;
   durationMinutes: number;
   onEnd?: () => void;
+  avatarProp?: any;
 }) {
   const router = useRouter();
   const room = useRoomContext();
@@ -215,10 +218,25 @@ function RoomContent({
 
   const session = useQuery(api.sessions.getSessionByRoom, { roomName });
   const endSessionByRoom = useMutation(api.sessions.endSessionByRoom);
-  const avatar = useQuery(
+  const fetchedAvatar = useQuery(
     api.avatars.getAvatar,
     session?.avatarId ? { avatarId: session.avatarId } : "skip"
   );
+
+  // Use fetched avatar from session, or fallback to prop passed from LessonRoom
+  const avatar = fetchedAvatar || avatarProp;
+
+  // Get aspect ratio from avatar config, default to 3:4 (portrait)
+  type AspectRatioType = "1:1" | "3:4" | "4:3" | "16:9" | "9:16";
+  const aspectRatio: AspectRatioType = (avatar?.avatarProvider?.settings?.aspectRatio as AspectRatioType) || "3:4";
+  const aspectRatioMap: Record<AspectRatioType, string> = {
+    "1:1": "aspect-square",
+    "3:4": "aspect-[3/4]",
+    "4:3": "aspect-[4/3]",
+    "16:9": "aspect-video",
+    "9:16": "aspect-[9/16]",
+  };
+  const aspectRatioClass = aspectRatioMap[aspectRatio] || "aspect-[3/4]";
 
   const { videoTrack: voiceAssistantVideoTrack, agent } = useVoiceAssistant();
 
@@ -430,7 +448,8 @@ function RoomContent({
         <div className="flex-1 flex items-center justify-center px-4 min-h-0">
           <div
             className={cn(
-              "relative w-full max-w-md aspect-[3/4] rounded-3xl overflow-hidden",
+              "relative w-full max-w-md rounded-3xl overflow-hidden",
+              aspectRatioClass,
               "border-2 border-white/10",
               "shadow-[0_0_60px_rgba(255,255,255,0.1)]",
               "transition-opacity duration-[3000ms]",
@@ -537,7 +556,8 @@ function RoomContent({
         <div className="flex-1 flex items-center justify-center min-h-0 relative">
           <div
             className={cn(
-              "relative h-full max-h-[80vh] aspect-video rounded-3xl overflow-hidden",
+              "relative h-full max-h-[80vh] rounded-3xl overflow-hidden",
+              aspectRatioClass,
               "border-2 border-white/10",
               "shadow-[0_0_60px_rgba(255,255,255,0.1)]",
               "transition-opacity duration-[3000ms]",
