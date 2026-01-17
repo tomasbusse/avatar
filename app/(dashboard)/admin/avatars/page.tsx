@@ -1172,6 +1172,7 @@ function AvatarCreator({ onClose, allVoices, llmModels }: { onClose: () => void;
     beyResolution: "720p",
     beyFps: 30,
     beyBackground: "transparent",
+    aspectRatio: "3:4" as "1:1" | "3:4" | "4:3" | "16:9" | "9:16",
     cartesiaVoiceId: "a0e99841-438c-4a64-b679-ae501e7d6091",
     cartesiaModel: "sonic-2",
     cartesiaSpeed: 1.0,
@@ -1241,11 +1242,14 @@ You are fluent in both German and English.
         avatarProvider: {
           type: formData.avatarProviderType,
           avatarId: formData.beyAvatarId || "b9be11b8-89fb-4227-8f86-4a881393cbdb",
-          settings: formData.avatarProviderType === "beyond_presence" ? {
-            resolution: formData.beyResolution,
-            fps: formData.beyFps,
-            background: formData.beyBackground,
-          } : undefined,
+          settings: {
+            aspectRatio: formData.aspectRatio,
+            ...(formData.avatarProviderType === "beyond_presence" ? {
+              resolution: formData.beyResolution,
+              fps: formData.beyFps,
+              background: formData.beyBackground,
+            } : {}),
+          },
         },
         voiceProvider: {
           type: "cartesia",
@@ -1689,6 +1693,24 @@ You are fluent in both German and English.
                     {formData.avatarProviderType === "hedra"
                       ? "Get from Hedra web studio or API upload"
                       : "Leave empty to use the default avatar from environment"}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Display Aspect Ratio</label>
+                  <select
+                    value={formData.aspectRatio}
+                    onChange={(e) => setFormData({ ...formData, aspectRatio: e.target.value as "1:1" | "3:4" | "4:3" | "16:9" | "9:16" })}
+                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                  >
+                    <option value="1:1">1:1 (Square)</option>
+                    <option value="3:4">3:4 (Portrait - Default)</option>
+                    <option value="4:3">4:3 (Landscape)</option>
+                    <option value="16:9">16:9 (Widescreen)</option>
+                    <option value="9:16">9:16 (Vertical/Mobile)</option>
+                  </select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Choose how the avatar video is displayed on the frontend
                   </p>
                 </div>
 
@@ -2251,6 +2273,7 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
     beyResolution: string;
     beyFps: number;
     beyBackground: string;
+    aspectRatio: "1:1" | "3:4" | "4:3" | "16:9" | "9:16";
     cartesiaVoiceId: string;
     cartesiaModel: string;
     cartesiaSpeed: number;
@@ -2311,6 +2334,7 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
         beyResolution: avatar.avatarProvider.settings?.resolution || "720p",
         beyFps: avatar.avatarProvider.settings?.fps || 30,
         beyBackground: avatar.avatarProvider.settings?.background || "transparent",
+        aspectRatio: (avatar.avatarProvider.settings?.aspectRatio as "1:1" | "3:4" | "4:3" | "16:9" | "9:16") || "3:4",
         cartesiaVoiceId: avatar.voiceProvider.voiceId,
         cartesiaModel: avatar.voiceProvider.model || "sonic-2",
         cartesiaSpeed: avatar.voiceProvider.settings.speed,
@@ -2385,11 +2409,14 @@ You are fluent in both German and English.
           avatarProvider: {
             type: formData.avatarProviderType,
             avatarId: formData.beyAvatarId,
-            settings: formData.avatarProviderType === "beyond_presence" ? {
-              resolution: formData.beyResolution,
-              fps: formData.beyFps,
-              background: formData.beyBackground,
-            } : undefined,
+            settings: {
+              aspectRatio: formData.aspectRatio,
+              ...(formData.avatarProviderType === "beyond_presence" ? {
+                resolution: formData.beyResolution,
+                fps: formData.beyFps,
+                background: formData.beyBackground,
+              } : {}),
+            },
           },
           voiceProvider: {
             type: "cartesia" as const,
@@ -2877,6 +2904,24 @@ You are fluent in both German and English.
                     {formData.avatarProviderType === "hedra"
                       ? "Get from Hedra web studio or API upload"
                       : "Get from app.bey.chat dashboard"}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Display Aspect Ratio</label>
+                  <select
+                    value={formData.aspectRatio}
+                    onChange={(e) => setFormData({ ...formData, aspectRatio: e.target.value as "1:1" | "3:4" | "4:3" | "16:9" | "9:16" })}
+                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                  >
+                    <option value="1:1">1:1 (Square)</option>
+                    <option value="3:4">3:4 (Portrait - Default)</option>
+                    <option value="4:3">4:3 (Landscape)</option>
+                    <option value="16:9">16:9 (Widescreen)</option>
+                    <option value="9:16">9:16 (Vertical/Mobile)</option>
+                  </select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Choose how the avatar video is displayed on the frontend
                   </p>
                 </div>
 

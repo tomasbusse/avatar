@@ -278,6 +278,16 @@ export function AvatarDisplay({
     profileImage,
   } : null);
 
+  // Get aspect ratio from avatar config, default to 3:4 (portrait)
+  const aspectRatio = avatar?.avatarProvider?.settings?.aspectRatio || "3:4";
+  const aspectRatioClass = {
+    "1:1": "aspect-square",
+    "3:4": "aspect-[3/4]",
+    "4:3": "aspect-[4/3]",
+    "16:9": "aspect-video",
+    "9:16": "aspect-[9/16]",
+  }[aspectRatio] || "aspect-[3/4]";
+
   return (
     <div
       data-avatar-display
@@ -292,7 +302,8 @@ export function AvatarDisplay({
       {/* Flip Container */}
       <div
         className={cn(
-          "relative aspect-[3/4] transition-transform duration-700 ease-in-out",
+          "relative transition-transform duration-700 ease-in-out",
+          aspectRatioClass,
           "[transform-style:preserve-3d]"
         )}
         style={{

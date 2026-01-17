@@ -312,6 +312,13 @@ export default defineSchema({
           resolution: v.optional(v.string()),
           fps: v.optional(v.number()),
           background: v.optional(v.string()),
+          aspectRatio: v.optional(v.union(
+            v.literal("1:1"),      // Square
+            v.literal("3:4"),      // Portrait (default)
+            v.literal("4:3"),      // Landscape
+            v.literal("16:9"),     // Widescreen
+            v.literal("9:16")      // Vertical/Mobile
+          )),
         })
       ),
     }),
