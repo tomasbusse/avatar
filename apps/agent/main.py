@@ -1487,7 +1487,7 @@ def get_opening_greeting(
                 if use_german:
                     greeting = f"Hallo! Ich bin {avatar_name}. Schön dich kennenzulernen! Wie geht es dir heute?"
                 else:
-                    greeting = f"Hello! I'm {avatar_name}. Great to see you today. How are you doing?"
+                    greeting = f"Hello! I'm {avatar_name}. Great to see you today. How are you doing today?"
 
     # Replace variables
     student_name = ""

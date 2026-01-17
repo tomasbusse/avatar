@@ -1747,7 +1747,7 @@ export function SessionStartEditor({
 }) {
   const defaultConfig: SessionStartConfig = {
     behavior: "speak_first",
-    openingGreeting: "Hello! Great to see you today. How are you doing?",
+    openingGreeting: "Hello! Great to see you today. How are you doing today?",
     greetingVariations: [],
     openingTopics: [],
     warmUpDuration: 60,
