@@ -319,6 +319,11 @@ export default defineSchema({
             v.literal("16:9"),     // Widescreen
             v.literal("9:16")      // Vertical/Mobile
           )),
+          objectFit: v.optional(v.union(
+            v.literal("cover"),    // Crop to fill container (default)
+            v.literal("contain"),  // Show entire video with letterboxing
+            v.literal("fill")      // Stretch to fit (may distort)
+          )),
         })
       ),
     }),

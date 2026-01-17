@@ -311,6 +311,11 @@ function RoomContent({
   );
   const avatarVideoTrack = beyAvatarTrack || voiceAssistantVideoTrack;
 
+  // Get object-fit from avatar config, default to cover
+  type ObjectFitType = "cover" | "contain" | "fill";
+  const objectFit: ObjectFitType = (avatar?.avatarProvider?.settings?.objectFit as ObjectFitType) || "cover";
+  const objectFitClass = `object-${objectFit}`;
+
   // Local video for visitor preview (PiP)
   const localTracks = useTracks([Track.Source.Camera], { onlySubscribed: false });
   const localVideoTrack = localTracks.find(
@@ -504,7 +509,7 @@ function RoomContent({
         {avatarVideoTrack ? (
           <VideoTrack
             trackRef={avatarVideoTrack}
-            className="w-full h-full object-cover"
+            className={`w-full h-full ${objectFitClass}`}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">

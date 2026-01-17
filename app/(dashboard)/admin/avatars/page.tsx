@@ -1173,6 +1173,7 @@ function AvatarCreator({ onClose, allVoices, llmModels }: { onClose: () => void;
     beyFps: 30,
     beyBackground: "transparent",
     aspectRatio: "3:4" as "1:1" | "3:4" | "4:3" | "16:9" | "9:16",
+    objectFit: "cover" as "cover" | "contain" | "fill",
     cartesiaVoiceId: "a0e99841-438c-4a64-b679-ae501e7d6091",
     cartesiaModel: "sonic-2",
     cartesiaSpeed: 1.0,
@@ -1244,6 +1245,7 @@ You are fluent in both German and English.
           avatarId: formData.beyAvatarId || "b9be11b8-89fb-4227-8f86-4a881393cbdb",
           settings: {
             aspectRatio: formData.aspectRatio,
+            objectFit: formData.objectFit,
             ...(formData.avatarProviderType === "beyond_presence" ? {
               resolution: formData.beyResolution,
               fps: formData.beyFps,
@@ -1696,22 +1698,39 @@ You are fluent in both German and English.
                   </p>
                 </div>
 
-                <div>
-                  <label className="text-sm font-medium">Display Aspect Ratio</label>
-                  <select
-                    value={formData.aspectRatio}
-                    onChange={(e) => setFormData({ ...formData, aspectRatio: e.target.value as "1:1" | "3:4" | "4:3" | "16:9" | "9:16" })}
-                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
-                  >
-                    <option value="1:1">1:1 (Square)</option>
-                    <option value="3:4">3:4 (Portrait - Default)</option>
-                    <option value="4:3">4:3 (Landscape)</option>
-                    <option value="16:9">16:9 (Widescreen)</option>
-                    <option value="9:16">9:16 (Vertical/Mobile)</option>
-                  </select>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Choose how the avatar video is displayed on the frontend
-                  </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium">Display Aspect Ratio</label>
+                    <select
+                      value={formData.aspectRatio}
+                      onChange={(e) => setFormData({ ...formData, aspectRatio: e.target.value as "1:1" | "3:4" | "4:3" | "16:9" | "9:16" })}
+                      className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                    >
+                      <option value="1:1">1:1 (Square)</option>
+                      <option value="3:4">3:4 (Portrait)</option>
+                      <option value="4:3">4:3 (Landscape)</option>
+                      <option value="16:9">16:9 (Widescreen)</option>
+                      <option value="9:16">9:16 (Vertical)</option>
+                    </select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Container shape on frontend
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Video Fit Mode</label>
+                    <select
+                      value={formData.objectFit}
+                      onChange={(e) => setFormData({ ...formData, objectFit: e.target.value as "cover" | "contain" | "fill" })}
+                      className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                    >
+                      <option value="cover">Cover (crop to fill)</option>
+                      <option value="contain">Contain (show all, letterbox)</option>
+                      <option value="fill">Fill (stretch to fit)</option>
+                    </select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      How video fits container
+                    </p>
+                  </div>
                 </div>
 
                 {formData.avatarProviderType === "beyond_presence" && (
@@ -2274,6 +2293,7 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
     beyFps: number;
     beyBackground: string;
     aspectRatio: "1:1" | "3:4" | "4:3" | "16:9" | "9:16";
+    objectFit: "cover" | "contain" | "fill";
     cartesiaVoiceId: string;
     cartesiaModel: string;
     cartesiaSpeed: number;
@@ -2335,6 +2355,7 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
         beyFps: avatar.avatarProvider.settings?.fps || 30,
         beyBackground: avatar.avatarProvider.settings?.background || "transparent",
         aspectRatio: (avatar.avatarProvider.settings?.aspectRatio as "1:1" | "3:4" | "4:3" | "16:9" | "9:16") || "3:4",
+        objectFit: (avatar.avatarProvider.settings?.objectFit as "cover" | "contain" | "fill") || "cover",
         cartesiaVoiceId: avatar.voiceProvider.voiceId,
         cartesiaModel: avatar.voiceProvider.model || "sonic-2",
         cartesiaSpeed: avatar.voiceProvider.settings.speed,
@@ -2411,6 +2432,7 @@ You are fluent in both German and English.
             avatarId: formData.beyAvatarId,
             settings: {
               aspectRatio: formData.aspectRatio,
+              objectFit: formData.objectFit,
               ...(formData.avatarProviderType === "beyond_presence" ? {
                 resolution: formData.beyResolution,
                 fps: formData.beyFps,
@@ -2907,22 +2929,39 @@ You are fluent in both German and English.
                   </p>
                 </div>
 
-                <div>
-                  <label className="text-sm font-medium">Display Aspect Ratio</label>
-                  <select
-                    value={formData.aspectRatio}
-                    onChange={(e) => setFormData({ ...formData, aspectRatio: e.target.value as "1:1" | "3:4" | "4:3" | "16:9" | "9:16" })}
-                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
-                  >
-                    <option value="1:1">1:1 (Square)</option>
-                    <option value="3:4">3:4 (Portrait - Default)</option>
-                    <option value="4:3">4:3 (Landscape)</option>
-                    <option value="16:9">16:9 (Widescreen)</option>
-                    <option value="9:16">9:16 (Vertical/Mobile)</option>
-                  </select>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Choose how the avatar video is displayed on the frontend
-                  </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium">Display Aspect Ratio</label>
+                    <select
+                      value={formData.aspectRatio}
+                      onChange={(e) => setFormData({ ...formData, aspectRatio: e.target.value as "1:1" | "3:4" | "4:3" | "16:9" | "9:16" })}
+                      className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                    >
+                      <option value="1:1">1:1 (Square)</option>
+                      <option value="3:4">3:4 (Portrait)</option>
+                      <option value="4:3">4:3 (Landscape)</option>
+                      <option value="16:9">16:9 (Widescreen)</option>
+                      <option value="9:16">9:16 (Vertical)</option>
+                    </select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Container shape on frontend
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Video Fit Mode</label>
+                    <select
+                      value={formData.objectFit}
+                      onChange={(e) => setFormData({ ...formData, objectFit: e.target.value as "cover" | "contain" | "fill" })}
+                      className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                    >
+                      <option value="cover">Cover (crop to fill)</option>
+                      <option value="contain">Contain (show all, letterbox)</option>
+                      <option value="fill">Fill (stretch to fit)</option>
+                    </select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      How video fits container
+                    </p>
+                  </div>
                 </div>
 
                 {formData.avatarProviderType === "beyond_presence" && (

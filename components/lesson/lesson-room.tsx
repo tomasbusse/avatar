@@ -238,6 +238,16 @@ function RoomContent({
   };
   const aspectRatioClass = aspectRatioMap[aspectRatio] || "aspect-[3/4]";
 
+  // Get object-fit from avatar config, default to cover
+  type ObjectFitType = "cover" | "contain" | "fill";
+  const objectFit: ObjectFitType = (avatar?.avatarProvider?.settings?.objectFit as ObjectFitType) || "cover";
+  const objectFitMap: Record<ObjectFitType, string> = {
+    "cover": "object-cover",
+    "contain": "object-contain",
+    "fill": "object-fill",
+  };
+  const objectFitClass = objectFitMap[objectFit] || "object-cover";
+
   const { videoTrack: voiceAssistantVideoTrack, agent } = useVoiceAssistant();
 
   // Get Beyond Presence avatar video
@@ -459,7 +469,7 @@ function RoomContent({
             {avatarVideoTrack ? (
               <VideoTrack
                 trackRef={avatarVideoTrack}
-                className="w-full h-full object-cover"
+                className={`w-full h-full ${objectFitClass}`}
               />
             ) : (
               <div className="w-full h-full bg-[#3a3f2a] flex items-center justify-center">
@@ -567,7 +577,7 @@ function RoomContent({
             {avatarVideoTrack ? (
               <VideoTrack
                 trackRef={avatarVideoTrack}
-                className="w-full h-full object-cover"
+                className={`w-full h-full ${objectFitClass}`}
               />
             ) : (
               <div className="w-full h-full bg-[#3a3f2a] flex items-center justify-center">

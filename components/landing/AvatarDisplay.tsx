@@ -290,6 +290,11 @@ export function AvatarDisplay({
   };
   const aspectRatioClass = aspectRatioMap[aspectRatio] || "aspect-[3/4]";
 
+  // Get object-fit from avatar config, default to cover
+  type ObjectFitType = "cover" | "contain" | "fill";
+  const objectFit: ObjectFitType = (avatar?.avatarProvider?.settings?.objectFit as ObjectFitType) || "cover";
+  const objectFitClass = `object-${objectFit}`;
+
   return (
     <div
       data-avatar-display

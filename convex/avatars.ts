@@ -87,6 +87,11 @@ export const createAvatar = mutation({
             v.literal("16:9"),
             v.literal("9:16")
           )),
+          objectFit: v.optional(v.union(
+            v.literal("cover"),
+            v.literal("contain"),
+            v.literal("fill")
+          )),
         })
       ),
     }),
