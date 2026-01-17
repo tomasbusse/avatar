@@ -279,14 +279,16 @@ export function AvatarDisplay({
   } : null);
 
   // Get aspect ratio from avatar config, default to 3:4 (portrait)
-  const aspectRatio = avatar?.avatarProvider?.settings?.aspectRatio || "3:4";
-  const aspectRatioClass = {
+  type AspectRatioType = "1:1" | "3:4" | "4:3" | "16:9" | "9:16";
+  const aspectRatio: AspectRatioType = (avatar?.avatarProvider?.settings?.aspectRatio as AspectRatioType) || "3:4";
+  const aspectRatioMap: Record<AspectRatioType, string> = {
     "1:1": "aspect-square",
     "3:4": "aspect-[3/4]",
     "4:3": "aspect-[4/3]",
     "16:9": "aspect-video",
     "9:16": "aspect-[9/16]",
-  }[aspectRatio] || "aspect-[3/4]";
+  };
+  const aspectRatioClass = aspectRatioMap[aspectRatio] || "aspect-[3/4]";
 
   return (
     <div
