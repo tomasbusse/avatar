@@ -42,7 +42,7 @@ async function startAgent(): Promise<{ success: boolean; message: string; logs: 
   }
 
   // Create/clear log file first
-  await execAsync("touch /tmp/agent_bilingual.log && echo '=== Agent started at $(date) ===' > /tmp/agent_bilingual.log", { shell: "/bin/bash" });
+  await execAsync('touch /tmp/agent_bilingual.log && echo "=== Agent started at $(date) ===" > /tmp/agent_bilingual.log', { shell: "/bin/bash" });
 
   // Start the agent using full path to venv python
   await execAsync(
