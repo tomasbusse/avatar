@@ -14,7 +14,7 @@ import { promisify } from "util";
 
 const execAsync = promisify(exec);
 
-const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL || "https://fortunate-shrimp-742.convex.cloud";
+const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL || "https://healthy-snail-919.convex.cloud";
 const AGENT_DIR = process.env.AGENT_DIR || "/Users/tomas/apps/beethoven/apps/agent";
 const POLL_INTERVAL = 2000; // Check every 2 seconds
 
