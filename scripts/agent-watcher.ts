@@ -11,8 +11,10 @@ import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
 import { exec } from "child_process";
 import { promisify } from "util";
+import * as fs from "fs";
 
 const execAsync = promisify(exec);
+const PIDFILE = "/tmp/agent-watcher.pid";
 
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL || "https://healthy-snail-919.convex.cloud";
 const AGENT_DIR = process.env.AGENT_DIR || "/Users/tomas/apps/beethoven/apps/agent";
@@ -120,8 +122,54 @@ async function processCommand(command: string): Promise<void> {
   await updateStatus();
 }
 
+function checkAndCreateLock(): boolean {
+  // Check if another instance is running
+  if (fs.existsSync(PIDFILE)) {
+    const oldPid = fs.readFileSync(PIDFILE, "utf-8").trim();
+    try {
+      // Check if process is still running (signal 0 just checks existence)
+      process.kill(parseInt(oldPid), 0);
+      console.log(`⚠️  Agent watcher already running (PID: ${oldPid})`);
+      console.log("   If this is incorrect, delete /tmp/agent-watcher.pid and retry");
+      return false;
+    } catch {
+      // Process not running, remove stale PID file
+      console.log("🧹 Removing stale PID file...");
+      fs.unlinkSync(PIDFILE);
+    }
+  }
+
+  // Create PID file
+  fs.writeFileSync(PIDFILE, process.pid.toString());
+  return true;
+}
+
+function cleanup() {
+  try {
+    if (fs.existsSync(PIDFILE)) {
+      const pid = fs.readFileSync(PIDFILE, "utf-8").trim();
+      if (pid === process.pid.toString()) {
+        fs.unlinkSync(PIDFILE);
+        console.log("\n🧹 Cleaned up PID file");
+      }
+    }
+  } catch {}
+  process.exit(0);
+}
+
 async function main() {
+  // Check for duplicate instances
+  if (!checkAndCreateLock()) {
+    process.exit(1);
+  }
+
+  // Setup cleanup handlers
+  process.on("SIGINT", cleanup);
+  process.on("SIGTERM", cleanup);
+  process.on("exit", cleanup);
+
   console.log("🔍 Agent Watcher started");
+  console.log(`   PID: ${process.pid}`);
   console.log(`   Convex URL: ${CONVEX_URL}`);
   console.log(`   Agent Dir: ${AGENT_DIR}`);
   console.log(`   Poll Interval: ${POLL_INTERVAL}ms`);
