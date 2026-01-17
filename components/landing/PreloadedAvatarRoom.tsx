@@ -35,6 +35,8 @@ interface PreloadedAvatarRoomProps {
   preload?: boolean;
   /** Called when preload connection is ready */
   onPreloadReady?: () => void;
+  /** Max seconds to wait for user to start talking before disconnecting (default: 60) */
+  maxIdleSeconds?: number;
 }
 
 /**
@@ -87,13 +89,16 @@ export function PreloadedAvatarRoom({
   hideControls = false,
   preload = true,
   onPreloadReady,
+  maxIdleSeconds = 60,
 }: PreloadedAvatarRoomProps) {
   const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(true);
   const [sessionId] = useState(() => generateGuestSessionId());
   const [isConversationStarted, setIsConversationStarted] = useState(!preload);
+  const [isDisconnected, setIsDisconnected] = useState(false);
   const tokenFetchedRef = useRef(false);
+  const idleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const livekitUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL;
 
   // Determine if vision/camera is enabled for this avatar
@@ -103,9 +108,54 @@ export function PreloadedAvatarRoom({
     warmAudioContext();
   }, []);
 
+  // Idle timeout - disconnect if user doesn't start talking within maxIdleSeconds
+  useEffect(() => {
+    if (!preload || isConversationStarted || isDisconnected) return;
+
+    idleTimeoutRef.current = setTimeout(() => {
+      console.log(`[PreloadedAvatarRoom] Idle timeout (${maxIdleSeconds}s) - disconnecting`);
+      setIsDisconnected(true);
+      onClose?.("idle_timeout");
+    }, maxIdleSeconds * 1000);
+
+    return () => {
+      if (idleTimeoutRef.current) {
+        clearTimeout(idleTimeoutRef.current);
+      }
+    };
+  }, [preload, isConversationStarted, isDisconnected, maxIdleSeconds, onClose]);
+
+  // Page visibility - disconnect when user navigates away or hides the page
+  useEffect(() => {
+    if (isDisconnected) return;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden && !isConversationStarted) {
+        console.log("[PreloadedAvatarRoom] Page hidden - disconnecting preload");
+        setIsDisconnected(true);
+        onClose?.("page_hidden");
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      if (!isConversationStarted) {
+        console.log("[PreloadedAvatarRoom] Page unload - disconnecting preload");
+        setIsDisconnected(true);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [isConversationStarted, isDisconnected, onClose]);
+
   // Fetch token on mount (for preloading)
   useEffect(() => {
-    if (tokenFetchedRef.current) return;
+    if (tokenFetchedRef.current || isDisconnected) return;
     tokenFetchedRef.current = true;
 
     async function fetchToken() {
@@ -140,12 +190,27 @@ export function PreloadedAvatarRoom({
     }
 
     fetchToken();
-  }, [avatar, sessionId]);
+  }, [avatar, sessionId, isDisconnected]);
 
-  // Start conversation (enable mic)
+  // Start conversation (enable mic) - also clears idle timeout
   const startConversation = useCallback(() => {
+    if (idleTimeoutRef.current) {
+      clearTimeout(idleTimeoutRef.current);
+    }
     setIsConversationStarted(true);
   }, []);
+
+  // Disconnected state (idle timeout or page hidden)
+  if (isDisconnected) {
+    return (
+      <div className={cn("relative w-full h-full flex items-center justify-center bg-gradient-to-br from-sls-teal to-sls-olive rounded-3xl", className)}>
+        <div className="text-center text-white p-6">
+          <p className="text-white/80 mb-2">Session ended</p>
+          <p className="text-white/60 text-sm">Click the play button to start again</p>
+        </div>
+      </div>
+    );
+  }
 
   // Error state
   if (error) {
