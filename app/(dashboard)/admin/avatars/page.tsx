@@ -180,7 +180,7 @@ export default function AvatarsPage() {
 
   const allVoices = [...DEFAULT_VOICES, ...customVoices.map(v => ({ ...v, isCustom: true }))];
 
-  const avatars = useQuery(api.avatars.listActiveAvatars);
+  const avatars = useQuery(api.avatars.listAllAvatars);
   const deleteAvatarMutation = useMutation(api.avatars.deleteAvatar);
   const cloneAvatarMutation = useMutation(api.avatars.cloneAvatar);
   const deletionInfo = useQuery(

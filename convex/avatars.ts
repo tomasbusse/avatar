@@ -43,6 +43,14 @@ export const listActiveAvatars = query({
   },
 });
 
+// List ALL avatars including inactive ones (for admin page)
+export const listAllAvatars = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("avatars").collect();
+  },
+});
+
 // Get the first active avatar as a fallback (replaces getDefaultAvatar)
 export const getFirstActiveAvatar = query({
   args: {},
