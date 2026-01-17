@@ -508,9 +508,10 @@ function RoomContent({
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <div className="text-center">
-              <div className="relative mx-auto mb-4">
-                <div className="w-24 h-24 rounded-full bg-white/10 flex items-center justify-center overflow-hidden">
+            <div className="text-center px-4">
+              {/* Large Profile Image */}
+              <div className="relative mx-auto mb-6">
+                <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-white/10 flex items-center justify-center overflow-hidden border-4 border-white/20 shadow-2xl">
                   {avatar.profileImage ? (
                     <img
                       src={avatar.profileImage}
@@ -518,16 +519,43 @@ function RoomContent({
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <span className="text-4xl font-light text-white/80">
+                    <span className="text-5xl sm:text-6xl font-light text-white/80">
                       {avatarName.charAt(0).toUpperCase()}
                     </span>
                   )}
                 </div>
-                <div className="absolute inset-0 rounded-full border-2 border-white/20 animate-ping" />
+                {/* Animated loading ring */}
+                <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-sls-chartreuse animate-spin" style={{ animationDuration: "1.5s" }} />
+                <div className="absolute inset-0 rounded-full border-2 border-white/10" />
               </div>
-              <p className="text-white/60 text-sm">
-                {agent ? "Almost ready..." : "Connecting..."}
+
+              {/* Avatar Name */}
+              <h3 className="text-white font-semibold text-lg mb-2">{avatarName}</h3>
+
+              {/* Status Message */}
+              <p className="text-white/70 text-sm mb-4">
+                {room.state !== "connected"
+                  ? "Connecting to room..."
+                  : agent
+                    ? "Starting video..."
+                    : "Waiting for avatar..."}
               </p>
+
+              {/* Progress indicator */}
+              <div className="flex items-center justify-center gap-1.5">
+                <div className={cn(
+                  "w-2 h-2 rounded-full transition-colors",
+                  room.state === "connected" ? "bg-sls-chartreuse" : "bg-white/30"
+                )} />
+                <div className={cn(
+                  "w-2 h-2 rounded-full transition-colors",
+                  agent ? "bg-sls-chartreuse" : "bg-white/30"
+                )} />
+                <div className={cn(
+                  "w-2 h-2 rounded-full transition-colors",
+                  avatarVideoTrack ? "bg-sls-chartreuse" : "bg-white/30"
+                )} />
+              </div>
             </div>
           </div>
         )}
@@ -539,13 +567,23 @@ function RoomContent({
           "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold",
           isConversationStarted
             ? "bg-sls-chartreuse/90 text-sls-teal"
-            : "bg-white/20 backdrop-blur-sm text-white"
+            : avatarVideoTrack
+              ? "bg-white/20 backdrop-blur-sm text-white"
+              : "bg-sls-orange/80 backdrop-blur-sm text-white"
         )}>
           <span className={cn(
             "w-2 h-2 rounded-full",
-            isConversationStarted ? "bg-sls-teal animate-pulse" : "bg-white/60"
+            isConversationStarted
+              ? "bg-sls-teal animate-pulse"
+              : avatarVideoTrack
+                ? "bg-white/60"
+                : "bg-white animate-pulse"
           )} />
-          {isConversationStarted ? "AI Avatar Live" : "Ready"}
+          {isConversationStarted
+            ? "AI Avatar Live"
+            : avatarVideoTrack
+              ? "Ready"
+              : "Loading..."}
         </div>
         {/* Timer Badge - only show when conversation started */}
         {isConversationStarted && (
