@@ -929,9 +929,10 @@ class BeethovenTeacher(Agent):
             num_channels = frame.num_channels
             yield frame
 
-        # After all frames, append silence padding (250ms) to prevent cut-off
+        # After all frames, append silence padding to prevent cut-off
         # This gives the audio pipeline time to flush and prevents clipping
-        silence_duration_ms = 250
+        # Increased from 250ms to 400ms to fix word-ending cutoff issues (especially British voices)
+        silence_duration_ms = 400
         samples_for_silence = int(sample_rate * silence_duration_ms / 1000)
 
         # Create silence frame (int16 zeros)
@@ -2264,6 +2265,23 @@ async def entrypoint(ctx: JobContext):
         "en": {"speed": en_settings.get("speed", tts_speed), "emotion": en_settings.get("emotion", "Enthusiastic")},
         "de": {"speed": de_settings.get("speed", tts_speed * 0.95), "emotion": de_settings.get("emotion", "Calm")},
     }
+
+    # Apply initial TTS settings (speed/emotion) - important for non-bilingual avatars
+    # Previously these settings were only applied in bilingual mode during language switching
+    try:
+        initial_language = bilingual_default if language_mode == "bilingual" else ("en" if tts_language == "en" else "de")
+        initial_settings = ctx.proc.userdata["language_settings"].get(initial_language, {})
+        initial_speed = initial_settings.get("speed", tts_speed)
+        initial_emotion = initial_settings.get("emotion", "Enthusiastic")
+
+        tts.update_options(
+            speed=initial_speed,
+            emotion=[initial_emotion] if initial_emotion else None,
+        )
+        logger.info(f"🔊 TTS options applied: speed={initial_speed}, emotion={initial_emotion}")
+    except Exception as e:
+        logger.warning(f"⚠️ Could not apply initial TTS options: {e}")
+
     if language_mode == "bilingual":
         logger.info(f"🔊 TTS initialized: mode={language_mode}, default={bilingual_default}, can switch at runtime")
     else:
