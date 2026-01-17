@@ -26,6 +26,22 @@ const LandingAvatarRoom = dynamic(
   }
 );
 
+// Dynamically import PreloadedAvatarRoom for preloading feature
+const PreloadedAvatarRoom = dynamic(
+  () => import("./PreloadedAvatarRoom").then((mod) => mod.PreloadedAvatarRoom),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-sls-teal to-sls-olive rounded-3xl">
+        <div className="text-center text-white">
+          <div className="w-16 h-16 border-4 border-white/30 border-t-white rounded-full animate-spin mb-4 mx-auto" />
+          <p className="text-sm opacity-80">Loading...</p>
+        </div>
+      </div>
+    ),
+  }
+);
+
 interface DebugLog {
   timestamp: string;
   event: string;
@@ -290,8 +306,21 @@ export function AvatarDisplay({
             "[backface-visibility:hidden]"
           )}
         >
-          {/* Activated State: Real LiveKit Video Stream */}
-          {isActivated && avatarForLiveKit && (
+          {/* Preloaded State: Connect immediately, show "tap to start" overlay */}
+          {avatarConfig?.preloadAvatar && avatarForLiveKit && !isFlipped && (
+            <PreloadedAvatarRoom
+              avatar={avatarForLiveKit}
+              onClose={handleClose}
+              className="absolute inset-0"
+              sessionTimeoutSeconds={avatarConfig?.sessionTimeoutSeconds ?? 300}
+              warningAtSeconds={avatarConfig?.warningAtSeconds ?? 60}
+              hideControls={hideRoomControls}
+              preload={true}
+            />
+          )}
+
+          {/* Activated State: Real LiveKit Video Stream (non-preload mode) */}
+          {!avatarConfig?.preloadAvatar && isActivated && avatarForLiveKit && (
             <LandingAvatarRoom
               avatar={avatarForLiveKit}
               onClose={handleClose}
@@ -302,8 +331,8 @@ export function AvatarDisplay({
             />
           )}
 
-          {/* Initial State: Profile Image with Play Button */}
-          {!isActivated && (
+          {/* Initial State: Profile Image with Play Button (non-preload mode) */}
+          {!avatarConfig?.preloadAvatar && !isActivated && (
             <>
               {/* Profile Image Background */}
               <div className="absolute inset-0 bg-gradient-to-br from-sls-teal via-sls-olive to-sls-teal" />

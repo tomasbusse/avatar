@@ -825,6 +825,7 @@ function SiteConfigTab() {
   const [sessionTimeout, setSessionTimeout] = useState<number>(300);
   const [warningAt, setWarningAt] = useState<number>(60);
   const [showContactOnStop, setShowContactOnStop] = useState(true);
+  const [preloadAvatar, setPreloadAvatar] = useState(false);
   const [sessionConfigLoaded, setSessionConfigLoaded] = useState(false);
 
   // Load current values when data is available
@@ -859,6 +860,7 @@ function SiteConfigTab() {
     setSessionTimeout(avatarSessionConfig.sessionTimeoutSeconds ?? 300);
     setWarningAt(avatarSessionConfig.warningAtSeconds ?? 60);
     setShowContactOnStop(avatarSessionConfig.showContactFormOnStop ?? true);
+    setPreloadAvatar(avatarSessionConfig.preloadAvatar ?? false);
     setSessionConfigLoaded(true);
   }
 
@@ -978,6 +980,7 @@ function SiteConfigTab() {
         sessionTimeoutSeconds: sessionTimeout,
         warningAtSeconds: warningAt,
         showContactFormOnStop: showContactOnStop,
+        preloadAvatar: preloadAvatar,
       });
       toast.success("Avatar session settings updated");
     } catch (error) {
@@ -1507,6 +1510,20 @@ function SiteConfigTab() {
                 id="showContactOnStop"
                 checked={showContactOnStop}
                 onCheckedChange={setShowContactOnStop}
+              />
+            </div>
+
+            <div className="flex items-center justify-between py-3 px-4 border rounded-lg">
+              <div className="space-y-0.5">
+                <Label htmlFor="preloadAvatar">Preload Avatar Connection</Label>
+                <p className="text-xs text-muted-foreground">
+                  Start connecting to LiveKit when page loads (faster start, but uses credits for bounce visitors)
+                </p>
+              </div>
+              <Switch
+                id="preloadAvatar"
+                checked={preloadAvatar}
+                onCheckedChange={setPreloadAvatar}
               />
             </div>
           </div>
