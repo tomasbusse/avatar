@@ -1167,6 +1167,7 @@ function AvatarCreator({ onClose, allVoices, llmModels }: { onClose: () => void;
     personaDescription: "Warm, patient, encouraging",
     teachingStyle: "supportive" as const,
     expertise: ["Grammar", "Conversation"],
+    avatarProviderType: "beyond_presence" as "beyond_presence" | "hedra",
     beyAvatarId: "",
     beyResolution: "720p",
     beyFps: 30,
@@ -1238,13 +1239,13 @@ You are fluent in both German and English.
         description: formData.description,
         profileImage: formData.profileImage || undefined,
         avatarProvider: {
-          type: "beyond_presence",
+          type: formData.avatarProviderType,
           avatarId: formData.beyAvatarId || "b9be11b8-89fb-4227-8f86-4a881393cbdb",
-          settings: {
+          settings: formData.avatarProviderType === "beyond_presence" ? {
             resolution: formData.beyResolution,
             fps: formData.beyFps,
             background: formData.beyBackground,
-          },
+          } : undefined,
         },
         voiceProvider: {
           type: "cartesia",
@@ -1652,12 +1653,26 @@ You are fluent in both German and English.
             {activeTab === "avatar" && (
               <>
                 <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg mb-4">
-                  <h4 className="font-medium text-purple-900 mb-1">Beyond Presence Configuration</h4>
+                  <h4 className="font-medium text-purple-900 mb-1">Avatar Provider Configuration</h4>
                   <p className="text-sm text-purple-700">
-                    Configure the real-time AI avatar video streaming. Get your Avatar ID from the{" "}
-                    <a href="https://app.bey.chat" target="_blank" rel="noopener" className="underline">
-                      Beyond Presence Dashboard
-                    </a>.
+                    Select your avatar provider and configure real-time AI video streaming.
+                  </p>
+                </div>
+
+                <div className="mb-4">
+                  <label className="text-sm font-medium">Avatar Provider *</label>
+                  <select
+                    value={formData.avatarProviderType}
+                    onChange={(e) => setFormData({ ...formData, avatarProviderType: e.target.value as "beyond_presence" | "hedra" })}
+                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                  >
+                    <option value="beyond_presence">Beyond Presence (Hyper-realistic, 10-15s cold start)</option>
+                    <option value="hedra">Hedra (Sub-100ms latency, $0.05/min)</option>
+                  </select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {formData.avatarProviderType === "hedra"
+                      ? "Hedra offers faster cold start and lower latency. Get your Avatar ID from hedra.com"
+                      : "Beyond Presence offers hyper-realistic avatars. Get your Avatar ID from app.bey.chat"}
                   </p>
                 </div>
 
@@ -1668,51 +1683,55 @@ You are fluent in both German and English.
                     value={formData.beyAvatarId}
                     onChange={(e) => setFormData({ ...formData, beyAvatarId: e.target.value })}
                     className="w-full mt-1 px-3 py-2 border rounded-lg bg-background font-mono text-sm"
-                    placeholder="b9be11b8-89fb-4227-8f86-4a881393cbdb"
+                    placeholder={formData.avatarProviderType === "hedra" ? "your-hedra-avatar-id" : "b9be11b8-89fb-4227-8f86-4a881393cbdb"}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Leave empty to use the default avatar from environment
+                    {formData.avatarProviderType === "hedra"
+                      ? "Get from Hedra web studio or API upload"
+                      : "Leave empty to use the default avatar from environment"}
                   </p>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <label className="text-sm font-medium">Resolution</label>
-                    <select
-                      value={formData.beyResolution}
-                      onChange={(e) => setFormData({ ...formData, beyResolution: e.target.value })}
-                      className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
-                    >
-                      <option value="480p">480p</option>
-                      <option value="720p">720p (Recommended)</option>
-                      <option value="1080p">1080p</option>
-                    </select>
+                {formData.avatarProviderType === "beyond_presence" && (
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-sm font-medium">Resolution</label>
+                      <select
+                        value={formData.beyResolution}
+                        onChange={(e) => setFormData({ ...formData, beyResolution: e.target.value })}
+                        className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                      >
+                        <option value="480p">480p</option>
+                        <option value="720p">720p (Recommended)</option>
+                        <option value="1080p">1080p</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">FPS</label>
+                      <select
+                        value={formData.beyFps}
+                        onChange={(e) => setFormData({ ...formData, beyFps: parseInt(e.target.value) })}
+                        className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                      >
+                        <option value={24}>24 fps</option>
+                        <option value={30}>30 fps (Recommended)</option>
+                        <option value={60}>60 fps</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Background</label>
+                      <select
+                        value={formData.beyBackground}
+                        onChange={(e) => setFormData({ ...formData, beyBackground: e.target.value })}
+                        className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                      >
+                        <option value="transparent">Transparent</option>
+                        <option value="blur">Blur</option>
+                        <option value="solid">Solid Color</option>
+                      </select>
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium">FPS</label>
-                    <select
-                      value={formData.beyFps}
-                      onChange={(e) => setFormData({ ...formData, beyFps: parseInt(e.target.value) })}
-                      className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
-                    >
-                      <option value={24}>24 fps</option>
-                      <option value={30}>30 fps (Recommended)</option>
-                      <option value={60}>60 fps</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Background</label>
-                    <select
-                      value={formData.beyBackground}
-                      onChange={(e) => setFormData({ ...formData, beyBackground: e.target.value })}
-                      className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
-                    >
-                      <option value="transparent">Transparent</option>
-                      <option value="blur">Blur</option>
-                      <option value="solid">Solid Color</option>
-                    </select>
-                  </div>
-                </div>
+                )}
               </>
             )}
 
@@ -2227,6 +2246,7 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
     personaDescription: string;
     teachingStyle: "supportive" | "socratic" | "direct" | "challenging";
     expertise: string[];
+    avatarProviderType: "beyond_presence" | "hedra";
     beyAvatarId: string;
     beyResolution: string;
     beyFps: number;
@@ -2286,6 +2306,7 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
         personaDescription: avatar.persona.personality,
         teachingStyle: avatar.persona.teachingStyle,
         expertise: avatar.persona.expertise,
+        avatarProviderType: (avatar.avatarProvider.type as "beyond_presence" | "hedra") || "beyond_presence",
         beyAvatarId: avatar.avatarProvider.avatarId,
         beyResolution: avatar.avatarProvider.settings?.resolution || "720p",
         beyFps: avatar.avatarProvider.settings?.fps || 30,
@@ -2362,13 +2383,13 @@ You are fluent in both German and English.
           description: formData.description,
           profileImage: formData.profileImage || undefined,
           avatarProvider: {
-            type: "beyond_presence" as const,
+            type: formData.avatarProviderType,
             avatarId: formData.beyAvatarId,
-            settings: {
+            settings: formData.avatarProviderType === "beyond_presence" ? {
               resolution: formData.beyResolution,
               fps: formData.beyFps,
               background: formData.beyBackground,
-            },
+            } : undefined,
           },
           voiceProvider: {
             type: "cartesia" as const,
@@ -2820,9 +2841,26 @@ You are fluent in both German and English.
             {activeTab === "avatar" && (
               <>
                 <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg mb-4">
-                  <h4 className="font-medium text-purple-900 mb-1">Beyond Presence Configuration</h4>
+                  <h4 className="font-medium text-purple-900 mb-1">Avatar Provider Configuration</h4>
                   <p className="text-sm text-purple-700">
-                    Configure the real-time AI avatar video streaming.
+                    Select your avatar provider and configure real-time AI video streaming.
+                  </p>
+                </div>
+
+                <div className="mb-4">
+                  <label className="text-sm font-medium">Avatar Provider *</label>
+                  <select
+                    value={formData.avatarProviderType}
+                    onChange={(e) => setFormData({ ...formData, avatarProviderType: e.target.value as "beyond_presence" | "hedra" })}
+                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                  >
+                    <option value="beyond_presence">Beyond Presence (Hyper-realistic, 10-15s cold start)</option>
+                    <option value="hedra">Hedra (Sub-100ms latency, $0.05/min)</option>
+                  </select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {formData.avatarProviderType === "hedra"
+                      ? "Hedra offers faster cold start and lower latency. Get your Avatar ID from hedra.com"
+                      : "Beyond Presence offers hyper-realistic avatars. Get your Avatar ID from app.bey.chat"}
                   </p>
                 </div>
 
@@ -2833,47 +2871,55 @@ You are fluent in both German and English.
                     value={formData.beyAvatarId}
                     onChange={(e) => setFormData({ ...formData, beyAvatarId: e.target.value })}
                     className="w-full mt-1 px-3 py-2 border rounded-lg bg-background font-mono text-sm"
+                    placeholder={formData.avatarProviderType === "hedra" ? "your-hedra-avatar-id" : ""}
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {formData.avatarProviderType === "hedra"
+                      ? "Get from Hedra web studio or API upload"
+                      : "Get from app.bey.chat dashboard"}
+                  </p>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <label className="text-sm font-medium">Resolution</label>
-                    <select
-                      value={formData.beyResolution}
-                      onChange={(e) => setFormData({ ...formData, beyResolution: e.target.value })}
-                      className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
-                    >
-                      <option value="480p">480p</option>
-                      <option value="720p">720p</option>
-                      <option value="1080p">1080p</option>
-                    </select>
+                {formData.avatarProviderType === "beyond_presence" && (
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-sm font-medium">Resolution</label>
+                      <select
+                        value={formData.beyResolution}
+                        onChange={(e) => setFormData({ ...formData, beyResolution: e.target.value })}
+                        className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                      >
+                        <option value="480p">480p</option>
+                        <option value="720p">720p</option>
+                        <option value="1080p">1080p</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">FPS</label>
+                      <select
+                        value={formData.beyFps}
+                        onChange={(e) => setFormData({ ...formData, beyFps: parseInt(e.target.value) })}
+                        className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                      >
+                        <option value={24}>24 fps</option>
+                        <option value={30}>30 fps</option>
+                        <option value={60}>60 fps</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Background</label>
+                      <select
+                        value={formData.beyBackground}
+                        onChange={(e) => setFormData({ ...formData, beyBackground: e.target.value })}
+                        className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                      >
+                        <option value="transparent">Transparent</option>
+                        <option value="blur">Blur</option>
+                        <option value="solid">Solid Color</option>
+                      </select>
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium">FPS</label>
-                    <select
-                      value={formData.beyFps}
-                      onChange={(e) => setFormData({ ...formData, beyFps: parseInt(e.target.value) })}
-                      className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
-                    >
-                      <option value={24}>24 fps</option>
-                      <option value={30}>30 fps</option>
-                      <option value={60}>60 fps</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Background</label>
-                    <select
-                      value={formData.beyBackground}
-                      onChange={(e) => setFormData({ ...formData, beyBackground: e.target.value })}
-                      className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
-                    >
-                      <option value="transparent">Transparent</option>
-                      <option value="blur">Blur</option>
-                      <option value="solid">Solid Color</option>
-                    </select>
-                  </div>
-                </div>
+                )}
               </>
             )}
 
