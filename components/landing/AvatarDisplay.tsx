@@ -80,6 +80,8 @@ interface AvatarDisplayProps {
   onActivationChange?: (activated: boolean) => void;
   /** Hide all LiveKit room controls (close, mute, stop, camera) */
   hideRoomControls?: boolean;
+  /** Hide the contact form flip (when parent handles contact form) */
+  hideContactForm?: boolean;
 }
 
 export function AvatarDisplay({
@@ -98,6 +100,7 @@ export function AvatarDisplay({
   externalActivated,
   onActivationChange,
   hideRoomControls = false,
+  hideContactForm = false,
 }: AvatarDisplayProps) {
   const t = useTranslations("hero");
   const tContact = useTranslations("contact");
@@ -205,6 +208,11 @@ export function AvatarDisplay({
     logDebug("LiveKit session closed", { reason });
     setIsActivated(false);
     onActivationChange?.(false);
+
+    // Don't show contact form if parent handles it
+    if (hideContactForm) {
+      return;
+    }
 
     // Determine if we should show contact form based on close reason
     // - "user_stopped" (Stop button): Show contact form

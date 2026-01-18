@@ -33,7 +33,7 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
 
   // Fetch the landing avatar data for display
   const landingAvatar = useQuery(api.landing.getLandingAvatar, { locale });
-  const avatarName = landingAvatar?.name || "Helena";
+  const avatarName = landingAvatar?.name || "AI Coach";
   // Use persona.role for short title, fallback to default
   const avatarTitle = (landingAvatar?.persona as { role?: string } | undefined)?.role || (locale === "de" ? "KI Englisch Coach" : "AI English Coach");
 
@@ -153,6 +153,7 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
                     externalActivated={isAvatarActivated}
                     onActivationChange={handleActivationChange}
                     hideRoomControls={true}
+                    hideContactForm={true}
                   />
                 </div>
               )}

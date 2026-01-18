@@ -8,9 +8,10 @@ import { api } from "@/convex/_generated/api";
 import { AvatarDisplay } from "./AvatarDisplay";
 
 // Fallback avatar data for when Convex is blocked (Safari ITP, etc.)
+// Note: Uses generic name since we can't determine the configured avatar
 const FALLBACK_AVATAR = {
-  name: "Helena",
-  profileImage: "https://healthy-snail-919.convex.cloud/api/storage/88ca6e41-6167-4fb6-bdf6-b82e51dcdfcc",
+  name: "AI Coach",
+  profileImage: undefined, // Will show initial letter fallback
 };
 
 interface ClientAvatarWrapperProps {
@@ -25,6 +26,8 @@ interface ClientAvatarWrapperProps {
   onActivationChange?: (activated: boolean) => void;
   /** Hide all LiveKit room controls (close, mute, stop, camera) */
   hideRoomControls?: boolean;
+  /** Hide the contact form flip (when parent handles contact form) */
+  hideContactForm?: boolean;
 }
 
 export function ClientAvatarWrapper({
@@ -35,6 +38,7 @@ export function ClientAvatarWrapper({
   externalActivated,
   onActivationChange,
   hideRoomControls,
+  hideContactForm,
 }: ClientAvatarWrapperProps) {
   const locale = useLocale();
   const searchParams = useSearchParams();
@@ -113,7 +117,7 @@ export function ClientAvatarWrapper({
     <AvatarDisplay
       avatarId={avatarId || (avatarData as { _id?: string })?._id}
       profileImage={avatarData?.profileImage}
-      avatarName={avatarData?.name || "Helena"}
+      avatarName={avatarData?.name || "AI Coach"}
       avatarGreeting={avatarGreeting}
       isLoading={isLoading}
       avatar={fullAvatar}
@@ -125,6 +129,7 @@ export function ClientAvatarWrapper({
       externalActivated={externalActivated}
       onActivationChange={onActivationChange}
       hideRoomControls={hideRoomControls}
+      hideContactForm={hideContactForm}
     />
   );
 }
