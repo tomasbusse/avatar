@@ -2898,10 +2898,8 @@ You are conducting a structured lesson from this presentation.
             if audio_only_mode:
                 logger.info(f"🎧 Continuing session in AUDIO-ONLY mode (no avatar video)")
 
-    # Store audio-only state in job context for potential use
+    # Log audio-only state (ctx.userdata not available in livekit-agents 1.3+)
     if audio_only_mode:
-        ctx.userdata["audio_only_mode"] = True
-        ctx.userdata["avatar_error_reason"] = avatar_error_reason
         logger.info(f"📋 Session state: audio_only_mode={audio_only_mode}, reason={avatar_error_reason}")
 
     # ==========================================================================

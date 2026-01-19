@@ -386,7 +386,7 @@ class CerebrasStream(LLMStream):
                             try:
                                 from livekit.agents.llm import FunctionToolCall
                                 tool_call = FunctionToolCall(
-                                    id=tc_data.get("id") or str(uuid.uuid4()),
+                                    call_id=tc_data.get("id") or str(uuid.uuid4()),
                                     name=tc_data["name"],
                                     arguments=tc_data["arguments"]
                                 )

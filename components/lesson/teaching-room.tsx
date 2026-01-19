@@ -431,6 +431,8 @@ function RoomContent({
   const latestSlideImageRef = useRef<string | null>(null);
   const lastPublishedGameItemRef = useRef<number>(-1);
   const slidesContextSentRef = useRef(false);
+  // Track when local slide changes happen to avoid race conditions with session sync
+  const localSlideChangeTimestampRef = useRef<number>(0);
 
   const session = useQuery(api.sessions.getSessionByRoom, { roomName });
   const transcript = session?.transcript || [];
@@ -933,6 +935,8 @@ function RoomContent({
 
   // Handle slide index change from UI
   const handleSlideIndexChange = useCallback((newIndex: number) => {
+    // Mark that we're making a local change to avoid race condition with session sync
+    localSlideChangeTimestampRef.current = Date.now();
     setCurrentSlideIndex(newIndex);
     notifySlideChange(newIndex);
   }, [notifySlideChange]);
@@ -1160,12 +1164,17 @@ function RoomContent({
         setSlideControlledBy(session.presentationMode.controlledBy);
       }
       // Sync slide index from session if different
+      // BUT skip if we made a local change recently (avoid race condition)
+      const timeSinceLocalChange = Date.now() - localSlideChangeTimestampRef.current;
+      const isRecentLocalChange = timeSinceLocalChange < 1000; // 1 second grace period
+
       if (session.presentationMode.currentSlideIndex !== undefined &&
-          session.presentationMode.currentSlideIndex !== currentSlideIndex) {
+          session.presentationMode.currentSlideIndex !== currentSlideIndex &&
+          !isRecentLocalChange) {
         setCurrentSlideIndex(session.presentationMode.currentSlideIndex);
       }
     }
-  }, [session?.presentationMode]);
+  }, [session?.presentationMode, currentSlideIndex]);
 
   // Send presentation ready when presentation is loaded (or when a NEW presentation is loaded)
   useEffect(() => {
