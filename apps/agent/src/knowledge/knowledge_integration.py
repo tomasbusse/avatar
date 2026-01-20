@@ -27,6 +27,7 @@ logger = logging.getLogger("beethoven-agent.knowledge-integration")
 @dataclass
 class KnowledgeContext:
     """Context to inject into LLM for knowledge-augmented responses."""
+    quick_reference: str = ""  # Quick FAQ-style answers (priority 0 - fastest)
     rlm_grammar_context: str = ""  # RLM-sourced grammar (priority 1)
     rlm_vocabulary_context: str = ""  # RLM-sourced vocabulary (priority 1)
     rlm_mistake_context: str = ""  # RLM-sourced mistake correction (priority 1)
@@ -40,12 +41,16 @@ class KnowledgeContext:
         """Combine all context into a single string for LLM.
 
         Priority order:
+        0. Quick reference (FAQ-style instant answers)
         1. RLM structured knowledge (topic-specific, scraped from web)
         2. Built-in general knowledge (baseline grammar/vocab)
         3. Lesson-specific content
         """
         parts = []
-        # RLM context first (most relevant, topic-specific)
+        # Quick reference first (instant answers to common questions)
+        if self.quick_reference:
+            parts.append(self.quick_reference)
+        # RLM context (most relevant, topic-specific)
         if self.rlm_grammar_context:
             parts.append(self.rlm_grammar_context)
         if self.rlm_vocabulary_context:
@@ -67,9 +72,14 @@ class KnowledgeContext:
         return "\n\n".join(parts) if parts else ""
 
     @property
+    def has_quick_reference(self) -> bool:
+        """Check if a quick reference was found."""
+        return bool(self.quick_reference)
+
+    @property
     def has_rlm_context(self) -> bool:
         """Check if any RLM context was found."""
-        return bool(self.rlm_grammar_context or self.rlm_vocabulary_context or self.rlm_mistake_context)
+        return bool(self.quick_reference or self.rlm_grammar_context or self.rlm_vocabulary_context or self.rlm_mistake_context)
 
 
 class KnowledgeIntegration:
@@ -171,6 +181,14 @@ class KnowledgeIntegration:
             logger.warning("Knowledge integration not initialized!")
             return context
 
+        # TIER 0: Quick Reference (<2ms)
+        # Check for FAQ-style instant answers first
+        if self.rlm.is_loaded():
+            quick_ref = self.rlm.lookup_quick_reference(user_text)
+            if quick_ref:
+                context.quick_reference = self.rlm.format_quick_reference_for_context(quick_ref)
+                logger.info(f"RLM: Quick reference match: {quick_ref.id}")
+
         # TIER 1: RLM Structured Knowledge (<10ms)
         # Check RLM first - it has topic-specific knowledge from web scraping
         if self.rlm.is_loaded():
@@ -251,8 +269,20 @@ class KnowledgeIntegration:
         """Try to get a fast answer without LLM.
 
         Returns pre-computed or rule-based answer if available.
-        This is for ultra-low latency responses.
+        This is for ultra-low latency responses (<10ms).
+
+        Priority:
+        1. Quick reference (FAQ-style answers from knowledge base)
+        2. Common mistakes
+        3. Simple vocabulary definitions
         """
+        # Check for quick reference first (FAQ answers)
+        if self.rlm.is_loaded():
+            quick_ref = self.rlm.lookup_quick_reference(user_text)
+            if quick_ref:
+                logger.info(f"Quick answer from RLM: {quick_ref.id}")
+                return quick_ref.expanded_response or quick_ref.response
+
         # Check for common mistake to correct
         mistakes = self.general.check_for_mistakes(user_text)
         if mistakes and mistakes[0].frequency == "very_common":

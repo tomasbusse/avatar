@@ -62,6 +62,24 @@ class RLMMistakePattern:
             self.compiled_pattern = None
 
 
+@dataclass
+class RLMQuickReference:
+    """Quick reference card for FAQ-style responses."""
+    id: str
+    trigger: str
+    response: str
+    expanded_response: Optional[str] = None
+    compiled_trigger: Optional[re.Pattern] = None
+
+    def __post_init__(self):
+        """Compile trigger pattern after initialization."""
+        try:
+            self.compiled_trigger = re.compile(self.trigger, re.IGNORECASE)
+        except re.error:
+            logger.warning(f"Invalid trigger pattern: {self.trigger}")
+            self.compiled_trigger = None
+
+
 class RLMKnowledgeProvider:
     """Ultra-fast in-memory knowledge lookups (<10ms).
 
@@ -80,6 +98,8 @@ class RLMKnowledgeProvider:
         self._vocab_by_level: Dict[str, List[RLMVocabularyEntry]] = {}
         # Mistake patterns (compiled regex)
         self._mistake_patterns: List[RLMMistakePattern] = []
+        # Quick reference cards (FAQ-style)
+        self._quick_references: List[RLMQuickReference] = []
         # Topic keywords for context matching
         self._topic_keywords: List[str] = []
         # Metadata
@@ -88,6 +108,7 @@ class RLMKnowledgeProvider:
             "grammar_rules": 0,
             "vocabulary_entries": 0,
             "mistake_patterns": 0,
+            "quick_references": 0,
             "knowledge_bases": 0,
         }
 
@@ -172,6 +193,19 @@ class RLMKnowledgeProvider:
         # Load topic keywords
         topic_keywords = rlm_data.get("topicKeywords", [])
         self._topic_keywords.extend(topic_keywords)
+
+        # Load quick references (FAQ-style responses)
+        quick_refs = rlm_data.get("quickReference", [])
+        for ref_data in quick_refs:
+            ref = RLMQuickReference(
+                id=ref_data.get("id", ""),
+                trigger=ref_data.get("trigger", ""),
+                response=ref_data.get("response", ""),
+                expanded_response=ref_data.get("expandedResponse"),
+            )
+            if ref.compiled_trigger:
+                self._quick_references.append(ref)
+                self._stats["quick_references"] += 1
 
         self._loaded_kbs.append(kb_id)
         self._stats["knowledge_bases"] += 1
@@ -276,6 +310,38 @@ class RLMKnowledgeProvider:
         text_lower = text.lower()
         return any(keyword in text_lower for keyword in self._topic_keywords)
 
+    def lookup_quick_reference(self, query: str) -> Optional[RLMQuickReference]:
+        """Pattern matching for FAQ-style quick references (<2ms).
+
+        Searches quick reference cards for matching triggers.
+        Returns the first matching quick reference.
+        """
+        if not self._quick_references or not query:
+            return None
+
+        for ref in self._quick_references:
+            if ref.compiled_trigger and ref.compiled_trigger.search(query):
+                return ref
+
+        return None
+
+    def lookup_all_quick_references(self, query: str) -> List[RLMQuickReference]:
+        """Get all matching quick references for a query."""
+        if not self._quick_references or not query:
+            return []
+
+        matches: List[RLMQuickReference] = []
+        for ref in self._quick_references:
+            if ref.compiled_trigger and ref.compiled_trigger.search(query):
+                matches.append(ref)
+
+        return matches
+
+    def format_quick_reference_for_context(self, ref: RLMQuickReference) -> str:
+        """Format a quick reference for LLM context injection."""
+        response = ref.expanded_response or ref.response
+        return f"[QUICK REFERENCE - {ref.id}]\n{response}"
+
     def format_grammar_for_context(self, rules: List[RLMGrammarRule]) -> str:
         """Format grammar rules for LLM context injection."""
         if not rules:
@@ -352,7 +418,8 @@ async def load_rlm_from_convex(
         else:
             # Query avatar's knowledge base links
             avatar = await convex_client.query("avatars:getById", {"id": avatar_id})
-            kb_ids = avatar.get("knowledgeBaseIds", []) if avatar else []
+            knowledge_config = avatar.get("knowledgeConfig", {}) if avatar else {}
+            kb_ids = knowledge_config.get("knowledgeBaseIds", [])
 
         if not kb_ids:
             logger.info(f"No knowledge bases linked to avatar {avatar_id}")
