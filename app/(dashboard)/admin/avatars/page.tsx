@@ -208,7 +208,6 @@ export default function AvatarsPage() {
     fetchAgentStatus();
     // Poll agent status every 10 seconds
     const interval = setInterval(fetchAgentStatus, 10000);
-    return () => clearInterval(interval);
 
     // Fetch all models from OpenRouter
     const fetchModels = async () => {
@@ -229,6 +228,8 @@ export default function AvatarsPage() {
       }
     };
     fetchModels();
+
+    return () => clearInterval(interval);
   }, []);
 
   const allVoices = [...DEFAULT_VOICES, ...customVoices.map(v => ({ ...v, isCustom: true }))];
