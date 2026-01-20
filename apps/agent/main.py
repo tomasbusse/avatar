@@ -2943,23 +2943,20 @@ You are conducting a structured lesson from this presentation.
 
     # NOTE: Slide control tools removed for now - focusing on ultra-low latency speech
 
-    # Use BeethovenTeacher (with vision/RAG/lesson hooks) if vision is enabled, otherwise plain Agent
-    if vision_enabled:
-        agent = BeethovenTeacher(
-            room=ctx.room,
-            llm_model=llm_model,
-            instructions=final_prompt,
-            rag_retriever=rag_retriever,
-            rag_cache=rag_cache,
-            knowledge_base_ids=zep_collection_ids,
-            lesson_manager=lesson_manager,
-            rlm_provider=rlm_provider,
-        )
-        logger.info(f"🎓 Using BeethovenTeacher with vision (model: {llm_model})")
-        if lesson_manager:
-            logger.info(f"📖 Lesson manager attached with {len(lesson_manager.index)} lessons")
-    else:
-        agent = Agent(instructions=final_prompt)
+    # Always use BeethovenTeacher for RLM/RAG/lesson hooks (vision is optional feature inside it)
+    agent = BeethovenTeacher(
+        room=ctx.room,
+        llm_model=llm_model,
+        instructions=final_prompt,
+        rag_retriever=rag_retriever,
+        rag_cache=rag_cache,
+        knowledge_base_ids=zep_collection_ids,
+        lesson_manager=lesson_manager,
+        rlm_provider=rlm_provider,
+    )
+    logger.info(f"🎓 Using BeethovenTeacher (vision: {vision_enabled}, RLM: {bool(rlm_provider)}, RAG: {bool(rag_retriever)})")
+    if lesson_manager:
+        logger.info(f"📖 Lesson manager attached with {len(lesson_manager.index)} lessons")
     
     # ==========================================================================
     # AWAIT AVATAR START TASK - Started earlier for parallel initialization
