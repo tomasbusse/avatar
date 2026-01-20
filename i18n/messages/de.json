@@ -1,14 +1,14 @@
 {
   "meta": {
-    "title": "Simmonds Language Services | Business English & Sprachtraining",
-    "description": "Professionelles Sprachtraining seit über 20 Jahren. Business English, Deutsch für Ausländer und Lektorat in Hannover und Berlin."
+    "title": "Business Englisch Training Hannover | Die Simmonds Methode",
+    "description": "Business Englisch Training mit der Simmonds Methode. Über 20 Jahre Erfahrung. KI-Avatar für 24/7 Übung. Für Führungskräfte und Teams in Hannover, Berlin und online."
   },
   "nav": {
     "services": "Leistungen",
     "allServices": "Alle Leistungen",
     "businessEnglish": "Business English",
-    "germanCourses": "Deutsch Kurse",
-    "copyEditing": "Lektorat",
+    "teamTraining": "Team Training",
+    "aiPractice": "KI-Avatar Übung",
     "pricing": "Preise",
     "about": "Über uns",
     "faq": "FAQ",
@@ -17,10 +17,10 @@
     "getStarted": "Jetzt starten"
   },
   "hero": {
-    "badge": "Über 20 Jahre Erfahrung",
-    "headline": "Business English",
-    "headlineAccent": "für Ihre Karriere.",
-    "subheadline": "Maßgeschneidertes Business English Training mit echten Ergebnissen. Persönlich in Hannover und Berlin oder online weltweit.",
+    "badge": "Die Simmonds Methode",
+    "headline": "Business Englisch Training",
+    "headlineAccent": "das wirklich funktioniert.",
+    "subheadline": "Ihre Realität. Ihre Inhalte. Ihre Ergebnisse. Maßgeschneidertes Englischtraining mit der bewährten Simmonds Methode – persönlich oder online.",
     "benefit1": "Personalisierte 1:1-Sitzungen auf Ihre Ziele ausgerichtet",
     "benefit2": "Praxisnahes Training für Meetings, E-Mails & Präsentationen",
     "benefit3": "Flexible Terminplanung – online oder persönlich",
@@ -36,19 +36,19 @@
   },
   "services": {
     "badge": "Unsere Leistungen",
-    "headline": "Sprachdienstleistungen die wirken",
-    "subheadline": "Professionelle Trainingslösungen auf Ihre spezifischen Bedürfnisse und Ziele zugeschnitten",
+    "headline": "Business Englisch Training",
+    "subheadline": "Professionelles Englischtraining für Ihren beruflichen Erfolg",
     "businessEnglish": {
-      "title": "Business English",
-      "description": "Beherrschen Sie das Englisch, das Sie für Meetings, Präsentationen, Verhandlungen und die tägliche Kommunikation am Arbeitsplatz brauchen."
+      "title": "1:1 Business Englisch",
+      "description": "Individuelles Training für Meetings, Präsentationen, Verhandlungen und E-Mails. Inhalte aus Ihrem echten Arbeitsalltag."
     },
-    "germanCourses": {
-      "title": "Deutsch für Ausländer",
-      "description": "Integration durch Sprache – wir helfen internationalen Mitarbeitern im deutschsprachigen Umfeld erfolgreich zu sein."
+    "teamTraining": {
+      "title": "Team Training",
+      "description": "Gruppentraining für Ihr Team. Verbessern Sie die internationale Kommunikation in Ihrer Abteilung."
     },
-    "copyEditing": {
-      "title": "Lektorat",
-      "description": "Professionelles Textlektorat, das Ihre Dokumente in klare, wirkungsvolle Kommunikation verwandelt."
+    "aiPractice": {
+      "title": "KI-Avatar Übung",
+      "description": "Üben Sie 24/7 mit unserer KI-Trainingspartnerin. Sie kennt Ihre Lerninhalte und gibt sofortiges Feedback."
     },
     "learnMore": "Mehr erfahren",
     "viewAll": "Alle Leistungen"
@@ -70,8 +70,8 @@
       "description": "Bewährte Methoden, verfeinert über zwei Jahrzehnte Erfahrung mit Fach- und Führungskräften."
     },
     "methodology": {
-      "title": "Die Fragen-Methode",
-      "description": "Unser einzigartiger Ansatz konzentriert sich auf das, was Sie tatsächlich sagen und tun müssen."
+      "title": "Die Simmonds Methode",
+      "description": "Ihre Realität. Ihre Inhalte. Ihre Ergebnisse. Wir bauen jede Sitzung um echte Situationen aus Ihrem Arbeitsalltag."
     },
     "bilingual": {
       "title": "Muttersprachliche Expertise",
@@ -112,8 +112,8 @@
         "answer": "Ja! Online-Training ist per Videoanruf verfügbar und funktioniert genauso effektiv wie persönliche Sitzungen. Viele unserer Kunden bevorzugen dieses Format wegen seiner Flexibilität."
       },
       "2": {
-        "question": "Was ist die Fragen-Methode?",
-        "answer": "Die Fragen-Methode ist unser einzigartiger Ansatz, bei dem wir jede Sitzung um echte Fragen und Situationen aus Ihrem Arbeitsalltag aufbauen, was das Training sofort anwendbar macht."
+        "question": "Was ist die Simmonds Methode?",
+        "answer": "Die Simmonds Methode ist unser einzigartiger Ansatz: Ihre Realität. Ihre Inhalte. Ihre Ergebnisse. Wir bauen jede Sitzung um echte Fragen und Situationen aus Ihrem Arbeitsalltag auf, was das Training sofort anwendbar macht."
       },
       "3": {
         "question": "Können Sie unser gesamtes Team trainieren?",
@@ -196,12 +196,12 @@
     "hours": "Montag – Freitag: 9:00 – 18:00"
   },
   "footer": {
-    "tagline": "Professionelles Sprachtraining seit über 20 Jahren. Wir helfen Fachleuten, selbstbewusst zu kommunizieren.",
+    "tagline": "Professionelles Business Englisch Training mit der Simmonds Methode. Wir helfen Fachleuten, selbstbewusst zu kommunizieren.",
     "yearsExperience": "Jahre Exzellenz",
     "services": "Leistungen",
-    "businessEnglish": "Business English",
-    "germanCourses": "Deutsch Kurse",
-    "copyEditing": "Lektorat",
+    "businessEnglish": "1:1 Business Englisch",
+    "teamTraining": "Team Training",
+    "aiPractice": "KI-Avatar Übung",
     "pricing": "Preise",
     "company": "Unternehmen",
     "about": "Über uns",
@@ -221,8 +221,8 @@
     "subheadline": "Über 20 Jahre Erfahrung darin, Fachleuten zu selbstbewusster Kommunikation zu verhelfen",
     "storyTitle": "Unsere Geschichte",
     "storyContent": "Vor über zwei Jahrzehnten in Hannover gegründet, hat sich Simmonds Language Services von einer kleinen Englischtraining-Praxis zu einem vertrauenswürdigen Partner für Unternehmen und Privatpersonen in ganz Deutschland entwickelt.",
-    "methodTitle": "Die Fragen-Methode",
-    "methodContent": "Unser einzigartiger Lehransatz konzentriert sich auf das, was Sie tatsächlich kommunizieren müssen. Wir bauen jede Sitzung um echte Fragen und Situationen aus Ihrem Berufsleben auf.",
+    "methodTitle": "Die Simmonds Methode",
+    "methodContent": "Unser einzigartiger Lehransatz: Ihre Realität. Ihre Inhalte. Ihre Ergebnisse. Wir bauen jede Sitzung um echte Fragen und Situationen aus Ihrem Berufsleben auf.",
     "locationsTitle": "Unsere Standorte",
     "hannover": "Büro Hannover",
     "berlin": "Büro Berlin",
@@ -240,5 +240,27 @@
     "categories": "Kategorien",
     "recentPosts": "Neueste Beiträge",
     "noPosts": "Noch keine Blog-Beiträge. Schauen Sie bald wieder vorbei!"
+  },
+  "imprint": {
+    "title": "Impressum",
+    "responsibleTitle": "Angaben gemäß § 5 TMG",
+    "name": "Simmonds Language Services",
+    "owner": "James Simmonds",
+    "address": "Im Werkhof, Schaufelder Straße 11",
+    "city": "30167 Hannover",
+    "country": "Deutschland",
+    "contactTitle": "Kontakt",
+    "phone": "Telefon: +49 511 47 39 339",
+    "email": "E-Mail: james@englisch-lehrer.com",
+    "website": "Web: www.englisch-lehrer.com",
+    "vatTitle": "Umsatzsteuer",
+    "vatExempt": "Sprachtraining ist gemäß § 4 Nr. 21 UStG umsatzsteuerbefreit.",
+    "contentTitle": "Verantwortlich für den Inhalt nach § 55 Abs. 2 RStV",
+    "disputeTitle": "Streitschlichtung",
+    "disputeText": "Die Europäische Kommission stellt eine Plattform zur Online-Streitbeilegung (OS) bereit: https://ec.europa.eu/consumers/odr. Wir sind nicht bereit oder verpflichtet, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen.",
+    "copyrightTitle": "Urheberrecht",
+    "copyrightText": "Die durch die Seitenbetreiber erstellten Inhalte und Werke auf diesen Seiten unterliegen dem deutschen Urheberrecht. Die Vervielfältigung, Bearbeitung, Verbreitung und jede Art der Verwertung außerhalb der Grenzen des Urheberrechtes bedürfen der schriftlichen Zustimmung des jeweiligen Autors bzw. Erstellers.",
+    "liabilityTitle": "Haftungsausschluss",
+    "liabilityText": "Trotz sorgfältiger inhaltlicher Kontrolle übernehmen wir keine Haftung für die Inhalte externer Links. Für den Inhalt der verlinkten Seiten sind ausschließlich deren Betreiber verantwortlich."
   }
 }

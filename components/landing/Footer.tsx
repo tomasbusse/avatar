@@ -17,8 +17,8 @@ export function Footer() {
 
   const serviceLinks = [
     { href: `/${locale}/services/business-english`, label: t("businessEnglish") },
-    { href: `/${locale}/services/german-courses`, label: t("germanCourses") },
-    { href: `/${locale}/services/copy-editing`, label: t("copyEditing") },
+    { href: `/${locale}/services/team-training`, label: t("teamTraining") },
+    { href: `/${locale}/services/ai-practice`, label: t("aiPractice") },
   ];
 
   const companyLinks = [
@@ -111,33 +111,25 @@ export function Footer() {
                 <div className="text-sm">
                   <span className="text-white font-medium">{t("hannover")}</span>
                   <br />
-                  <span className="text-sls-beige/80">Lister Meile 89</span>
-                </div>
-              </li>
-              <li className="flex items-start gap-3">
-                <MapPin className="w-5 h-5 text-sls-chartreuse flex-shrink-0 mt-0.5" />
-                <div className="text-sm">
-                  <span className="text-white font-medium">{t("berlin")}</span>
-                  <br />
-                  <span className="text-sls-beige/80">Friedrichstraße 123</span>
+                  <span className="text-sls-beige/80">Im Werkhof, Schaufelder Straße 11</span>
                 </div>
               </li>
               <li className="flex items-center gap-3">
                 <Phone className="w-5 h-5 text-sls-chartreuse flex-shrink-0" />
                 <a
-                  href="tel:+495115555555"
+                  href="tel:+495114739339"
                   className="text-sls-beige/80 hover:text-white transition-colors text-sm"
                 >
-                  +49 511 555 5555
+                  +49 511 47 39 339
                 </a>
               </li>
               <li className="flex items-center gap-3">
                 <Mail className="w-5 h-5 text-sls-chartreuse flex-shrink-0" />
                 <a
-                  href="mailto:info@simmonds-language.de"
+                  href="mailto:james@englisch-lehrer.com"
                   className="text-sls-beige/80 hover:text-white transition-colors text-sm"
                 >
-                  info@simmonds-language.de
+                  james@englisch-lehrer.com
                 </a>
               </li>
             </ul>

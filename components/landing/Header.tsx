@@ -29,8 +29,8 @@ export function Header() {
 
   const services = [
     { href: `/${locale}/services/business-english`, label: t("businessEnglish") },
-    { href: `/${locale}/services/german-courses`, label: t("germanCourses") },
-    { href: `/${locale}/services/copy-editing`, label: t("copyEditing") },
+    { href: `/${locale}/services/team-training`, label: t("teamTraining") },
+    { href: `/${locale}/services/ai-practice`, label: t("aiPractice") },
   ];
 
   const navItems = [

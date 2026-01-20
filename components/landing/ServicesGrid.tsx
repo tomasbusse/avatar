@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
 import {
   Briefcase,
-  GraduationCap,
-  FileEdit,
+  Users,
+  Bot,
   ArrowRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -31,17 +31,17 @@ export function ServicesGrid() {
       accent: "from-sls-orange/20 to-sls-orange/5",
     },
     {
-      icon: <GraduationCap className="w-8 h-8" />,
-      titleKey: "germanCourses.title",
-      descriptionKey: "germanCourses.description",
-      href: `/${locale}/services/german-courses`,
+      icon: <Users className="w-8 h-8" />,
+      titleKey: "teamTraining.title",
+      descriptionKey: "teamTraining.description",
+      href: `/${locale}/services/team-training`,
       accent: "from-sls-chartreuse/20 to-sls-chartreuse/5",
     },
     {
-      icon: <FileEdit className="w-8 h-8" />,
-      titleKey: "copyEditing.title",
-      descriptionKey: "copyEditing.description",
-      href: `/${locale}/services/copy-editing`,
+      icon: <Bot className="w-8 h-8" />,
+      titleKey: "aiPractice.title",
+      descriptionKey: "aiPractice.description",
+      href: `/${locale}/services/ai-practice`,
       accent: "from-sls-teal/20 to-sls-teal/5",
     },
   ];

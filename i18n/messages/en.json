@@ -1,14 +1,14 @@
 {
   "meta": {
-    "title": "Simmonds Language Services | Business English & Language Training",
-    "description": "Professional language training for over 20 years. Business English, German for foreigners, and copy editing in Hannover and Berlin."
+    "title": "Business English Training Hannover | The Simmonds Method",
+    "description": "Business English training using the Simmonds Method. Over 20 years experience. AI avatar for 24/7 practice. For executives and teams in Hannover, Berlin, and online."
   },
   "nav": {
     "services": "Services",
     "allServices": "All Services",
     "businessEnglish": "Business English",
-    "germanCourses": "German Courses",
-    "copyEditing": "Copy Editing",
+    "teamTraining": "Team Training",
+    "aiPractice": "AI Avatar Practice",
     "pricing": "Pricing",
     "about": "About",
     "faq": "FAQ",
@@ -17,10 +17,10 @@
     "getStarted": "Get Started"
   },
   "hero": {
-    "badge": "Over 20 Years Experience",
-    "headline": "Master English",
-    "headlineAccent": "for your career.",
-    "subheadline": "Tailored business English training that delivers real results. In person in Hannover and Berlin, or online worldwide.",
+    "badge": "The Simmonds Method",
+    "headline": "Business English Training",
+    "headlineAccent": "that actually works.",
+    "subheadline": "Your reality. Your content. Your results. Tailored English training using the proven Simmonds Method – in person or online.",
     "benefit1": "Personalized 1:1 sessions focused on your goals",
     "benefit2": "Real-world practice with meetings, emails & presentations",
     "benefit3": "Flexible scheduling – online or face-to-face",
@@ -35,20 +35,20 @@
     "clickToStart": "Click to Start"
   },
   "services": {
-    "badge": "What We Offer",
-    "headline": "Language Services That Deliver",
-    "subheadline": "Professional training solutions tailored to your specific needs and goals",
+    "badge": "Our Services",
+    "headline": "Business English Training",
+    "subheadline": "Professional English training for your career success",
     "businessEnglish": {
-      "title": "Business English",
-      "description": "Master the English you need for meetings, presentations, negotiations, and everyday workplace communication."
+      "title": "1:1 Business English",
+      "description": "Individual training for meetings, presentations, negotiations, and emails. Content from your real work situations."
     },
-    "germanCourses": {
-      "title": "German for Foreigners",
-      "description": "Integration through language – helping international employees succeed in German-speaking environments."
+    "teamTraining": {
+      "title": "Team Training",
+      "description": "Group training for your team. Improve international communication across your department."
     },
-    "copyEditing": {
-      "title": "Copy Editing",
-      "description": "Professional text editing that transforms your documents into clear, impactful communication."
+    "aiPractice": {
+      "title": "AI Avatar Practice",
+      "description": "Practice 24/7 with our AI training partner. She knows your learning content and gives immediate feedback."
     },
     "learnMore": "Learn More",
     "viewAll": "View All Services"
@@ -70,8 +70,8 @@
       "description": "Proven methods refined over two decades of helping professionals succeed."
     },
     "methodology": {
-      "title": "The Questions Method",
-      "description": "Our unique approach focuses on what you actually need to say and do."
+      "title": "The Simmonds Method",
+      "description": "Your reality. Your content. Your results. We build each session around real situations from your work life."
     },
     "bilingual": {
       "title": "Native Expertise",
@@ -112,8 +112,8 @@
         "answer": "Yes! Online training is available via video call and works just as effectively as face-to-face sessions. Many of our clients prefer this format for its flexibility."
       },
       "2": {
-        "question": "What is the Questions Method?",
-        "answer": "The Questions Method is our unique approach where we build each session around real questions and situations you face at work, making the training immediately applicable."
+        "question": "What is the Simmonds Method?",
+        "answer": "The Simmonds Method is our unique approach: Your reality. Your content. Your results. We build each session around real questions and situations you face at work, making the training immediately applicable."
       },
       "3": {
         "question": "Can you train our whole team?",
@@ -196,12 +196,12 @@
     "hours": "Monday – Friday: 9:00 – 18:00"
   },
   "footer": {
-    "tagline": "Professional language training for over 20 years. Helping professionals communicate with confidence.",
+    "tagline": "Professional Business English training using the Simmonds Method. Helping professionals communicate with confidence.",
     "yearsExperience": "Years of Excellence",
     "services": "Services",
-    "businessEnglish": "Business English",
-    "germanCourses": "German Courses",
-    "copyEditing": "Copy Editing",
+    "businessEnglish": "1:1 Business English",
+    "teamTraining": "Team Training",
+    "aiPractice": "AI Avatar Practice",
     "pricing": "Pricing",
     "company": "Company",
     "about": "About Us",
@@ -221,8 +221,8 @@
     "subheadline": "Over 20 years of helping professionals communicate with confidence",
     "storyTitle": "Our Story",
     "storyContent": "Founded in Hannover over two decades ago, Simmonds Language Services has grown from a small English training practice into a trusted partner for businesses and individuals across Germany.",
-    "methodTitle": "The Questions Method",
-    "methodContent": "Our unique teaching approach focuses on what you actually need to communicate. We build each session around real questions and situations from your work life.",
+    "methodTitle": "The Simmonds Method",
+    "methodContent": "Our unique teaching approach: Your reality. Your content. Your results. We build each session around real questions and situations from your work life.",
     "locationsTitle": "Our Locations",
     "hannover": "Hannover Office",
     "berlin": "Berlin Office",
@@ -240,5 +240,27 @@
     "categories": "Categories",
     "recentPosts": "Recent Posts",
     "noPosts": "No blog posts yet. Check back soon!"
+  },
+  "imprint": {
+    "title": "Legal Notice (Imprint)",
+    "responsibleTitle": "Information according to § 5 TMG",
+    "name": "Simmonds Language Services",
+    "owner": "James Simmonds",
+    "address": "Im Werkhof, Schaufelder Straße 11",
+    "city": "30167 Hannover",
+    "country": "Germany",
+    "contactTitle": "Contact",
+    "phone": "Phone: +49 511 47 39 339",
+    "email": "Email: james@englisch-lehrer.com",
+    "website": "Web: www.englisch-lehrer.com",
+    "vatTitle": "VAT Information",
+    "vatExempt": "Language training is VAT-exempt according to § 4 No. 21 UStG.",
+    "contentTitle": "Responsible for content according to § 55 Abs. 2 RStV",
+    "disputeTitle": "Dispute Resolution",
+    "disputeText": "The European Commission provides a platform for online dispute resolution (OS): https://ec.europa.eu/consumers/odr. We are neither willing nor obliged to participate in dispute resolution proceedings before a consumer arbitration board.",
+    "copyrightTitle": "Copyright",
+    "copyrightText": "The content and works on these pages created by the site operators are subject to German copyright law. Reproduction, editing, distribution, and any kind of use beyond the limits of copyright law require written consent of the respective author or creator.",
+    "liabilityTitle": "Disclaimer",
+    "liabilityText": "Despite careful content control, we assume no liability for the content of external links. The operators of the linked pages are solely responsible for their content."
   }
 }
