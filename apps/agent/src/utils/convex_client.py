@@ -78,6 +78,8 @@ class ConvexClient:
                     "language_mode": voice_provider.get("languageMode", "english"),
                     "bilingual_default": voice_provider.get("bilingualDefault", "en"),
                 },
+                # Voice Library - Multiple named voice configurations
+                "voice_configs": self._map_voice_configs(result.get("voiceConfigs", [])),
                 "avatar_provider": {
                     "type": avatar_provider.get("type", "beyond_presence"),
                     "avatar_id": avatar_provider.get("avatarId", ""),
@@ -110,6 +112,50 @@ class ConvexClient:
             return config
         return {}
 
+    def _map_voice_configs(self, voice_configs: list) -> list:
+        """Map voice configs from Convex (camelCase) to Python (snake_case)."""
+        if not voice_configs:
+            return []
+
+        mapped = []
+        for vc in voice_configs:
+            mapped.append({
+                "id": vc.get("id", ""),
+                "name": vc.get("name", ""),
+                "voice_id": vc.get("voiceId", ""),
+                "language": vc.get("language", "en"),
+                "provider": vc.get("provider", "cartesia"),
+                "model": vc.get("model", "sonic-2"),
+                "is_default": vc.get("isDefault", False),
+                "settings": {
+                    "speed": vc.get("settings", {}).get("speed", 1.0),
+                    "pitch": vc.get("settings", {}).get("pitch"),
+                    "emotion": vc.get("settings", {}).get("emotion"),
+                },
+                "description": vc.get("description"),
+            })
+        return mapped
+
+    def get_voice_for_language(self, voice_configs: list, language: str) -> Optional[Dict[str, Any]]:
+        """Get the voice config for a specific language.
+
+        Returns the default voice for the language, or any voice for that language,
+        or None if no voice is configured for that language.
+        """
+        if not voice_configs:
+            return None
+
+        # First, look for a default voice for this language
+        for vc in voice_configs:
+            if vc.get("language") == language and vc.get("is_default"):
+                return vc
+
+        # Fall back to any voice for this language
+        for vc in voice_configs:
+            if vc.get("language") == language:
+                return vc
+
+        return None
 
     async def get_session_by_room(self, room_name: str) -> Optional[Dict[str, Any]]:
         """Get session by room name."""
@@ -145,6 +191,8 @@ class ConvexClient:
                     "language_mode": voice_provider.get("languageMode", "english"),
                     "bilingual_default": voice_provider.get("bilingualDefault", "en"),
                 },
+                # Voice Library - Multiple named voice configurations
+                "voice_configs": self._map_voice_configs(result.get("voiceConfigs", [])),
                 "avatar_provider": {
                     "type": avatar_provider.get("type", "beyond_presence"),
                     "avatar_id": avatar_provider.get("avatarId", ""),
