@@ -23,6 +23,14 @@ export const getAvatar = query({
   },
 });
 
+// Used by Python agent for RLM knowledge lookup
+export const getById = query({
+  args: { id: v.id("avatars") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
+  },
+});
+
 export const getAvatarBySlug = query({
   args: { slug: v.string() },
   handler: async (ctx, args) => {

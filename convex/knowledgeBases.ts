@@ -1252,7 +1252,7 @@ function generateRlmFromMarkdown(content: string, title: string): {
   });
 
   // Extract words from headers (# ## ###)
-  const headerMatches = content.matchAll(/^#{1,3}\s+(.+)$/gm);
+  const headerMatches = Array.from(content.matchAll(/^#{1,3}\s+(.+)$/gm));
   for (const match of headerMatches) {
     const headerWords = match[1].toLowerCase().replace(/[^a-zA-Z0-9äöüß\s]/g, "").split(/\s+/);
     headerWords.forEach(word => {
@@ -1261,7 +1261,7 @@ function generateRlmFromMarkdown(content: string, title: string): {
   }
 
   // Extract bold text (**text**)
-  const boldMatches = content.matchAll(/\*\*([^*]+)\*\*/g);
+  const boldMatches = Array.from(content.matchAll(/\*\*([^*]+)\*\*/g));
   for (const match of boldMatches) {
     const boldWords = match[1].toLowerCase().replace(/[^a-zA-Z0-9äöüß\s]/g, "").split(/\s+/);
     boldWords.forEach(word => {
@@ -1270,7 +1270,7 @@ function generateRlmFromMarkdown(content: string, title: string): {
   }
 
   // Extract FAQ patterns: **Q:** or Q: followed by answer
-  const faqMatches = content.matchAll(/(?:\*\*)?Q(?:uestion)?(?:\*\*)?[:\s]+([^\n]+)\n+(?:\*\*)?A(?:nswer)?(?:\*\*)?[:\s]+([^\n]+)/gi);
+  const faqMatches = Array.from(content.matchAll(/(?:\*\*)?Q(?:uestion)?(?:\*\*)?[:\s]+([^\n]+)\n+(?:\*\*)?A(?:nswer)?(?:\*\*)?[:\s]+([^\n]+)/gi));
   let faqIndex = 0;
   for (const match of faqMatches) {
     const question = match[1].trim();
@@ -1293,7 +1293,7 @@ function generateRlmFromMarkdown(content: string, title: string): {
   }
 
   // Extract table rows with | **Info** | Value | pattern
-  const tableMatches = content.matchAll(/\|\s*\*\*([^|*]+)\*\*\s*\|\s*([^|]+)\s*\|/g);
+  const tableMatches = Array.from(content.matchAll(/\|\s*\*\*([^|*]+)\*\*\s*\|\s*([^|]+)\s*\|/g));
   for (const match of tableMatches) {
     const label = match[1].trim().toLowerCase();
     const value = match[2].trim();
