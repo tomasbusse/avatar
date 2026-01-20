@@ -1225,6 +1225,117 @@ export const updateContentLessonLink = mutation({
 // ============================================
 
 /**
+ * Helper function to extract RLM indexes from markdown content
+ * Extracts keywords from headers, bold text, and FAQ patterns
+ */
+function generateRlmFromMarkdown(content: string, title: string): {
+  topicKeywords: string[];
+  quickReference: Array<{
+    id: string;
+    trigger: string;
+    response: string;
+    expandedResponse?: string;
+  }>;
+} {
+  const topicKeywords: Set<string> = new Set();
+  const quickReference: Array<{
+    id: string;
+    trigger: string;
+    response: string;
+    expandedResponse?: string;
+  }> = [];
+
+  // Extract words from title
+  const titleWords = title.toLowerCase().replace(/[^a-zA-Z0-9äöüß\s]/g, "").split(/\s+/);
+  titleWords.forEach(word => {
+    if (word.length > 2) topicKeywords.add(word);
+  });
+
+  // Extract words from headers (# ## ###)
+  const headerMatches = content.matchAll(/^#{1,3}\s+(.+)$/gm);
+  for (const match of headerMatches) {
+    const headerWords = match[1].toLowerCase().replace(/[^a-zA-Z0-9äöüß\s]/g, "").split(/\s+/);
+    headerWords.forEach(word => {
+      if (word.length > 2) topicKeywords.add(word);
+    });
+  }
+
+  // Extract bold text (**text**)
+  const boldMatches = content.matchAll(/\*\*([^*]+)\*\*/g);
+  for (const match of boldMatches) {
+    const boldWords = match[1].toLowerCase().replace(/[^a-zA-Z0-9äöüß\s]/g, "").split(/\s+/);
+    boldWords.forEach(word => {
+      if (word.length > 2) topicKeywords.add(word);
+    });
+  }
+
+  // Extract FAQ patterns: **Q:** or Q: followed by answer
+  const faqMatches = content.matchAll(/(?:\*\*)?Q(?:uestion)?(?:\*\*)?[:\s]+([^\n]+)\n+(?:\*\*)?A(?:nswer)?(?:\*\*)?[:\s]+([^\n]+)/gi);
+  let faqIndex = 0;
+  for (const match of faqMatches) {
+    const question = match[1].trim();
+    const answer = match[2].trim();
+
+    // Create trigger from question words
+    const questionWords = question.toLowerCase()
+      .replace(/[^a-zA-Z0-9äöüß\s]/g, "")
+      .split(/\s+/)
+      .filter(w => w.length > 2 && !["how", "what", "when", "where", "why", "who", "can", "does", "the", "and", "for"].includes(w));
+
+    if (questionWords.length > 0) {
+      quickReference.push({
+        id: `qr-auto-${faqIndex++}`,
+        trigger: questionWords.slice(0, 4).join("|"),
+        response: answer.slice(0, 200),
+        expandedResponse: answer.length > 200 ? answer : undefined,
+      });
+    }
+  }
+
+  // Extract table rows with | **Info** | Value | pattern
+  const tableMatches = content.matchAll(/\|\s*\*\*([^|*]+)\*\*\s*\|\s*([^|]+)\s*\|/g);
+  for (const match of tableMatches) {
+    const label = match[1].trim().toLowerCase();
+    const value = match[2].trim();
+
+    // Add label words as keywords
+    label.split(/\s+/).forEach(word => {
+      if (word.length > 2) topicKeywords.add(word);
+    });
+
+    // Create quick reference for important info
+    const importantLabels = ["phone", "email", "address", "website", "price", "cost", "contact", "telefon", "adresse", "preis"];
+    if (importantLabels.some(k => label.includes(k))) {
+      quickReference.push({
+        id: `qr-table-${quickReference.length}`,
+        trigger: label.replace(/\s+/g, "|"),
+        response: value,
+      });
+    }
+  }
+
+  // Add common search terms based on content patterns
+  const lowerContent = content.toLowerCase();
+  if (lowerContent.includes("price") || lowerContent.includes("preis") || content.includes("€")) {
+    ["price", "preis", "cost", "kosten"].forEach(k => topicKeywords.add(k));
+  }
+  if (lowerContent.includes("phone") || lowerContent.includes("telefon") || /\+\d{2}/.test(content)) {
+    ["phone", "telefon", "call", "anrufen"].forEach(k => topicKeywords.add(k));
+  }
+  if (lowerContent.includes("email") || content.includes("@")) {
+    ["email", "mail", "contact", "kontakt"].forEach(k => topicKeywords.add(k));
+  }
+  if (lowerContent.includes("address") || lowerContent.includes("adresse")) {
+    ["address", "adresse", "location", "standort"].forEach(k => topicKeywords.add(k));
+  }
+
+  return {
+    topicKeywords: Array.from(topicKeywords),
+    quickReference,
+  };
+}
+
+/**
  * Update existing content with RLM-optimized indexes for fast lookups
  * This enables <10ms response times for common queries
  */
@@ -1268,5 +1379,156 @@ export const updateRlmOptimized = mutation({
     });
 
     return { success: true };
+  },
+});
+
+/**
+ * Auto-generate RLM indexes for markdown content
+ * Call this after uploading or updating markdown files
+ */
+export const autoGenerateRlm = mutation({
+  args: {
+    contentId: v.id("knowledgeContent"),
+  },
+  handler: async (ctx, args) => {
+    const content = await ctx.db.get(args.contentId);
+    if (!content) {
+      throw new Error("Content not found");
+    }
+
+    // Only process markdown and text content types
+    if (!["markdown", "text"].includes(content.contentType || "")) {
+      return { success: false, message: "Not a markdown file" };
+    }
+
+    const rlmData = generateRlmFromMarkdown(content.content || "", content.title || "");
+
+    await ctx.db.patch(args.contentId, {
+      rlmOptimized: {
+        version: "1.0-auto",
+        optimizedAt: Date.now(),
+        topicKeywords: rlmData.topicKeywords,
+        quickReference: rlmData.quickReference,
+      },
+      updatedAt: Date.now(),
+    });
+
+    return {
+      success: true,
+      keywordsCount: rlmData.topicKeywords.length,
+      quickRefCount: rlmData.quickReference.length,
+    };
+  },
+});
+
+/**
+ * Add markdown content with auto-generated RLM indexes
+ * Use this for uploading markdown knowledge base files
+ */
+export const addMarkdownWithRlm = mutation({
+  args: {
+    knowledgeBaseId: v.id("knowledgeBases"),
+    title: v.string(),
+    content: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const kb = await ctx.db.get(args.knowledgeBaseId);
+    if (!kb) {
+      throw new Error("Knowledge base not found");
+    }
+
+    const now = Date.now();
+    const sourceId = `md-${now}`;
+
+    // Generate RLM indexes
+    const rlmData = generateRlmFromMarkdown(args.content, args.title);
+
+    // Add source to knowledge base
+    const newSource = {
+      sourceId,
+      type: "document" as const,
+      name: args.title,
+      chunkCount: Math.ceil(args.content.split(/\s+/).length / 500),
+      lastUpdated: now,
+      priority: kb.sources.length + 1,
+    };
+
+    await ctx.db.patch(args.knowledgeBaseId, {
+      sources: [...kb.sources, newSource],
+      status: "active",
+      updatedAt: now,
+    });
+
+    // Create content record with RLM
+    const contentId = await ctx.db.insert("knowledgeContent", {
+      knowledgeBaseId: args.knowledgeBaseId,
+      sourceId,
+      title: args.title,
+      content: args.content,
+      contentType: "markdown",
+      metadata: {
+        wordCount: args.content.split(/\s+/).length,
+      },
+      rlmOptimized: {
+        version: "1.0-auto",
+        optimizedAt: now,
+        topicKeywords: rlmData.topicKeywords,
+        quickReference: rlmData.quickReference,
+      },
+      processingStatus: "completed",
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return {
+      success: true,
+      contentId,
+      sourceId,
+      keywordsCount: rlmData.topicKeywords.length,
+      quickRefCount: rlmData.quickReference.length,
+    };
+  },
+});
+
+/**
+ * Batch auto-generate RLM for all markdown content in a knowledge base
+ */
+export const batchGenerateRlm = mutation({
+  args: {
+    knowledgeBaseId: v.id("knowledgeBases"),
+  },
+  handler: async (ctx, args) => {
+    const content = await ctx.db
+      .query("knowledgeContent")
+      .withIndex("by_knowledge_base", (q) => q.eq("knowledgeBaseId", args.knowledgeBaseId))
+      .collect();
+
+    let processed = 0;
+    let skipped = 0;
+
+    for (const item of content) {
+      // Only process markdown/text without existing RLM
+      if (
+        ["markdown", "text"].includes(item.contentType || "") &&
+        !item.rlmOptimized
+      ) {
+        const rlmData = generateRlmFromMarkdown(item.content || "", item.title || "");
+
+        await ctx.db.patch(item._id, {
+          rlmOptimized: {
+            version: "1.0-auto",
+            optimizedAt: Date.now(),
+            topicKeywords: rlmData.topicKeywords,
+            quickReference: rlmData.quickReference,
+          },
+          updatedAt: Date.now(),
+        });
+        processed++;
+      } else {
+        skipped++;
+      }
+    }
+
+    return { success: true, processed, skipped };
   },
 });
