@@ -60,7 +60,15 @@ from src.providers.llm.openrouter import OpenRouterLLM
 from src.providers.llm.cerebras import CerebrasLLM
 from src.providers.llm.groq import GroqLLM
 from src.rag import ZepRetriever, RAGCache
-from src.knowledge import LessonKnowledgeManager, search_web, WebSearchConfig, format_search_for_context
+from src.knowledge import (
+    LessonKnowledgeManager,
+    search_web,
+    WebSearchConfig,
+    format_search_for_context,
+    RLMKnowledgeProvider,
+    load_rlm_from_convex,
+    get_rlm_provider,
+)
 from src.memory import process_session_end
 from src.agents import EntryTestAgent, create_entry_test_session
 from src.games import AvatarGameHandler
@@ -476,12 +484,16 @@ class BeethovenTeacher(Agent):
         rag_cache: Optional["RAGCache"] = None,
         knowledge_base_ids: Optional[list] = None,
         lesson_manager: Optional["LessonKnowledgeManager"] = None,
+        rlm_provider: Optional["RLMKnowledgeProvider"] = None,
         **kwargs
     ):
         super().__init__(**kwargs)
         self._room = room
         self._llm_model = llm_model
         self._is_vision_model = any(kw in llm_model.lower() for kw in ["gemini", "google", "gpt-4o", "claude-3"])
+
+        # RLM fast lookup (<10ms) - check BEFORE RAG
+        self._rlm_provider = rlm_provider
 
         # RAG components (Zep semantic search)
         self._rag_retriever = rag_retriever
@@ -503,6 +515,7 @@ class BeethovenTeacher(Agent):
         self._game_screenshot = None  # Latest game screenshot for vision
 
         logger.info(f"[BEETHOVENTEACHER] Initialized with model={llm_model}, vision={self._is_vision_model}")
+        logger.info(f"[BEETHOVENTEACHER] RLM fast lookup: {bool(rlm_provider)}, loaded: {rlm_provider.is_loaded() if rlm_provider else False}")
         logger.info(f"[BEETHOVENTEACHER] RAG enabled: {bool(rag_retriever)}, KBs: {len(self._knowledge_base_ids)}")
         logger.info(f"[BEETHOVENTEACHER] Lesson manager: {bool(lesson_manager)}, Lessons: {len(lesson_manager.index) if lesson_manager else 0}")
 
@@ -761,9 +774,81 @@ class BeethovenTeacher(Agent):
     ) -> None:
         """
         Called when user finishes speaking.
-        1. Injects RAG context from knowledge bases
-        2. Uses the latest buffered video frames and high-quality document images.
+        1. Checks RLM quick references first (<10ms) - FAQ answers
+        2. Injects RAG context from knowledge bases (~200ms)
+        3. Uses the latest buffered video frames and high-quality document images.
         """
+        # === RLM QUICK REFERENCE LOOKUP (<10ms) ===
+        # Check RLM first - it's faster than RAG and has FAQ-style answers
+        rlm_context_injected = False
+        if self._rlm_provider and self._rlm_provider.is_loaded():
+            try:
+                # Get user's query text
+                user_text = ""
+                if isinstance(new_message.content, str):
+                    user_text = new_message.content
+                elif isinstance(new_message.content, list):
+                    for item in new_message.content:
+                        if isinstance(item, str):
+                            user_text += item
+                        elif hasattr(item, "text"):
+                            user_text += item.text
+
+                if user_text.strip():
+                    import time
+                    start_time = time.time()
+
+                    # Check quick references first (FAQ-style instant answers)
+                    quick_ref = self._rlm_provider.lookup_quick_reference(user_text)
+                    if quick_ref:
+                        context = self._rlm_provider.format_quick_reference_for_context(quick_ref)
+                        rlm_msg = ChatMessage(
+                            role="system",
+                            content=[context]
+                        )
+                        turn_ctx.items.insert(-1, rlm_msg)
+                        elapsed = time.time() - start_time
+                        logger.info(f"⚡ [RLM] Quick reference match: '{quick_ref.id}' ({elapsed:.3f}s)")
+                        rlm_context_injected = True
+
+                    # If no quick ref, check grammar/vocabulary/mistakes
+                    if not rlm_context_injected:
+                        context_parts = []
+
+                        # Grammar lookup
+                        grammar_rules = self._rlm_provider.lookup_grammar(user_text)
+                        if grammar_rules:
+                            context_parts.append(self._rlm_provider.format_grammar_for_context(grammar_rules))
+
+                        # Vocabulary lookup (for longer words in query)
+                        vocab_entries = []
+                        for word in user_text.lower().split():
+                            if len(word) > 3:
+                                entry = self._rlm_provider.lookup_vocabulary(word)
+                                if entry:
+                                    vocab_entries.append(entry)
+                        if vocab_entries:
+                            context_parts.append(self._rlm_provider.format_vocabulary_for_context(vocab_entries))
+
+                        # Mistake pattern check
+                        mistakes = self._rlm_provider.check_mistakes(user_text)
+                        if mistakes:
+                            context_parts.append(self._rlm_provider.format_mistake_for_context(mistakes[0]))
+
+                        if context_parts:
+                            combined_context = "\n\n".join(context_parts)
+                            rlm_msg = ChatMessage(
+                                role="system",
+                                content=[combined_context]
+                            )
+                            turn_ctx.items.insert(-1, rlm_msg)
+                            elapsed = time.time() - start_time
+                            logger.info(f"⚡ [RLM] Context injected: {len(context_parts)} sections ({elapsed:.3f}s)")
+                            rlm_context_injected = True
+
+            except Exception as e:
+                logger.error(f"⚡ [RLM] Error: {e}")
+
         # === RAG CONTEXT INJECTION ===
         if self._rag_retriever and self._knowledge_base_ids:
             try:
@@ -2840,6 +2925,22 @@ You are conducting a structured lesson from this presentation.
     elif rag_retriever:
         logger.info(f"📚 RAG retriever ready but no knowledge bases configured for this avatar")
 
+    # ==========================================================================
+    # RLM FAST LOOKUP - Load from avatar's knowledge bases
+    # ==========================================================================
+    rlm_provider = None
+    if knowledge_base_ids and avatar_id:
+        try:
+            rlm_convex = ConvexClient(config.convex_url)
+            rlm_provider = await load_rlm_from_convex(rlm_convex, avatar_id)
+            await rlm_convex.close()
+            if rlm_provider.is_loaded():
+                logger.info(f"⚡ RLM loaded: {rlm_provider.stats}")
+            else:
+                logger.info(f"⚡ RLM: No rlmOptimized data in knowledge bases")
+        except Exception as e:
+            logger.error(f"⚡ RLM initialization error: {e}")
+
     # NOTE: Slide control tools removed for now - focusing on ultra-low latency speech
 
     # Use BeethovenTeacher (with vision/RAG/lesson hooks) if vision is enabled, otherwise plain Agent
@@ -2852,6 +2953,7 @@ You are conducting a structured lesson from this presentation.
             rag_cache=rag_cache,
             knowledge_base_ids=zep_collection_ids,
             lesson_manager=lesson_manager,
+            rlm_provider=rlm_provider,
         )
         logger.info(f"🎓 Using BeethovenTeacher with vision (model: {llm_model})")
         if lesson_manager:
