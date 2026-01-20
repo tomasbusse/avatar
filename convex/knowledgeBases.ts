@@ -1219,3 +1219,54 @@ export const updateContentLessonLink = mutation({
     return { success: true };
   },
 });
+
+// ============================================
+// RLM OPTIMIZATION
+// ============================================
+
+/**
+ * Update existing content with RLM-optimized indexes for fast lookups
+ * This enables <10ms response times for common queries
+ */
+export const updateRlmOptimized = mutation({
+  args: {
+    contentId: v.id("knowledgeContent"),
+    rlmOptimized: v.object({
+      grammarIndex: v.optional(v.any()),
+      vocabularyByTerm: v.optional(v.any()),
+      vocabularyByTermDe: v.optional(v.any()),
+      vocabularyByLevel: v.optional(v.any()),
+      mistakePatterns: v.optional(v.array(v.object({
+        pattern: v.string(),
+        mistakeType: v.string(),
+        correction: v.string(),
+        explanation: v.string(),
+      }))),
+      topicKeywords: v.optional(v.array(v.string())),
+      version: v.optional(v.string()),
+      optimizedAt: v.optional(v.number()),
+      // Quick reference cards for common questions (FAQ-style)
+      quickReference: v.optional(v.array(v.object({
+        id: v.string(),
+        trigger: v.string(),
+        response: v.string(),
+        expandedResponse: v.optional(v.string()),
+      }))),
+      // Exercise index by type
+      exerciseIndex: v.optional(v.any()),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const content = await ctx.db.get(args.contentId);
+    if (!content) {
+      throw new Error("Content not found");
+    }
+
+    await ctx.db.patch(args.contentId, {
+      rlmOptimized: args.rlmOptimized,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
