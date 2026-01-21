@@ -510,6 +510,7 @@ class BeethovenTeacher(Agent):
         # Frame buffering (essential for low-FPS screen shares)
         self._latest_frames = {} # track_sid -> rtc.VideoFrame
         self._track_info = {}    # track_sid -> {"source": str, "identity": str}
+        self._frame_timestamps = {}  # track_sid -> timestamp (for freshness check)
         self._current_doc_image = None # For high-quality document images from data packets
 
         # Game state tracking
@@ -561,16 +562,34 @@ class BeethovenTeacher(Agent):
         logger.info(f"[VISION] Started background capture for {source_name} from {participant.identity}")
 
     async def _capture_loop(self, track: rtc.VideoTrack):
+        """Capture frames at ~2 FPS with logging to ensure vision is working."""
+        import time
         try:
             video_stream = rtc.VideoStream(track)
+            frame_count = 0
+            last_log_time = time.time()
+            info = self._track_info.get(track.sid, {"source": "unknown", "identity": "unknown"})
+            source_name = info.get("source", "unknown")
+
             async for event in video_stream:
                 self._latest_frames[track.sid] = event.frame
+                self._frame_timestamps[track.sid] = time.time()  # Track freshness
+                frame_count += 1
+
+                # Log every 2 seconds (at 2 FPS = ~4 frames)
+                now = time.time()
+                if now - last_log_time >= 2.0:
+                    logger.info(f"[VISION] 📹 {source_name} from {info['identity']}: {frame_count} frames captured, latest ready")
+                    last_log_time = now
+                    frame_count = 0
+
             await video_stream.aclose()
         except Exception as e:
             logger.error(f"[VISION] Capture loop error for {track.sid}: {e}")
         finally:
             self._latest_frames.pop(track.sid, None)
             self._track_info.pop(track.sid, None)
+            self._frame_timestamps.pop(track.sid, None)
 
     def _on_data_received(self, dp: rtc.DataPacket):
         try:
@@ -1113,17 +1132,27 @@ Keep it natural and brief."""
         if not self._is_vision_model:
             return
 
+        import time
         captured_images = []
 
         # 1. Add tracked video frames (webcam/screen)
         # We use a copy of the dict to avoid modification during iteration
+        logger.info(f"[VISION] 🔍 Checking available frames: {len(self._latest_frames)} tracks")
         for track_sid, frame in list(self._latest_frames.items()):
             info = self._track_info.get(track_sid, {"source": "webcam", "identity": "unknown"})
+            timestamp = self._frame_timestamps.get(track_sid, 0)
+            age_ms = (time.time() - timestamp) * 1000 if timestamp else -1
+            logger.info(f"[VISION] 📸 {info['source']} frame from {info['identity']}: age={age_ms:.0f}ms")
             captured_images.append({
                 "image": frame,
                 "source": info["source"],
                 "identity": info["identity"]
             })
+
+        # Warn if no screen frames available
+        has_screen = any(img["source"] == "screen" for img in captured_images)
+        if not has_screen:
+            logger.warning(f"[VISION] ⚠️ NO SCREEN SHARE FRAMES AVAILABLE - Ludwig cannot see the screen!")
 
         # 2. Add high-quality document/game image if available
         doc_image_content = None
