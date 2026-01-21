@@ -626,15 +626,10 @@ class BeethovenTeacher(Agent):
                 item_index = payload.get("itemIndex", 0)
                 total_items = payload.get("totalItems", 1)
                 is_correct = payload.get("isCorrect", False)
-                attempts = payload.get("attempts", 1)
-                hints_used = payload.get("hintsUsed", 0)
-                correct_so_far = payload.get("correctSoFar", 0)
-                incorrect_so_far = payload.get("incorrectSoFar", 0)
-                game_title = self._game_info.get("title", "the exercise") if self._game_info else "the exercise"
 
-                logger.info(f"🎮 [ITEM] Answer checked: item {item_index+1}/{total_items}, correct={is_correct}, attempts={attempts}")
+                logger.info(f"🎮 [ITEM] Answer checked: item {item_index+1}/{total_items}, correct={is_correct}")
 
-                # Trigger avatar to briefly explain why it's right or wrong
+                # Simple feedback - just tell avatar the result, let it use VISION for content
                 import asyncio
 
                 async def trigger_item_feedback():
@@ -642,71 +637,51 @@ class BeethovenTeacher(Agent):
                     await asyncio.sleep(0.5)  # Brief delay
 
                     if not self._session:
-                        logger.warning("🎮 [ITEM] No session for feedback - skipping")
                         return
 
                     try:
                         if is_correct:
-                            feedback_hint = f"""✅ THE ANSWER IS CORRECT - THIS IS A FACT, DO NOT QUESTION IT.
+                            # SIMPLE prompt - avatar uses VISION to see the actual answer
+                            feedback_hint = """✅ CORRECT ANSWER!
 
-The student's answer for item {item_index+1}/{total_items} has been marked CORRECT by the system.
+The student just completed this sentence/exercise correctly.
 
-YOUR TASK: Look at the screen to see WHAT they answered, then praise them.
-- The system has verified the answer is correct - trust this
-- Use the screen to see the SPECIFIC words/sentence they built
-- DO NOT say it's wrong - it IS correct
+LOOK AT THE SCREEN - see the sentence they built and praise them briefly.
+Say "That's right!" and mention what you SEE on screen.
 
-Your response (BRIEF, 1-2 sentences):
-1. "That's right!" or "Correct!" or "Perfect!"
-2. Quote the specific answer you see on screen
-3. Briefly explain why this answer works
-4. Encourage: "Keep going!" or "Next one!"
-
-Example: "That's right! 'She has visited Paris' - perfect use of 'has' with 'she'. Keep going!"
+Keep it to 1-2 sentences, then encourage them to continue.
 """
                         else:
-                            feedback_hint = f"""❌ THE ANSWER IS INCORRECT - THIS IS A FACT, DO NOT QUESTION IT.
+                            # SIMPLE prompt - avatar uses VISION to see what they tried
+                            feedback_hint = """❌ INCORRECT ANSWER.
 
-The student's answer for item {item_index+1}/{total_items} has been marked INCORRECT by the system.
-(Attempts: {attempts}, Hints: {hints_used})
+The student's answer is wrong.
 
-YOUR TASK: Look at the screen to see WHAT they tried, then help them.
-- The system has verified the answer is wrong - trust this
-- Use the screen to see the SPECIFIC answer they attempted
-- DO NOT say it's correct - it IS wrong
+LOOK AT THE SCREEN - see what they tried and help them.
+Say "Not quite!" and give a quick hint based on what you SEE.
 
-Your response (BRIEF, 1-2 sentences):
-1. "Not quite!" or "Almost!" (be encouraging)
-2. Reference what you see they tried
-3. Give a quick hint to help them
-4. "Try again!"
-
-Example: "Almost! I see 'have visited' but with 'she' we need 'has'. Try again!"
+Keep it to 1-2 sentences, encourage them to try again.
 """
 
                         await self._session.generate_reply(
                             user_input="",
                             instructions=feedback_hint
                         )
-                        logger.info(f"🎮 [ITEM→AVATAR] Triggered feedback for {'correct' if is_correct else 'incorrect'} answer")
+                        logger.info(f"🎮 [ITEM→AVATAR] Feedback for {'correct' if is_correct else 'incorrect'}")
                     except Exception as e:
-                        logger.error(f"❌ [ITEM] Failed to trigger feedback: {e}")
-
-                # Start the 30-second timer for auto-advance (if this was the last item and correct)
-                # Note: game_complete will handle the final auto-advance, so we don't duplicate here
+                        logger.error(f"❌ [ITEM] Feedback failed: {e}")
 
                 asyncio.create_task(trigger_item_feedback())
 
             elif msg_type == "game_complete":
-                # Extract score info (handle both field naming conventions)
+                # Extract score info
                 final_score = payload.get("totalCorrect") or payload.get("correctAnswers", 0)
                 total = payload.get("totalItems", 1)
                 stars = payload.get("stars", 0)
                 score_percent = payload.get("scorePercent", 0)
-                game_title = self._game_info.get("title", "the exercise") if self._game_info else "the exercise"
                 logger.info(f"🎮 [GAME] Complete! Score: {final_score}/{total} ({score_percent}%), Stars: {stars}")
 
-                # Keep game info for completion feedback, but mark as no longer active
+                # Mark game as no longer active
                 self._game_active = False
                 self._game_state = {
                     "completed": True,
@@ -716,107 +691,13 @@ Example: "Almost! I see 'have visited' but with 'she' we need 'has'. Try again!"
                     "scorePercent": score_percent,
                 }
 
-                # Trigger avatar to respond with feedback about the game completion
-                # Use session.generate_reply to inject context and let avatar respond naturally
-                # IMPORTANT: No navigation markers in feedback - we auto-advance after delay
+                # NO immediate feedback here - the last item_checked already gave feedback
+                # We only start the 30-second timer for auto-advance
                 import asyncio
 
-                async def trigger_game_feedback():
-                    """Trigger avatar to give feedback on game completion."""
-                    await asyncio.sleep(1.5)  # Short delay for celebration UI
-
-                    if not self._session:
-                        logger.warning("🎮 [GAME] No session available for feedback - skipping")
-                        return
-
-                    try:
-                        # Build detailed feedback context based on score
-                        # NOTE: No navigation markers - we handle advancement separately with delays
-                        if score_percent >= 80:
-                            feedback_hint = f"""🎉 GAME COMPLETE - EXCELLENT SCORE! (THIS IS VERIFIED DATA)
-
-FACTS (do not contradict these):
-- Game: '{game_title}'
-- Score: {final_score}/{total} correct ({score_percent}%)
-- Stars earned: {stars}
-- Result: EXCELLENT - they did great!
-
-YOUR TASK: Look at the screen to see WHAT answers they gave, then praise them.
-- The score is verified by the system - trust it
-- Use the screen to see specific sentences/words they built
-- Quote 1-2 examples you can see
-
-Your response:
-1. "Fantastic!" / "Excellent!" / "Amazing work!"
-2. Mention the score: "You got {final_score} out of {total}!"
-3. Quote a specific answer you see on screen
-4. End positively
-
-NO navigation markers - screen advances automatically.
-
-Example: "Fantastic work! {final_score} out of {total} - I can see you nailed 'She has visited Paris'. Excellent job!"
-"""
-                        elif score_percent >= 50:
-                            feedback_hint = f"""📊 GAME COMPLETE - GOOD EFFORT! (THIS IS VERIFIED DATA)
-
-FACTS (do not contradict these):
-- Game: '{game_title}'
-- Score: {final_score}/{total} correct ({score_percent}%)
-- Stars earned: {stars}
-- Result: GOOD - decent score, could improve
-
-YOUR TASK: Look at the screen to see WHAT they got right, then encourage them.
-- The score is verified by the system - trust it
-- Use the screen to see which answers are marked correct
-- Reference specific correct answers
-
-Your response:
-1. "Good effort!" / "Nice work!"
-2. Mention the score positively
-3. Reference a correct answer you see
-4. ASK: "Would you like to practice again, or move on?"
-
-Wait for their response before using navigation markers.
-
-Example: "Good effort - {final_score} out of {total}! I see you got the first one right. Want to try again or continue?"
-"""
-                        else:
-                            feedback_hint = f"""📊 GAME COMPLETE - NEEDS PRACTICE (THIS IS VERIFIED DATA)
-
-FACTS (do not contradict these):
-- Game: '{game_title}'
-- Score: {final_score}/{total} correct ({score_percent}%)
-- Stars earned: {stars}
-- Result: Needs more practice
-
-YOUR TASK: Look at the screen, be encouraging, help them understand.
-- The score is verified by the system - trust it
-- Use the screen to see what went wrong
-- Be supportive, not critical
-
-Your response:
-1. "Good try!" / "Let's work on this together!"
-2. Be encouraging about the effort
-3. Look at screen for patterns in mistakes
-4. Offer help: "Let me explain this!"
-
-NO navigation markers yet - explain first, then we'll retry.
-
-Example: "Good try! Let me help - I can see the tricky part was choosing between 'has' and 'have'. Let's go through this together!"
-"""
-
-                        # Use generate_reply to have avatar respond naturally
-                        await self._session.generate_reply(
-                            user_input=f"I just finished {game_title}.",
-                            instructions=feedback_hint
-                        )
-                        logger.info(f"🎮 [GAME→AVATAR] Triggered feedback response for score {score_percent}%")
-                    except Exception as e:
-                        logger.error(f"❌ [GAME] Failed to trigger feedback: {e}")
-
-                async def auto_advance_after_feedback():
-                    """Auto-advance to next slide/game after giving avatar time to provide feedback."""
-                    # Wait 30 seconds for avatar to fully deliver feedback
+                async def auto_advance_after_30_seconds():
+                    """Wait 30 seconds, then advance to next slide and prompt avatar to look at it."""
+                    logger.info("🎮 [TIMER] Starting 30-second countdown before auto-advance")
                     await asyncio.sleep(30)
 
                     if not self._session:
@@ -824,62 +705,29 @@ Example: "Good try! Let me help - I can see the tricky part was choosing between
                         return
 
                     try:
-                        if score_percent >= 80:
-                            # High score: Advance to next slide
-                            logger.info("🎮 [GAME→SLIDE] Auto-advancing to next slide after high score")
-                            await self._send_slide_command("next")
+                        # Advance to next slide
+                        logger.info("🎮 [GAME→SLIDE] 30 seconds passed - advancing to next slide")
+                        await self._send_slide_command("next")
 
-                            # Wait for slide to load, then prompt avatar to introduce it
-                            await asyncio.sleep(3)
-                            await self._session.generate_reply(
-                                user_input="",
-                                instructions="""The screen just changed to show new content.
+                        # Wait for slide to load, then prompt avatar to look at it
+                        await asyncio.sleep(3)
+                        await self._session.generate_reply(
+                            user_input="",
+                            instructions="""The screen just changed to a new slide.
 
-⚠️ CRITICAL - USE THE SCREEN:
-You MUST describe what you ACTUALLY SEE on the new screen:
-- What is the title/heading shown?
-- Is it an exercise/game? What type? What are the instructions?
-- Is it informational? What topic/content is displayed?
-- DO NOT guess or make up content - describe what you SEE
+LOOK AT THE SCREEN and introduce what you see.
+Describe the new content - is it a game, exercise, or information?
+If it's an exercise, explain what the student needs to do.
 
-Introduce the new content naturally:
-- "Now we have..." or "Let's look at..."
-- Describe what you see on screen
-- If it's a game, explain what the student needs to do based on what's visible
-- Be enthusiastic!"""
-                            )
-                            logger.info("🎮 [GAME→AVATAR] Prompted avatar to introduce new content")
-
-                        elif score_percent < 50:
-                            # Low score: Restart the game for more practice
-                            logger.info("🎮 [GAME] Auto-restarting game for more practice after low score")
-                            await self._send_game_command("goto", 0)
-
-                            await asyncio.sleep(2)
-                            await self._session.generate_reply(
-                                user_input="",
-                                instructions="""The game has been reset for another try.
-
-⚠️ CRITICAL - USE THE SCREEN:
-LOOK at the screen and describe what you SEE:
-- What is the first exercise/question shown?
-- What does the student need to do?
-- What words/options are visible?
-
-Your response:
-1. "Let's try this again! I know you can do it!"
-2. Describe the SPECIFIC first item you see on screen
-3. Give a quick tip relevant to what's actually shown"""
-                            )
-                            logger.info("🎮 [GAME→AVATAR] Prompted avatar for retry encouragement")
-                        # For 50-79%: Don't auto-advance, wait for student's choice
+Keep it natural and brief."""
+                        )
+                        logger.info("🎮 [GAME→AVATAR] Prompted avatar to introduce new slide")
 
                     except Exception as e:
                         logger.error(f"❌ [GAME] Auto-advance failed: {e}")
 
-                # Start both tasks
-                asyncio.create_task(trigger_game_feedback())
-                asyncio.create_task(auto_advance_after_feedback())
+                # Start the 30-second timer (no immediate feedback - item_checked handled that)
+                asyncio.create_task(auto_advance_after_30_seconds())
 
             elif msg_type == "game_ended":
                 logger.info(f"🎮 [GAME] Game ended/closed")
