@@ -652,13 +652,44 @@ class BeethovenTeacher(Agent):
                         return
 
                     try:
-                        # Build feedback context based on score
-                        if score_percent >= 90:
-                            feedback_hint = f"The student scored {final_score}/{total} ({score_percent}%) with {stars} stars - excellent! Give enthusiastic praise, briefly explain why their answers were correct, then use [NEXT] to move to the next slide."
-                        elif score_percent >= 70:
-                            feedback_hint = f"The student scored {final_score}/{total} ({score_percent}%) with {stars} stars - good effort! Give positive feedback, briefly mention what they got right, offer to let them try again if they want, then use [NEXT] if they want to continue."
+                        # Build detailed feedback context based on score
+                        # The avatar can see the screen showing completed exercises
+                        if score_percent >= 80:
+                            feedback_hint = f"""The student just completed '{game_title}' with an excellent score: {final_score}/{total} correct ({score_percent}%) and earned {stars} star(s)!
+
+Your response should:
+1. PRAISE them enthusiastically for their great work
+2. LOOK at the screen - you can see the completed exercises with their answers
+3. EXPLAIN briefly WHY their answers were correct (what grammar rule or vocabulary pattern they applied correctly)
+4. TRANSITION naturally by saying something like "Excellent! Let's move on to the next exercise!" or "Great job! Ready for the next challenge?"
+5. Use [NEXT] at the end to advance to the next slide
+
+Example: "Fantastic work! You got {final_score} out of {total} correct! I can see you really understood how to use the present perfect tense - you correctly identified when to use 'have' versus 'has' and chose the right past participles. Let's move on to the next exercise! [NEXT]"
+"""
+                        elif score_percent >= 50:
+                            feedback_hint = f"""The student completed '{game_title}' with a good effort: {final_score}/{total} correct ({score_percent}%) and earned {stars} star(s).
+
+Your response should:
+1. PRAISE their effort positively
+2. LOOK at the screen to see which answers were correct
+3. BRIEFLY EXPLAIN what they got right and why
+4. ASK if they'd like to try again or continue: "Would you like to practice this again, or shall we move on?"
+5. Wait for their response, then use [GAME:1] to restart OR [NEXT] to continue
+
+Example: "Good effort! You got {final_score} out of {total}. I can see you understood the basic pattern - nice work on those! Would you like to practice this one more time to get even better, or are you ready to move on?"
+"""
                         else:
-                            feedback_hint = f"The student scored {final_score}/{total} ({score_percent}%) with {stars} stars - they need more practice. Give encouraging feedback, explain the key concept they missed, and offer to try the exercise again with [GAME:1] or continue with [NEXT]."
+                            feedback_hint = f"""The student completed '{game_title}' but needs more practice: {final_score}/{total} correct ({score_percent}%) with {stars} star(s).
+
+Your response should:
+1. BE ENCOURAGING - don't make them feel bad
+2. LOOK at the screen to see what happened
+3. EXPLAIN the key concept they seem to have missed (the grammar rule or vocabulary pattern)
+4. SUGGEST trying again: "Let's practice this one more time - I'll help you!"
+5. Use [GAME:1] to restart the exercise
+
+Example: "Nice try! Let me help you with this. Looking at the exercises, I can see the tricky part was knowing when to use the past simple versus present perfect. Remember: we use present perfect for experiences without a specific time. Let's try this again! [GAME:1]"
+"""
 
                         # Use generate_reply to have avatar respond naturally
                         await self._session.generate_reply(
