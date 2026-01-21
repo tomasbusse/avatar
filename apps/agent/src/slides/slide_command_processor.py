@@ -1,18 +1,25 @@
 """
-Slide Command Processor - Detects and strips silent slide navigation markers.
+Slide & Game Command Processor - Detects and strips silent navigation markers.
 
-The avatar can include these markers in responses to control slides without speaking them.
+The avatar can include these markers in responses to control slides and games without speaking them.
 Markers are stripped before TTS so the student never hears them.
 
-Supported Markers:
+Supported Slide Markers:
     [NEXT] or [SLIDE:NEXT] or [>>>]     - Go to next slide
     [PREV] or [BACK] or [<<<]           - Go to previous slide
     [SLIDE:3] or [GOTO:3]               - Go to specific slide number
 
+Supported Game Markers:
+    [GAME:NEXT] or [G>>>]               - Go to next game item
+    [GAME:PREV] or [G<<<]               - Go to previous game item
+    [GAME:3] or [ITEM:3]                - Go to specific game item number
+    [GAME:HINT]                         - Show hint for current item
+
 Examples:
     "Great job! [NEXT] Now on this slide, we see..." → speaks "Great job! Now on this slide, we see..."
     "Let me explain that again. [PREV] As you can see here..." → goes back, speaks cleanly
-    "For the grammar rules, [SLIDE:5] this slide shows..." → jumps to slide 5
+    "Try the next exercise! [GAME:NEXT] Now look at this sentence..." → advances game item
+    "Let's go back to that one. [GAME:PREV] Remember the rule we learned..." → goes back in game
 """
 
 import re
@@ -28,6 +35,14 @@ class SlideCommand:
     """Represents a detected slide navigation command."""
     action: str  # "next", "prev", "goto"
     slide_number: Optional[int] = None  # Only for "goto"
+    position: int = 0  # Character position in original text (for timing)
+
+
+@dataclass
+class GameCommand:
+    """Represents a detected game navigation command."""
+    action: str  # "next", "prev", "goto", "hint"
+    item_index: Optional[int] = None  # Only for "goto" (0-indexed internally)
     position: int = 0  # Character position in original text (for timing)
 
 
@@ -131,6 +146,123 @@ class SlideCommandProcessor:
 
     def has_commands(self, text: str) -> bool:
         """Quick check if text contains any slide markers."""
+        return bool(self.ALL_MARKERS.search(text))
+
+
+class GameCommandProcessor:
+    """
+    Detects and strips silent game navigation markers from text.
+
+    Usage:
+        processor = GameCommandProcessor()
+        clean_text, commands = processor.process("Let's try the next one! [GAME:NEXT] Here we have...")
+        # clean_text = "Let's try the next one! Here we have..."
+        # commands = [GameCommand(action="next", item_index=None, position=26)]
+    """
+
+    # Game markers - these get stripped from text completely
+    PATTERNS = {
+        # Next game item patterns
+        "next": re.compile(
+            r'\[GAME:NEXT\]|\[G>>>\]|\[GAME→\]|\[GNEXT\]',
+            re.IGNORECASE
+        ),
+        # Previous game item patterns
+        "prev": re.compile(
+            r'\[GAME:PREV\]|\[G<<<\]|\[GAME←\]|\[GPREV\]|\[GAME:BACK\]',
+            re.IGNORECASE
+        ),
+        # Goto specific game item patterns - captures the number
+        "goto": re.compile(
+            r'\[GAME:(\d+)\]|\[ITEM:(\d+)\]|\[G(\d+)\]',
+            re.IGNORECASE
+        ),
+        # Hint pattern
+        "hint": re.compile(
+            r'\[GAME:HINT\]|\[HINT\]|\[GHINT\]',
+            re.IGNORECASE
+        ),
+    }
+
+    # Combined pattern for stripping all game markers
+    ALL_MARKERS = re.compile(
+        r'\[GAME:NEXT\]|\[G>>>\]|\[GAME→\]|\[GNEXT\]|'
+        r'\[GAME:PREV\]|\[G<<<\]|\[GAME←\]|\[GPREV\]|\[GAME:BACK\]|'
+        r'\[GAME:\d+\]|\[ITEM:\d+\]|\[G\d+\]|'
+        r'\[GAME:HINT\]|\[HINT\]|\[GHINT\]',
+        re.IGNORECASE
+    )
+
+    def process(self, text: str) -> Tuple[str, List[GameCommand]]:
+        """
+        Process text to extract game commands and clean the text.
+
+        Args:
+            text: Input text potentially containing game markers
+
+        Returns:
+            Tuple of (cleaned_text, list_of_commands)
+        """
+        commands: List[GameCommand] = []
+
+        # Find all goto commands first (they have item numbers)
+        for match in self.PATTERNS["goto"].finditer(text):
+            # Extract item number from whichever group matched
+            item_num = None
+            for group in match.groups():
+                if group and group.isdigit():
+                    item_num = int(group)
+                    break
+
+            if item_num:
+                # Convert 1-indexed (user-facing) to 0-indexed (internal)
+                commands.append(GameCommand(
+                    action="goto",
+                    item_index=item_num - 1,
+                    position=match.start()
+                ))
+                logger.debug(f"[GAME] Detected GOTO item {item_num} at position {match.start()}")
+
+        # Find next commands
+        for match in self.PATTERNS["next"].finditer(text):
+            commands.append(GameCommand(
+                action="next",
+                position=match.start()
+            ))
+            logger.debug(f"[GAME] Detected NEXT at position {match.start()}")
+
+        # Find prev commands
+        for match in self.PATTERNS["prev"].finditer(text):
+            commands.append(GameCommand(
+                action="prev",
+                position=match.start()
+            ))
+            logger.debug(f"[GAME] Detected PREV at position {match.start()}")
+
+        # Find hint commands
+        for match in self.PATTERNS["hint"].finditer(text):
+            commands.append(GameCommand(
+                action="hint",
+                position=match.start()
+            ))
+            logger.debug(f"[GAME] Detected HINT at position {match.start()}")
+
+        # Sort commands by position (for proper timing if needed)
+        commands.sort(key=lambda c: c.position)
+
+        # Strip all markers from text
+        cleaned = self.ALL_MARKERS.sub('', text)
+
+        # Clean up extra whitespace that may result from stripping
+        cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+
+        if commands:
+            logger.info(f"[GAME] Processed text: {len(commands)} command(s) found, stripped markers")
+
+        return cleaned, commands
+
+    def has_commands(self, text: str) -> bool:
+        """Quick check if text contains any game markers."""
         return bool(self.ALL_MARKERS.search(text))
 
 
@@ -239,7 +371,7 @@ SLIDE_NAVIGATION_PROMPT = """
 
 You can control the presentation slides using SILENT MARKERS in your speech. These markers are automatically stripped before your voice is synthesized - the student will NEVER hear them.
 
-### Available Markers:
+### Available Slide Markers:
 - `[NEXT]` or `[>>>]` - Advance to the next slide
 - `[PREV]` or `[<<<]` - Go back to the previous slide
 - `[SLIDE:3]` or `[GOTO:3]` - Jump to a specific slide (e.g., slide 3)
@@ -249,7 +381,7 @@ You can control the presentation slides using SILENT MARKERS in your speech. The
 2. You can use multiple markers in one response if needed
 3. The marker should come BEFORE the content about that slide
 
-### Examples:
+### Slide Examples:
 
 **Moving forward:**
 "Excellent work on that exercise! [NEXT] Now, looking at this slide, we can see the grammar rules for the present perfect tense..."
@@ -269,12 +401,60 @@ You can control the presentation slides using SILENT MARKERS in your speech. The
 - The transitions should feel natural to the student
 """
 
+GAME_NAVIGATION_PROMPT = """
+## Silent Game Navigation
+
+You can control the interactive game exercises using SILENT MARKERS in your speech. These markers are automatically stripped before your voice is synthesized - the student will NEVER hear them.
+
+### Available Game Markers:
+- `[GAME:NEXT]` or `[G>>>]` - Advance to the next exercise/item
+- `[GAME:PREV]` or `[G<<<]` - Go back to the previous exercise/item
+- `[GAME:3]` or `[ITEM:3]` - Jump to a specific exercise (e.g., exercise 3)
+- `[GAME:HINT]` or `[HINT]` - Show a hint for the current exercise
+
+### Usage Guidelines:
+1. Place markers at natural transition points when discussing exercises
+2. Use `[GAME:NEXT]` when the student completes an exercise correctly
+3. Use `[GAME:PREV]` if they need to review an earlier exercise
+4. Use `[HINT]` when they're struggling and need help
+
+### Game Examples:
+
+**Moving to next exercise:**
+"Perfect! That's exactly right! [GAME:NEXT] Now let's try the next sentence..."
+
+**Going back to practice more:**
+"Let's practice that one more time. [GAME:PREV] Look at this sentence again..."
+
+**Jumping to a specific exercise:**
+"Let me show you a similar example. [GAME:3] In this exercise, notice how..."
+
+**Providing a hint:**
+"I can see you're thinking about this. [HINT] Here's a clue to help you..."
+
+**After completing an exercise:**
+"Well done! [GAME:NEXT] Here's your next challenge..."
+
+### Important:
+- NEVER say "game" or "exercise" commands out loud - use the markers instead
+- Don't say things like "I'm moving to exercise 3" - just use [GAME:3] and continue naturally
+- The transitions should feel smooth and encouraging
+"""
+
+# Combined prompt for both slides and games
+NAVIGATION_PROMPT = SLIDE_NAVIGATION_PROMPT + "\n" + GAME_NAVIGATION_PROMPT
+
 
 # For easy testing
 if __name__ == "__main__":
-    processor = SlideCommandProcessor()
+    slide_processor = SlideCommandProcessor()
+    game_processor = GameCommandProcessor()
 
-    test_cases = [
+    print("=" * 70)
+    print("SLIDE COMMAND PROCESSOR TEST")
+    print("=" * 70)
+
+    slide_test_cases = [
         "Great job! [NEXT] Now on this slide, we see the grammar rules.",
         "Let me go back [PREV] to explain that again.",
         "[SLIDE:3] This slide shows the vocabulary list.",
@@ -287,12 +467,29 @@ if __name__ == "__main__":
         "[#7] Hash form marker test.",
     ]
 
-    print("=" * 70)
-    print("SLIDE COMMAND PROCESSOR TEST")
-    print("=" * 70)
-
-    for text in test_cases:
-        clean, commands = processor.process(text)
+    for text in slide_test_cases:
+        clean, commands = slide_processor.process(text)
         print(f"\nInput:   {text}")
         print(f"Clean:   {clean}")
         print(f"Commands: {[(c.action, c.slide_number) for c in commands]}")
+
+    print("\n" + "=" * 70)
+    print("GAME COMMAND PROCESSOR TEST")
+    print("=" * 70)
+
+    game_test_cases = [
+        "Perfect! [GAME:NEXT] Now let's try the next sentence.",
+        "Let's go back. [GAME:PREV] Look at this one again.",
+        "[GAME:3] In this exercise, notice how the words are arranged.",
+        "That's tricky! [HINT] Here's a clue for you.",
+        "Well done! [G>>>] Here's your next challenge.",
+        "[ITEM:5] Let me show you this example.",
+        "Great work! [GAME:NEXT] [GAME:NEXT] Let's skip ahead two.",
+        "This sentence has no game markers.",
+    ]
+
+    for text in game_test_cases:
+        clean, commands = game_processor.process(text)
+        print(f"\nInput:   {text}")
+        print(f"Clean:   {clean}")
+        print(f"Commands: {[(c.action, c.item_index) for c in commands]}")

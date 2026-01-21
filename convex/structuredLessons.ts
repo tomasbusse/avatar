@@ -508,3 +508,24 @@ export const fixLessonPresentation = mutation({
     return { success: true };
   },
 });
+
+// Internal: Fix lesson content link (no auth required - for admin use via CLI)
+export const fixLessonContent = mutation({
+  args: {
+    lessonId: v.id("structuredLessons"),
+    knowledgeContentId: v.id("knowledgeContent"),
+  },
+  handler: async (ctx, args) => {
+    const lesson = await ctx.db.get(args.lessonId);
+    if (!lesson) {
+      throw new Error("Lesson not found");
+    }
+
+    await ctx.db.patch(args.lessonId, {
+      knowledgeContentId: args.knowledgeContentId,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});

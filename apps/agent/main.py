@@ -72,7 +72,7 @@ from src.knowledge import (
 from src.memory import process_session_end
 from src.agents import EntryTestAgent, create_entry_test_session
 from src.games import AvatarGameHandler
-from src.slides import SlideCommandProcessor, SLIDE_NAVIGATION_PROMPT
+from src.slides import SlideCommandProcessor, GameCommandProcessor, NAVIGATION_PROMPT
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("beethoven-agent")
@@ -1056,17 +1056,19 @@ class BeethovenTeacher(Agent):
         """
         Override TTS node to:
         1. Process slide commands from text (strip markers, send commands)
-        2. Add silence padding at the end of speech
+        2. Process game commands from text (strip markers, send commands)
+        3. Add silence padding at the end of speech
         """
         import numpy as np
 
-        # Slide command processor for stripping markers
+        # Command processors for stripping markers
         slide_processor = SlideCommandProcessor()
+        game_processor = GameCommandProcessor()
 
-        async def process_text_for_slides(text_stream: AsyncIterable[str]) -> AsyncIterable[str]:
+        async def process_text_for_commands(text_stream: AsyncIterable[str]) -> AsyncIterable[str]:
             """
-            Async generator that processes text chunks for slide commands.
-            Strips markers and fires slide commands via data channel.
+            Async generator that processes text chunks for slide and game commands.
+            Strips markers and fires commands via data channel.
             """
             buffer = ""
 
@@ -1078,21 +1080,32 @@ class BeethovenTeacher(Agent):
                 # Only process if we have enough text or see a complete marker
 
                 while True:
-                    # Check for complete markers in buffer
-                    if slide_processor.has_commands(buffer):
-                        # Process and get cleaned text + commands
-                        cleaned, commands = slide_processor.process(buffer)
+                    has_slide_cmds = slide_processor.has_commands(buffer)
+                    has_game_cmds = game_processor.has_commands(buffer)
 
-                        # Execute slide commands
-                        for cmd in commands:
-                            try:
-                                await self._send_slide_command(cmd.action, cmd.slide_number)
-                            except Exception as e:
-                                logger.error(f"[SLIDE] Failed to send command: {e}")
+                    # Check for complete markers in buffer
+                    if has_slide_cmds or has_game_cmds:
+                        # Process slide commands first
+                        if has_slide_cmds:
+                            buffer, slide_commands = slide_processor.process(buffer)
+                            for cmd in slide_commands:
+                                try:
+                                    await self._send_slide_command(cmd.action, cmd.slide_number)
+                                except Exception as e:
+                                    logger.error(f"[SLIDE] Failed to send command: {e}")
+
+                        # Then process game commands
+                        if has_game_cmds:
+                            buffer, game_commands = game_processor.process(buffer)
+                            for cmd in game_commands:
+                                try:
+                                    await self._send_game_command(cmd.action, cmd.item_index)
+                                except Exception as e:
+                                    logger.error(f"[GAME] Failed to send command: {e}")
 
                         # Yield cleaned text and clear buffer
-                        if cleaned:
-                            yield cleaned
+                        if buffer:
+                            yield buffer
                         buffer = ""
                         break
 
@@ -1114,21 +1127,31 @@ class BeethovenTeacher(Agent):
 
             # Yield any remaining buffer at end
             if buffer:
-                cleaned, commands = slide_processor.process(buffer)
-                for cmd in commands:
+                # Process any remaining slide commands
+                buffer, slide_commands = slide_processor.process(buffer)
+                for cmd in slide_commands:
                     try:
                         await self._send_slide_command(cmd.action, cmd.slide_number)
                     except Exception as e:
                         logger.error(f"[SLIDE] Failed to send command: {e}")
-                if cleaned:
-                    yield cleaned
+
+                # Process any remaining game commands
+                buffer, game_commands = game_processor.process(buffer)
+                for cmd in game_commands:
+                    try:
+                        await self._send_game_command(cmd.action, cmd.item_index)
+                    except Exception as e:
+                        logger.error(f"[GAME] Failed to send command: {e}")
+
+                if buffer:
+                    yield buffer
 
         # Track frame properties for creating silence
         sample_rate = 24000  # Default for Cartesia
         num_channels = 1
 
-        # Process text for slide commands, then stream to TTS
-        processed_text = process_text_for_slides(text)
+        # Process text for slide and game commands, then stream to TTS
+        processed_text = process_text_for_commands(text)
 
         # Stream all frames from default TTS with processed text
         async for frame in Agent.default.tts_node(self, processed_text, model_settings):
@@ -1172,6 +1195,26 @@ class BeethovenTeacher(Agent):
             logger.info(f"📊 [SLIDE] Command sent: {msg}")
         except Exception as e:
             logger.error(f"❌ [SLIDE] Failed to send command: {e}")
+
+    async def _send_game_command(self, cmd_type: str, item_index: Optional[int] = None):
+        """Send game command via data channel."""
+        try:
+            if cmd_type == "next":
+                msg = {"type": "game_command", "command": "next"}
+            elif cmd_type == "prev":
+                msg = {"type": "game_command", "command": "prev"}
+            elif cmd_type == "goto" and item_index is not None:
+                msg = {"type": "game_command", "command": "goto", "itemIndex": item_index}
+            elif cmd_type == "hint":
+                msg = {"type": "game_command", "command": "hint"}
+            else:
+                return
+
+            data = json.dumps(msg).encode('utf-8')
+            await self._room.local_participant.publish_data(data, reliable=True)
+            logger.info(f"🎮 [GAME] Command sent: {msg}")
+        except Exception as e:
+            logger.error(f"❌ [GAME] Failed to send command: {e}")
 
 
 def build_system_prompt(avatar_config: Dict[str, Any], memory_context: str = "") -> str:
@@ -2992,10 +3035,10 @@ You are conducting a structured lesson from this presentation.
         final_prompt = final_prompt + structured_lesson_prompt
         logger.info("🎓 Added structured lesson teaching mode to prompt")
 
-    # Add slide navigation instructions (silent markers)
-    # This prompt explains how to use [NEXT], [PREV], [SLIDE:N] markers
-    final_prompt = final_prompt + SLIDE_NAVIGATION_PROMPT
-    logger.info("📊 Added slide navigation prompt with silent markers")
+    # Add slide and game navigation instructions (silent markers)
+    # This prompt explains how to use [NEXT], [PREV], [SLIDE:N], [GAME:NEXT], etc. markers
+    final_prompt = final_prompt + NAVIGATION_PROMPT
+    logger.info("📊 Added navigation prompt with slide and game markers")
 
     # Get RAG components from prewarm
     rag_retriever = ctx.proc.userdata.get("rag_retriever")
