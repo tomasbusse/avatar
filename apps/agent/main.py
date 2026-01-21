@@ -653,23 +653,42 @@ class BeethovenTeacher(Agent):
                 import asyncio
 
                 async def trigger_item_feedback():
-                    """Trigger avatar to give brief feedback on individual answer."""
+                    """Trigger avatar to give feedback, then advance after speech completes."""
                     await asyncio.sleep(0.5)  # Brief delay
 
                     if not self._session:
                         return
 
                     try:
+                        # Check if this is the last item (game_complete will handle advancement)
+                        is_last_item = item_index >= total_items - 1
+
                         if is_correct:
-                            # Tell avatar the correct answer so it can praise accurately
-                            feedback_hint = f"""✅ CORRECT! The student got it right.
+                            # Tell avatar the correct answer so it can praise and explain
+                            if is_last_item:
+                                # Last item - don't advance, game_complete will handle it
+                                feedback_hint = f"""✅ CORRECT! The student got it right on the final item!
 
 The correct answer is: "{correct_answer}"
 
-Say "That's right!" or "Perfect!" and briefly mention why this answer is correct.
-Keep it to 1-2 sentences, then encourage them to continue.
+Praise them warmly! Briefly explain why this answer is correct (1-2 sentences about the grammar/vocabulary rule).
+Don't say "let's move on" since this was the last exercise.
 
-Example: "That's right! '{correct_answer}' - well done! Keep going!"
+Example: "Excellent! '{correct_answer}' is perfect! You used the modal verb correctly here..."
+"""
+                            else:
+                                # More items remain - explain the answer (NO [GAME:NEXT] - we'll advance manually after speech)
+                                feedback_hint = f"""✅ CORRECT! The student got it right.
+
+The correct answer is: "{correct_answer}"
+
+1. Praise them ("Great job!", "That's right!", "Excellent!")
+2. Briefly explain WHY this answer is correct (1-2 sentences about the grammar/vocabulary rule)
+3. Say something like "Let's continue" or "Ready for the next one?"
+
+Keep your response to about 2-3 sentences total. Don't rush.
+
+Example: "That's right! '{correct_answer}' - you correctly used 'could' as a suggestion for giving advice. Well done! Let's try the next one."
 """
                         else:
                             # Tell avatar the correct answer so it can help accurately
@@ -679,8 +698,9 @@ The correct answer should be: "{correct_answer}"
 
 Say "Not quite!" and give a quick hint about what makes the correct answer right.
 Keep it to 1-2 sentences, encourage them to try again.
+Do NOT advance - let the student try again.
 
-Example: "Almost! The correct answer is '{correct_answer}'. Try again!"
+Example: "Almost! Remember, for giving advice we use 'could' or 'should'. Try again!"
 """
 
                         await self._session.generate_reply(
@@ -688,6 +708,18 @@ Example: "Almost! The correct answer is '{correct_answer}'. Try again!"
                             instructions=feedback_hint
                         )
                         logger.info(f"🎮 [ITEM→AVATAR] Feedback for {'correct' if is_correct else 'incorrect'}")
+
+                        # For correct answers (not last item): wait for speech to finish, then advance
+                        if is_correct and not is_last_item:
+                            # Wait for avatar to finish speaking (~8 seconds for 2-3 sentences)
+                            logger.info("🎮 [ITEM] Waiting 8 seconds for avatar speech to complete...")
+                            await asyncio.sleep(8)
+
+                            # Now advance to next item
+                            if self._session:
+                                logger.info("🎮 [ITEM→GAME] Advancing to next item after explanation")
+                                await self._send_game_command("next")
+
                     except Exception as e:
                         logger.error(f"❌ [ITEM] Feedback failed: {e}")
 

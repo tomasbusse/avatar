@@ -384,14 +384,10 @@ export function GameViewer({
           totalCorrect,
           totalItems,
         });
-      } else {
-        // Auto-advance to next item after a short delay
-        setTimeout(() => {
-          if (currentIndex < totalItems - 1) {
-            onIndexChange(currentIndex + 1);
-          }
-        }, 1500);
       }
+      // NOTE: Auto-advance REMOVED - avatar now controls pacing via [GAME:NEXT] command
+      // The avatar will explain the answer and then advance when ready.
+      // Previously: setTimeout(() => onIndexChange(currentIndex + 1), 1500);
     },
     [currentIndex, completedItems, totalItems, itemResults, onComplete, onGameComplete, onIndexChange]
   );
