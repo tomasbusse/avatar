@@ -2894,10 +2894,29 @@ export default defineSchema({
     .index("by_locale", ["locale"])
     .index("by_featured", ["isFeatured"]),
 
+  // Blog categories for organizing blog posts
+  blogCategories: defineTable({
+    slug: v.string(),
+    name: v.object({
+      en: v.string(),
+      de: v.string(),
+    }),
+    description: v.object({
+      en: v.string(),
+      de: v.string(),
+    }),
+    icon: v.string(),
+    color: v.string(),
+    order: v.number(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_order", ["order"]),
+
   // Blog posts (supports both legacy markdown and new block-based content)
   blogPosts: defineTable({
     locale: v.string(),
     slug: v.string(),
+    categoryId: v.optional(v.id("blogCategories")), // Reference to blogCategories table
     title: v.string(),
     excerpt: v.string(),
     content: v.optional(v.string()), // Legacy markdown content (optional for backward compatibility)
@@ -2937,7 +2956,8 @@ export default defineSchema({
     .index("by_locale_status", ["locale", "status"])
     .index("by_locale_category", ["locale", "category"])
     .index("by_published", ["publishedAt"])
-    .index("by_content_version", ["contentVersion"]),
+    .index("by_content_version", ["contentVersion"])
+    .index("by_categoryId", ["categoryId"]),
 
   // Contact form submissions
   contactSubmissions: defineTable({
