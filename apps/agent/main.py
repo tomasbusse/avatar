@@ -752,49 +752,56 @@ Example: "Almost! Remember, for giving advice we use 'could' or 'should'. Try ag
 
                     try:
                         # Avatar gives summary feedback
+                        # Build summary prompt with natural transition
                         if score_percent >= 80:
                             summary_prompt = f"""The student just completed the exercise with a score of {final_score}/{total} ({score_percent}%).
 
-Congratulate them warmly! They did well.
-Keep it to 1-2 sentences, natural and encouraging.
+1. Congratulate them warmly! They did well.
+2. Briefly mention what they learned/practiced
+3. Natural transition: "Alright, let's see what's next!"
+4. Include [NEXT] at the END to advance to the next slide
 
-Example: "Excellent work! You got {final_score} out of {total} correct - that's great progress!"
+Example: "Excellent work! You got {final_score} out of {total} correct - you really understand how to use modal verbs for advice! Alright, let's see what's next. [NEXT]"
 """
                         else:
                             summary_prompt = f"""The student just completed the exercise with a score of {final_score}/{total} ({score_percent}%).
 
-Acknowledge their effort and encourage them. Don't be negative.
-Keep it to 1-2 sentences.
+1. Acknowledge their effort and encourage them. Don't be negative.
+2. Briefly mention the key point they practiced
+3. Natural transition: "Let's continue and you can practice more!"
+4. Include [NEXT] at the END to advance to the next slide
 
-Example: "Good effort! You got {final_score} out of {total}. Keep practicing and you'll improve!"
+Example: "Good effort! You got {final_score} out of {total}. Modal verbs can be tricky but you're getting there! Let's continue. [NEXT]"
 """
-                        logger.info("🎮 [GAME] Avatar giving summary feedback")
+                        logger.info("🎮 [GAME] Avatar giving summary feedback with natural transition")
                         await self._session.generate_reply(user_input="", instructions=summary_prompt)
 
-                        # NOW wait 30 seconds for the student to absorb
-                        logger.info("🎮 [TIMER] Starting 30-second countdown before auto-advance")
-                        await asyncio.sleep(30)
+                        # Wait for the avatar's speech to complete (commands are queued and execute after)
+                        # Then prompt to check the new screen
+                        logger.info("🎮 [TIMER] Waiting 8 seconds for summary speech + slide transition")
+                        await asyncio.sleep(8)
 
                         if not self._session:
                             return
 
-                        # Advance to next slide
-                        logger.info("🎮 [GAME→SLIDE] 30 seconds passed - advancing to next slide")
-                        await self._send_slide_command("next")
-
-                        # Wait for slide to load, then prompt avatar to look at it
-                        await asyncio.sleep(3)
+                        # Prompt avatar to look at and introduce the new slide
                         await self._session.generate_reply(
                             user_input="",
                             instructions="""The screen just changed to a new slide.
 
-LOOK AT THE SCREEN and introduce what you see.
-Describe the new content - is it a game, exercise, or information?
-If it's an exercise, explain what the student needs to do.
+IMPORTANT: Follow this flow:
+1. First, say "Okay, let me see what we have here..." or "Alright, so on this slide..."
+2. LOOK at the screen and describe what you actually see
+3. If it's information: explain the content you see
+4. If it's an exercise/game: explain what the student needs to do
+5. If there are visual elements (images, diagrams, examples), reference them
 
-Keep it natural and brief."""
+Be natural - take your time to examine the screen before explaining.
+
+Example: "Okay, let me see... Ah, so here we have another practice exercise! I can see some sentences where you need to fill in the blanks. Let me explain what you need to do..."
+"""
                         )
-                        logger.info("🎮 [GAME→AVATAR] Prompted avatar to introduce new slide")
+                        logger.info("🎮 [GAME→AVATAR] Prompted avatar to check and introduce new slide")
 
                     except Exception as e:
                         logger.error(f"❌ [GAME] Summary/auto-advance failed: {e}")
@@ -3210,35 +3217,68 @@ The game will appear on the student's screen. Encourage them to try it and offer
 A presentation has been pre-loaded and is already visible to the student on slide 1.
 You are conducting a structured lesson from this presentation.
 
-## Lesson Flow:
-1. **Greeting & Warm-up (30-60 seconds)**
-   - Greet the student warmly and naturally
-   - Brief small talk to establish rapport (How are you today? etc.)
-   - Build comfort before diving into content
+## CRITICAL: Natural Teaching Flow
 
-2. **Introduction to Lesson**
-   - Transition naturally: "Let's take a look at what we'll be learning today..."
-   - Reference slide 1 which is already visible
-   - Give a brief overview of what's ahead
+You MUST follow this flow for EVERY slide transition:
 
-3. **Teaching from Slides**
-   - Use silent markers to navigate: [NEXT], [PREV], [SLIDE:N]
-   - Explain each slide clearly and engagingly
-   - Ask questions to check understanding
-   - Encourage the student to speak and practice
+### Step 1: FINISH Current Slide
+- Complete your explanation of the current content
+- Give feedback on what was just covered
+- Check understanding: "Does that make sense?" or "Any questions?"
+- Wait for student response if needed
 
-4. **Interactive Teaching**
-   - Pause for student responses
-   - Correct errors gently and constructively
-   - Praise effort and progress
-   - Use examples and analogies
+### Step 2: TRANSITION (Say This BEFORE Advancing)
+- Wrap up: "Alright, great work on that!"
+- Announce transition: "Let's move on to the next slide" or "Ready to continue?"
+- Include [NEXT] at the END of your transition sentence
+
+Example: "Perfect! You've got that. Let's see what's next. [NEXT]"
+
+### Step 3: CHECK THE NEW SCREEN (Say This AFTER Advancing)
+- ALWAYS look at the new content first
+- Say something like: "Okay, let me see what we have here..." or "Alright, so on this slide..."
+- Take a moment to examine the screen content
+- Describe what you SEE on the screen
+
+### Step 4: INTRODUCE New Content
+- Explain what's on the new slide
+- Reference specific visual elements: "As you can see here...", "Looking at this diagram..."
+- Connect to what you just taught: "Building on what we just learned..."
+
+## WRONG (Too Fast):
+❌ "Good job! [NEXT] So now we have..."  (No pause to check screen)
+❌ Moving to next slide while still talking about previous content
+
+## CORRECT (Natural Flow):
+✅ "Excellent work! That's the key point about modal verbs."
+✅ "Any questions about that? ... Great!"
+✅ "Alright, let's move on to see some more examples. [NEXT]"
+✅ "Okay, let me see what we have on this slide..."
+✅ "Ah, so here we can see a practice exercise. Let me explain what you need to do..."
+
+## Screen Awareness
+- You CAN see the screen - always reference what's actually displayed
+- Describe visual elements: charts, images, bullet points, examples
+- If it's a game/exercise, explain the instructions you see
+- If something looks different than expected, mention it naturally
+
+## Slide Navigation Markers (Silent - Student Won't Hear)
+- [NEXT] - Go to next slide (use at END of transition sentence)
+- [PREV] - Go back to previous slide
+- [SLIDE:3] - Jump to specific slide number
+
+## Pacing Guidelines
+- Don't rush between slides
+- Give the student time to see and process each slide
+- After advancing, pause briefly before explaining (check the screen first)
+- Use natural fillers: "Let me see...", "So here we have...", "Okay..."
 
 ## Key Behaviors:
-- The slides are ALREADY VISIBLE to the student - don't offer to "show" or "load" them
-- Navigate slides using SILENT MARKERS: [NEXT] to advance, [PREV] to go back, [SLIDE:3] to jump
-- Reference visual elements on the slides when explaining
+- ALWAYS look at and reference what's on the screen
+- NEVER advance while mid-explanation - finish your thought first
+- ALWAYS announce transitions before using [NEXT]
+- ALWAYS check the new screen content after advancing
 - Keep a conversational, encouraging tone
-- Check understanding before moving on: "Does that make sense?" or "Any questions about this?"
 """
         final_prompt = final_prompt + structured_lesson_prompt
         logger.info("🎓 Added structured lesson teaching mode to prompt")
