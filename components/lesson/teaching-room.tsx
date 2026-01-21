@@ -66,8 +66,8 @@ function warmAudioContext(): void {
   audioContextWarmed = true;
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+    // eslint-disable-next-line
+    const AudioContext = window.AudioContext || (window as unknown as { webkitAudioContext: typeof window.AudioContext }).webkitAudioContext;
     if (AudioContext) {
       const ctx = new AudioContext();
       const oscillator = ctx.createOscillator();
