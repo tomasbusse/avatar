@@ -3,8 +3,12 @@ import { getTranslations } from "next-intl/server";
 import { Metadata } from "next";
 import { fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
-import { Breadcrumbs, CTASection } from "@/components/landing";
+import { CTASection } from "@/components/landing";
+import { BlogHero } from "@/components/blog/BlogHero";
+import { FeaturedPost } from "@/components/blog/FeaturedPost";
+import { PopularGamesSection } from "@/components/blog/PopularGamesSection";
 import { CategoryFilterTabs } from "@/components/blog/CategoryFilterTabs";
+import { BlogContactCard } from "@/components/blog/BlogContactCard";
 
 interface PageProps {
   params: Promise<{ locale: string }>;
@@ -35,7 +39,7 @@ export default async function BlogPage({ params }: PageProps) {
   ]);
 
   // Transform DB posts to expected format
-  const posts = dbPosts.map(post => ({
+  const allPosts = dbPosts.map(post => ({
     slug: post.slug,
     title: post.title,
     excerpt: post.excerpt,
@@ -47,30 +51,40 @@ export default async function BlogPage({ params }: PageProps) {
     readTimeMinutes: post.readTimeMinutes || 5,
   }));
 
+  // Separate featured post (most recent) from other posts
+  const featuredPost = allPosts[0];
+  const posts = allPosts.slice(1);
+
   return (
     <div className="pt-20">
-      {/* Breadcrumbs */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <Breadcrumbs items={[{ label: t("headline") }]} />
-      </div>
+      {/* Hero Section */}
+      <BlogHero
+        headline={t("headline")}
+        subheadline={t("subheadline")}
+      />
 
-      {/* Header */}
-      <section className="py-16 bg-sls-cream">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <span className="inline-block px-4 py-2 rounded-full bg-sls-teal/10 text-sls-teal text-sm font-semibold mb-4">
-            {t("badge")}
-          </span>
-          <h1 className="text-4xl sm:text-5xl font-bold text-sls-teal mb-4">
-            {t("headline")}
-          </h1>
-          <p className="text-xl text-sls-olive/70 max-w-2xl mx-auto">
-            {t("subheadline")}
-          </p>
-        </div>
-      </section>
+      {/* Featured Post */}
+      {featuredPost && (
+        <section className="py-16 bg-sls-cream">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <FeaturedPost
+              slug={featuredPost.slug}
+              title={featuredPost.title}
+              excerpt={featuredPost.excerpt}
+              author={featuredPost.author}
+              category={featuredPost.category}
+              featuredImageUrl={featuredPost.featuredImageUrl}
+              readTimeMinutes={featuredPost.readTimeMinutes}
+            />
+          </div>
+        </section>
+      )}
+
+      {/* Popular Games Section */}
+      <PopularGamesSection className="bg-white" />
 
       {/* Blog Grid with Category Filter */}
-      <section className="py-16 bg-white">
+      <section className="py-16 bg-sls-cream">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <CategoryFilterTabs
             categories={categories}
@@ -79,6 +93,15 @@ export default async function BlogPage({ params }: PageProps) {
             allLabel={t("allCategories")}
             noPostsLabel={t("noPosts")}
           />
+        </div>
+      </section>
+
+      {/* Contact Card */}
+      <section className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-md mx-auto">
+            <BlogContactCard />
+          </div>
         </div>
       </section>
 
