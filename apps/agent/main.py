@@ -493,6 +493,9 @@ class BeethovenTeacher(Agent):
         self._llm_model = llm_model
         self._is_vision_model = any(kw in llm_model.lower() for kw in ["gemini", "google", "gpt-4o", "claude-3"])
 
+        # Session reference (set after session creation via set_session)
+        self._session = None
+
         # RLM fast lookup (<10ms) - check BEFORE RAG
         self._rlm_provider = rlm_provider
 
@@ -523,6 +526,11 @@ class BeethovenTeacher(Agent):
         # Listen for tracks
         self._room.on("track_subscribed", self._on_track_subscribed)
         self._room.on("data_received", self._on_data_received)
+
+    def set_session(self, session):
+        """Set the AgentSession reference for triggering responses."""
+        self._session = session
+        logger.info("[BEETHOVENTEACHER] Session reference set for game completion handling")
 
         # Track existing tracks
         for participant in self._room.remote_participants.values():
@@ -619,6 +627,7 @@ class BeethovenTeacher(Agent):
                 total = payload.get("totalItems", 1)
                 stars = payload.get("stars", 0)
                 score_percent = payload.get("scorePercent", 0)
+                game_title = self._game_info.get("title", "the exercise") if self._game_info else "the exercise"
                 logger.info(f"🎮 [GAME] Complete! Score: {final_score}/{total} ({score_percent}%), Stars: {stars}")
 
                 # Keep game info for completion feedback, but mark as no longer active
@@ -631,19 +640,36 @@ class BeethovenTeacher(Agent):
                     "scorePercent": score_percent,
                 }
 
-                # Automatically advance to next slide after game completion
-                # Use asyncio to schedule the slide command (this method is sync)
+                # Trigger avatar to respond with feedback about the game completion
+                # Use session.generate_reply to inject context and let avatar respond naturally
                 import asyncio
-                async def advance_slide_after_game():
-                    """Advance to next slide after a short delay for game completion animation."""
-                    await asyncio.sleep(2.0)  # Wait for completion animation/celebration
-                    try:
-                        await self._send_slide_command("next")
-                        logger.info(f"📊 [GAME→SLIDE] Auto-advanced to next slide after game completion")
-                    except Exception as e:
-                        logger.error(f"❌ [GAME→SLIDE] Failed to auto-advance slide: {e}")
+                async def trigger_game_feedback():
+                    """Trigger avatar to give feedback on game completion."""
+                    await asyncio.sleep(1.5)  # Short delay for celebration UI
 
-                asyncio.create_task(advance_slide_after_game())
+                    if not self._session:
+                        logger.warning("🎮 [GAME] No session available for feedback - skipping")
+                        return
+
+                    try:
+                        # Build feedback context based on score
+                        if score_percent >= 90:
+                            feedback_hint = f"The student scored {final_score}/{total} ({score_percent}%) with {stars} stars - excellent! Give enthusiastic praise, briefly explain why their answers were correct, then use [NEXT] to move to the next slide."
+                        elif score_percent >= 70:
+                            feedback_hint = f"The student scored {final_score}/{total} ({score_percent}%) with {stars} stars - good effort! Give positive feedback, briefly mention what they got right, offer to let them try again if they want, then use [NEXT] if they want to continue."
+                        else:
+                            feedback_hint = f"The student scored {final_score}/{total} ({score_percent}%) with {stars} stars - they need more practice. Give encouraging feedback, explain the key concept they missed, and offer to try the exercise again with [GAME:1] or continue with [NEXT]."
+
+                        # Use generate_reply to have avatar respond naturally
+                        await self._session.generate_reply(
+                            user_input=f"I just finished {game_title}.",
+                            instructions=feedback_hint
+                        )
+                        logger.info(f"🎮 [GAME→AVATAR] Triggered feedback response for score {score_percent}%")
+                    except Exception as e:
+                        logger.error(f"❌ [GAME] Failed to trigger feedback: {e}")
+
+                asyncio.create_task(trigger_game_feedback())
 
             elif msg_type == "game_ended":
                 logger.info(f"🎮 [GAME] Game ended/closed")
@@ -3154,6 +3180,9 @@ You are conducting a structured lesson from this presentation.
     # ==========================================================================
     # START SESSION - After avatar is ready (per LiveKit docs order)
     # ==========================================================================
+    # Set session reference on agent for game completion handling
+    agent.set_session(session)
+
     # With noise cancellation (if available) and optimized room options
     room_opts_kwargs = {}
     if NOISE_CANCELLATION_AVAILABLE and noise_cancellation:
