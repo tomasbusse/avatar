@@ -653,8 +653,8 @@ class BeethovenTeacher(Agent):
                 import asyncio
 
                 async def trigger_item_feedback():
-                    """Trigger avatar to give feedback, then advance after speech completes."""
-                    await asyncio.sleep(0.5)  # Brief delay
+                    """Trigger avatar to give feedback. Commands via [GAME:NEXT] are queued and executed after speech."""
+                    await asyncio.sleep(0.3)  # Brief delay
 
                     if not self._session:
                         return
@@ -677,18 +677,18 @@ Don't say "let's move on" since this was the last exercise.
 Example: "Excellent! '{correct_answer}' is perfect! You used the modal verb correctly here..."
 """
                             else:
-                                # More items remain - explain the answer (NO [GAME:NEXT] - we'll advance manually after speech)
+                                # More items remain - use [GAME:NEXT] at the END (will be queued until speech completes)
                                 feedback_hint = f"""✅ CORRECT! The student got it right.
 
 The correct answer is: "{correct_answer}"
 
 1. Praise them ("Great job!", "That's right!", "Excellent!")
 2. Briefly explain WHY this answer is correct (1-2 sentences about the grammar/vocabulary rule)
-3. Say something like "Let's continue" or "Ready for the next one?"
+3. At the END of your response, include [GAME:NEXT] to advance to the next exercise
 
-Keep your response to about 2-3 sentences total. Don't rush.
+The [GAME:NEXT] marker will automatically advance the exercise AFTER you finish speaking.
 
-Example: "That's right! '{correct_answer}' - you correctly used 'could' as a suggestion for giving advice. Well done! Let's try the next one."
+Example: "That's right! '{correct_answer}' - you correctly used 'could' as a suggestion for giving advice. Well done! Let's try the next one. [GAME:NEXT]"
 """
                         else:
                             # Tell avatar the correct answer so it can help accurately
@@ -698,7 +698,7 @@ The correct answer should be: "{correct_answer}"
 
 Say "Not quite!" and give a quick hint about what makes the correct answer right.
 Keep it to 1-2 sentences, encourage them to try again.
-Do NOT advance - let the student try again.
+Do NOT use [GAME:NEXT] - let the student try again.
 
 Example: "Almost! Remember, for giving advice we use 'could' or 'should'. Try again!"
 """
@@ -708,17 +708,6 @@ Example: "Almost! Remember, for giving advice we use 'could' or 'should'. Try ag
                             instructions=feedback_hint
                         )
                         logger.info(f"🎮 [ITEM→AVATAR] Feedback for {'correct' if is_correct else 'incorrect'}")
-
-                        # For correct answers (not last item): wait for speech to finish, then advance
-                        if is_correct and not is_last_item:
-                            # Wait for avatar to finish speaking (~8 seconds for 2-3 sentences)
-                            logger.info("🎮 [ITEM] Waiting 8 seconds for avatar speech to complete...")
-                            await asyncio.sleep(8)
-
-                            # Now advance to next item
-                            if self._session:
-                                logger.info("🎮 [ITEM→GAME] Advancing to next item after explanation")
-                                await self._send_game_command("next")
 
                     except Exception as e:
                         logger.error(f"❌ [ITEM] Feedback failed: {e}")
@@ -1250,9 +1239,13 @@ Keep it natural and brief."""
     ) -> AsyncIterable[rtc.AudioFrame]:
         """
         Override TTS node to:
-        1. Process slide commands from text (strip markers, send commands)
-        2. Process game commands from text (strip markers, send commands)
+        1. Process slide commands from text (strip markers, QUEUE commands for later)
+        2. Process game commands from text (strip markers, QUEUE commands for later)
         3. Add silence padding at the end of speech
+        4. AFTER speech completes, execute queued commands
+
+        IMPORTANT: Commands are NOT sent during streaming! They are buffered and
+        sent AFTER the avatar finishes speaking to prevent slides changing mid-speech.
         """
         import numpy as np
 
@@ -1260,11 +1253,16 @@ Keep it natural and brief."""
         slide_processor = SlideCommandProcessor()
         game_processor = GameCommandProcessor()
 
+        # BUFFER for commands - execute AFTER speech completes
+        pending_slide_commands = []
+        pending_game_commands = []
+
         async def process_text_for_commands(text_stream: AsyncIterable[str]) -> AsyncIterable[str]:
             """
             Async generator that processes text chunks for slide and game commands.
-            Strips markers and fires commands via data channel.
+            Strips markers but BUFFERS commands instead of sending immediately.
             """
+            nonlocal pending_slide_commands, pending_game_commands
             buffer = ""
 
             async for chunk in text_stream:
@@ -1280,23 +1278,19 @@ Keep it natural and brief."""
 
                     # Check for complete markers in buffer
                     if has_slide_cmds or has_game_cmds:
-                        # Process slide commands first
+                        # Process slide commands first - BUFFER, don't send
                         if has_slide_cmds:
                             buffer, slide_commands = slide_processor.process(buffer)
                             for cmd in slide_commands:
-                                try:
-                                    await self._send_slide_command(cmd.action, cmd.slide_number)
-                                except Exception as e:
-                                    logger.error(f"[SLIDE] Failed to send command: {e}")
+                                pending_slide_commands.append(cmd)
+                                logger.info(f"📊 [SLIDE] Queued command: {cmd.action} (will execute after speech)")
 
-                        # Then process game commands
+                        # Then process game commands - BUFFER, don't send
                         if has_game_cmds:
                             buffer, game_commands = game_processor.process(buffer)
                             for cmd in game_commands:
-                                try:
-                                    await self._send_game_command(cmd.action, cmd.item_index)
-                                except Exception as e:
-                                    logger.error(f"[GAME] Failed to send command: {e}")
+                                pending_game_commands.append(cmd)
+                                logger.info(f"🎮 [GAME] Queued command: {cmd.action} (will execute after speech)")
 
                         # Yield cleaned text and clear buffer
                         if buffer:
@@ -1322,21 +1316,17 @@ Keep it natural and brief."""
 
             # Yield any remaining buffer at end
             if buffer:
-                # Process any remaining slide commands
+                # Process any remaining slide commands - BUFFER, don't send
                 buffer, slide_commands = slide_processor.process(buffer)
                 for cmd in slide_commands:
-                    try:
-                        await self._send_slide_command(cmd.action, cmd.slide_number)
-                    except Exception as e:
-                        logger.error(f"[SLIDE] Failed to send command: {e}")
+                    pending_slide_commands.append(cmd)
+                    logger.info(f"📊 [SLIDE] Queued command: {cmd.action} (will execute after speech)")
 
-                # Process any remaining game commands
+                # Process any remaining game commands - BUFFER, don't send
                 buffer, game_commands = game_processor.process(buffer)
                 for cmd in game_commands:
-                    try:
-                        await self._send_game_command(cmd.action, cmd.item_index)
-                    except Exception as e:
-                        logger.error(f"[GAME] Failed to send command: {e}")
+                    pending_game_commands.append(cmd)
+                    logger.info(f"🎮 [GAME] Queued command: {cmd.action} (will execute after speech)")
 
                 if buffer:
                     yield buffer
@@ -1372,6 +1362,29 @@ Keep it natural and brief."""
 
         yield silence_frame
         logger.debug(f"[TTS] Added {silence_duration_ms}ms silence padding")
+
+        # ============================================================
+        # AFTER SPEECH COMPLETES: Execute queued commands
+        # ============================================================
+        # Wait a moment for audio to finish playing on client
+        import asyncio
+        await asyncio.sleep(0.5)
+
+        # Execute slide commands
+        for cmd in pending_slide_commands:
+            try:
+                await self._send_slide_command(cmd.action, cmd.slide_number)
+                logger.info(f"📊 [SLIDE] Executed queued command: {cmd.action}")
+            except Exception as e:
+                logger.error(f"[SLIDE] Failed to send command: {e}")
+
+        # Execute game commands
+        for cmd in pending_game_commands:
+            try:
+                await self._send_game_command(cmd.action, cmd.item_index)
+                logger.info(f"🎮 [GAME] Executed queued command: {cmd.action}")
+            except Exception as e:
+                logger.error(f"[GAME] Failed to send command: {e}")
 
     async def _send_slide_command(self, cmd_type: str, slide_num: Optional[int] = None):
         """Send slide command via data channel."""
