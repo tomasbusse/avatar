@@ -72,7 +72,7 @@ from src.knowledge import (
 from src.memory import process_session_end
 from src.agents import EntryTestAgent, create_entry_test_session
 from src.games import AvatarGameHandler
-from src.slides import SlideCommandTTSWrapper, SlideCommandProcessor, SLIDE_NAVIGATION_PROMPT
+from src.slides import SlideCommandProcessor, SLIDE_NAVIGATION_PROMPT
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("beethoven-agent")
@@ -1054,17 +1054,84 @@ class BeethovenTeacher(Agent):
         model_settings: ModelSettings
     ) -> AsyncIterable[rtc.AudioFrame]:
         """
-        Override TTS node to add silence padding at the end of speech.
-        This prevents the last few syllables from being cut off.
+        Override TTS node to:
+        1. Process slide commands from text (strip markers, send commands)
+        2. Add silence padding at the end of speech
         """
         import numpy as np
+
+        # Slide command processor for stripping markers
+        slide_processor = SlideCommandProcessor()
+
+        async def process_text_for_slides(text_stream: AsyncIterable[str]) -> AsyncIterable[str]:
+            """
+            Async generator that processes text chunks for slide commands.
+            Strips markers and fires slide commands via data channel.
+            """
+            buffer = ""
+
+            async for chunk in text_stream:
+                buffer += chunk
+
+                # Check if buffer contains complete markers
+                # We need to be careful about partial markers at chunk boundaries
+                # Only process if we have enough text or see a complete marker
+
+                while True:
+                    # Check for complete markers in buffer
+                    if slide_processor.has_commands(buffer):
+                        # Process and get cleaned text + commands
+                        cleaned, commands = slide_processor.process(buffer)
+
+                        # Execute slide commands
+                        for cmd in commands:
+                            try:
+                                await self._send_slide_command(cmd.action, cmd.slide_number)
+                            except Exception as e:
+                                logger.error(f"[SLIDE] Failed to send command: {e}")
+
+                        # Yield cleaned text and clear buffer
+                        if cleaned:
+                            yield cleaned
+                        buffer = ""
+                        break
+
+                    # Check if buffer might have a partial marker at the end
+                    # Look for opening bracket that might be start of marker
+                    last_bracket = buffer.rfind('[')
+                    if last_bracket >= 0 and last_bracket > len(buffer) - 15:
+                        # Potential partial marker - yield everything before it
+                        if last_bracket > 0:
+                            yield buffer[:last_bracket]
+                        buffer = buffer[last_bracket:]
+                        break
+                    else:
+                        # No markers and no partial markers - yield all
+                        if buffer:
+                            yield buffer
+                        buffer = ""
+                        break
+
+            # Yield any remaining buffer at end
+            if buffer:
+                cleaned, commands = slide_processor.process(buffer)
+                for cmd in commands:
+                    try:
+                        await self._send_slide_command(cmd.action, cmd.slide_number)
+                    except Exception as e:
+                        logger.error(f"[SLIDE] Failed to send command: {e}")
+                if cleaned:
+                    yield cleaned
 
         # Track frame properties for creating silence
         sample_rate = 24000  # Default for Cartesia
         num_channels = 1
 
-        # Stream all frames from default TTS
-        async for frame in Agent.default.tts_node(self, text, model_settings):
+        # Process text for slide commands, then stream to TTS
+        processed_text = process_text_for_slides(text)
+
+        # Stream all frames from default TTS with processed text
+        async for frame in Agent.default.tts_node(self, processed_text, model_settings):
             # Capture frame properties from first frame
             sample_rate = frame.sample_rate
             num_channels = frame.num_channels
@@ -1087,6 +1154,24 @@ class BeethovenTeacher(Agent):
 
         yield silence_frame
         logger.debug(f"[TTS] Added {silence_duration_ms}ms silence padding")
+
+    async def _send_slide_command(self, cmd_type: str, slide_num: Optional[int] = None):
+        """Send slide command via data channel."""
+        try:
+            if cmd_type == "next":
+                msg = {"type": "slide_command", "command": "next"}
+            elif cmd_type == "prev":
+                msg = {"type": "slide_command", "command": "prev"}
+            elif cmd_type == "goto" and slide_num:
+                msg = {"type": "slide_command", "command": "goto", "slideIndex": slide_num - 1}
+            else:
+                return
+
+            data = json.dumps(msg).encode('utf-8')
+            await self._room.local_participant.publish_data(data, reliable=True)
+            logger.info(f"📊 [SLIDE] Command sent: {msg}")
+        except Exception as e:
+            logger.error(f"❌ [SLIDE] Failed to send command: {e}")
 
 
 def build_system_prompt(avatar_config: Dict[str, Any], memory_context: str = "") -> str:
@@ -2405,15 +2490,8 @@ async def entrypoint(ctx: JobContext):
             sample_rate=24000,
         )
 
-    # Wrap TTS with slide command processor - strips [NEXT], [PREV], [SLIDE:N] markers
-    # and sends commands via data channel before TTS synthesis
-    slide_processor = SlideCommandProcessor()
-    tts = SlideCommandTTSWrapper(
-        tts=base_tts,
-        command_callback=send_slide_command,
-        processor=slide_processor
-    )
-    logger.info("📊 TTS wrapped with SlideCommandProcessor for silent slide navigation")
+    # Use base TTS directly - slide command processing happens in tts_node
+    tts = base_tts
 
     # Store language mode and settings for runtime language switching (bilingual mode)
     ctx.proc.userdata["language_mode"] = language_mode
