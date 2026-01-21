@@ -614,10 +614,13 @@ class BeethovenTeacher(Agent):
                 logger.info(f"🎮 [VISION] Received game screenshot")
 
             elif msg_type == "game_complete":
-                final_score = payload.get("correctAnswers", 0)
+                # Extract score info (handle both field naming conventions)
+                final_score = payload.get("totalCorrect") or payload.get("correctAnswers", 0)
                 total = payload.get("totalItems", 1)
                 stars = payload.get("stars", 0)
-                logger.info(f"🎮 [GAME] Complete! Score: {final_score}/{total}, Stars: {stars}")
+                score_percent = payload.get("scorePercent", 0)
+                logger.info(f"🎮 [GAME] Complete! Score: {final_score}/{total} ({score_percent}%), Stars: {stars}")
+
                 # Keep game info for completion feedback, but mark as no longer active
                 self._game_active = False
                 self._game_state = {
@@ -625,7 +628,22 @@ class BeethovenTeacher(Agent):
                     "finalScore": final_score,
                     "totalItems": total,
                     "stars": stars,
+                    "scorePercent": score_percent,
                 }
+
+                # Automatically advance to next slide after game completion
+                # Use asyncio to schedule the slide command (this method is sync)
+                import asyncio
+                async def advance_slide_after_game():
+                    """Advance to next slide after a short delay for game completion animation."""
+                    await asyncio.sleep(2.0)  # Wait for completion animation/celebration
+                    try:
+                        await self._send_slide_command("next")
+                        logger.info(f"📊 [GAME→SLIDE] Auto-advanced to next slide after game completion")
+                    except Exception as e:
+                        logger.error(f"❌ [GAME→SLIDE] Failed to auto-advance slide: {e}")
+
+                asyncio.create_task(advance_slide_after_game())
 
             elif msg_type == "game_ended":
                 logger.info(f"🎮 [GAME] Game ended/closed")

@@ -439,6 +439,13 @@ You can control the interactive game exercises using SILENT MARKERS in your spee
 - NEVER say "game" or "exercise" commands out loud - use the markers instead
 - Don't say things like "I'm moving to exercise 3" - just use [GAME:3] and continue naturally
 - The transitions should feel smooth and encouraging
+
+### Game Completion:
+When a student completes ALL items in a game, the system automatically advances to the next slide after a brief celebration moment. You should:
+1. Acknowledge their achievement with encouraging feedback based on their score
+2. Transition naturally to the new slide content
+3. If they scored well (80%+): "Excellent work! You really understood that!"
+4. If they need improvement (below 80%): "Good effort! Don't worry, we'll practice more of this."
 """
 
 # Combined prompt for both slides and games
