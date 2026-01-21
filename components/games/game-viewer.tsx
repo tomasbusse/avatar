@@ -309,6 +309,18 @@ export function GameViewer({
     }
   }, [currentIndex, onScreenshot]);
 
+  // Periodic screenshot capture at 2 FPS (every 500ms) for avatar vision
+  useEffect(() => {
+    if (!onScreenshot) return;
+
+    // Capture every 500ms (2 FPS) to ensure avatar has fresh screen content
+    const intervalId = setInterval(() => {
+      captureScreenshot();
+    }, 500);
+
+    return () => clearInterval(intervalId);
+  }, [captureScreenshot, onScreenshot]);
+
   // Capture screenshot of current game state
   const captureScreenshot = useCallback(async () => {
     if (!containerRef.current || !onScreenshot) return;

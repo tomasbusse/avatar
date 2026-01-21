@@ -100,6 +100,19 @@ export function SlideViewer({
     }
   }, [currentIndex, onSlideScreenshot, isHtmlMode]);
 
+  // Periodic screenshot capture at 2 FPS (every 500ms) for avatar vision
+  useEffect(() => {
+    if (!onSlideScreenshot || !isHtmlMode) return;
+
+    // Capture every 500ms (2 FPS) to ensure avatar has fresh screen content
+    const intervalId = setInterval(() => {
+      setCaptureScreenshot(true);
+      setTimeout(() => setCaptureScreenshot(false), 200);
+    }, 500);
+
+    return () => clearInterval(intervalId);
+  }, [onSlideScreenshot, isHtmlMode]);
+
   // Handle screenshot capture
   const handleScreenshotCapture = useCallback(
     (imageBase64: string, slideIndex: number) => {
