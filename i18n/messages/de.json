@@ -242,6 +242,17 @@
     "recentPosts": "Neueste Beiträge",
     "noPosts": "Noch keine Blog-Beiträge. Schauen Sie bald wieder vorbei!"
   },
+  "blogHero": {
+    "heroHeadline": "Englisch lernen mit interaktiven Spielen",
+    "heroSubheadline": "Grammatik und Business Englisch meistern durch spannende Lektionen und Übungsspiele",
+    "browseArticles": "Artikel durchsuchen",
+    "freeConsultation": "Kostenlose Beratung",
+    "featuredPost": "Empfohlener Artikel",
+    "popularGames": "Üben mit interaktiven Spielen",
+    "gamesSubheadline": "Lernen durch Spielen mit unseren interaktiven Übungen",
+    "viewAllGames": "Alle Spiele ansehen",
+    "contactHeadline": "Fragen? Wir sind für Sie da"
+  },
   "imprint": {
     "title": "Impressum",
     "responsibleTitle": "Angaben gemäß § 5 TMG",

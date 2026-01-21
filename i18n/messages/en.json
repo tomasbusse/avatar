@@ -242,6 +242,17 @@
     "recentPosts": "Recent Posts",
     "noPosts": "No blog posts yet. Check back soon!"
   },
+  "blogHero": {
+    "heroHeadline": "Learn English with Interactive Games",
+    "heroSubheadline": "Master grammar and business English through engaging lessons and practice games",
+    "browseArticles": "Browse Articles",
+    "freeConsultation": "Free Consultation",
+    "featuredPost": "Featured Article",
+    "popularGames": "Practice with Interactive Games",
+    "gamesSubheadline": "Learn through play with our interactive exercises",
+    "viewAllGames": "View All Games",
+    "contactHeadline": "Questions? We're Here to Help"
+  },
   "imprint": {
     "title": "Legal Notice (Imprint)",
     "responsibleTitle": "Information according to § 5 TMG",
