@@ -626,10 +626,11 @@ class BeethovenTeacher(Agent):
                 item_index = payload.get("itemIndex", 0)
                 total_items = payload.get("totalItems", 1)
                 is_correct = payload.get("isCorrect", False)
+                correct_answer = payload.get("correctAnswer", "")
 
-                logger.info(f"🎮 [ITEM] Answer checked: item {item_index+1}/{total_items}, correct={is_correct}")
+                logger.info(f"🎮 [ITEM] Answer checked: item {item_index+1}/{total_items}, correct={is_correct}, answer='{correct_answer}'")
 
-                # Simple feedback - just tell avatar the result, let it use VISION for content
+                # Give feedback with the ACTUAL correct answer (no vision needed)
                 import asyncio
 
                 async def trigger_item_feedback():
@@ -641,26 +642,26 @@ class BeethovenTeacher(Agent):
 
                     try:
                         if is_correct:
-                            # SIMPLE prompt - avatar uses VISION to see the actual answer
-                            feedback_hint = """✅ CORRECT ANSWER!
+                            # Tell avatar the correct answer so it can praise accurately
+                            feedback_hint = f"""✅ CORRECT! The student got it right.
 
-The student just completed this sentence/exercise correctly.
+The correct answer is: "{correct_answer}"
 
-LOOK AT THE SCREEN - see the sentence they built and praise them briefly.
-Say "That's right!" and mention what you SEE on screen.
-
+Say "That's right!" or "Perfect!" and briefly mention why this answer is correct.
 Keep it to 1-2 sentences, then encourage them to continue.
+
+Example: "That's right! '{correct_answer}' - well done! Keep going!"
 """
                         else:
-                            # SIMPLE prompt - avatar uses VISION to see what they tried
-                            feedback_hint = """❌ INCORRECT ANSWER.
+                            # Tell avatar the correct answer so it can help accurately
+                            feedback_hint = f"""❌ INCORRECT. The student's answer is wrong.
 
-The student's answer is wrong.
+The correct answer should be: "{correct_answer}"
 
-LOOK AT THE SCREEN - see what they tried and help them.
-Say "Not quite!" and give a quick hint based on what you SEE.
-
+Say "Not quite!" and give a quick hint about what makes the correct answer right.
 Keep it to 1-2 sentences, encourage them to try again.
+
+Example: "Almost! The correct answer is '{correct_answer}'. Try again!"
 """
 
                         await self._session.generate_reply(

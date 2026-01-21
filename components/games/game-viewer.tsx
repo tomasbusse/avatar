@@ -40,6 +40,7 @@ interface GameViewerProps {
     hintsUsed: number;
     timeSeconds: number;
     itemIndex: number;
+    correctAnswer: string;
   }) => void;
   onGameComplete?: (finalScore: {
     stars: number;
@@ -234,6 +235,34 @@ function getSingleItemConfig(
 }
 
 // ============================================
+// HELPER: Extract correct answer string from config
+// ============================================
+
+function getCorrectAnswerString(config: SimpleGameConfig | null): string {
+  if (!config) return "";
+
+  switch (config.type) {
+    case "sentence_builder":
+      return (config as SentenceBuilderConfig).targetSentence || "";
+    case "word_scramble":
+      return (config as SimpleWordScrambleConfig).word || "";
+    case "hangman":
+      return (config as SimpleHangmanConfig).word || "";
+    case "word_ordering":
+      return (config as SimpleWordOrderingConfig).correctOrder?.join(" ") || "";
+    case "fill_in_blank": {
+      const fibConfig = config as FillInBlankConfig;
+      if (fibConfig.items && fibConfig.items[0]) {
+        return fibConfig.items[0].correctAnswer || fibConfig.items[0].answer || "";
+      }
+      return "";
+    }
+    default:
+      return "";
+  }
+}
+
+// ============================================
 // MAIN COMPONENT
 // ============================================
 
@@ -309,9 +338,13 @@ export function GameViewer({
         return newResults;
       });
 
+      // Get the correct answer for this item
+      const correctAnswer = getCorrectAnswerString(currentItemConfig);
+
       onComplete({
         ...result,
         itemIndex: currentIndex,
+        correctAnswer,
       });
 
       // Check if all items are complete

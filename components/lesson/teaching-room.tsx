@@ -357,6 +357,7 @@ interface ItemCheckedMessage {
   hintsUsed: number;
   correctSoFar: number;
   incorrectSoFar: number;
+  correctAnswer: string;
 }
 
 interface GameCommandMessage {
@@ -739,6 +740,7 @@ function RoomContent({
     hintsUsed: number;
     timeSeconds: number;
     itemIndex: number;
+    correctAnswer: string;
   }) => {
     if (!activeGame) return;
 
@@ -754,6 +756,7 @@ function RoomContent({
     const totalItems = getTotalItems(activeGame.config);
 
     // Send item_checked event with details about this specific answer
+    // Includes the correct answer so avatar doesn't need to rely on vision
     await publishDataMessage({
       type: "item_checked",
       gameId: activeGame._id,
@@ -764,6 +767,7 @@ function RoomContent({
       hintsUsed: result.hintsUsed,
       correctSoFar: newCorrect,
       incorrectSoFar: newIncorrect,
+      correctAnswer: result.correctAnswer,
     } as ItemCheckedMessage);
 
     // Also send game_state for backwards compatibility
