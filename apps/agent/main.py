@@ -642,7 +642,9 @@ class BeethovenTeacher(Agent):
 
                 # Trigger avatar to respond with feedback about the game completion
                 # Use session.generate_reply to inject context and let avatar respond naturally
+                # IMPORTANT: No navigation markers in feedback - we auto-advance after delay
                 import asyncio
+
                 async def trigger_game_feedback():
                     """Trigger avatar to give feedback on game completion."""
                     await asyncio.sleep(1.5)  # Short delay for celebration UI
@@ -654,6 +656,7 @@ class BeethovenTeacher(Agent):
                     try:
                         # Build detailed feedback context based on score
                         # The avatar can see the screen showing completed exercises
+                        # NOTE: No navigation markers - we handle advancement separately with delays
                         if score_percent >= 80:
                             feedback_hint = f"""The student just completed '{game_title}' with an excellent score: {final_score}/{total} correct ({score_percent}%) and earned {stars} star(s)!
 
@@ -661,10 +664,11 @@ Your response should:
 1. PRAISE them enthusiastically for their great work
 2. LOOK at the screen - you can see the completed exercises with their answers
 3. EXPLAIN briefly WHY their answers were correct (what grammar rule or vocabulary pattern they applied correctly)
-4. TRANSITION naturally by saying something like "Excellent! Let's move on to the next exercise!" or "Great job! Ready for the next challenge?"
-5. Use [NEXT] at the end to advance to the next slide
+4. END positively - you can say something like "Excellent work!" or "Great job!"
 
-Example: "Fantastic work! You got {final_score} out of {total} correct! I can see you really understood how to use the present perfect tense - you correctly identified when to use 'have' versus 'has' and chose the right past participles. Let's move on to the next exercise! [NEXT]"
+IMPORTANT: Do NOT use any navigation markers like [NEXT] or [GAME:1]. The screen will advance automatically after you finish speaking.
+
+Example: "Fantastic work! You got {final_score} out of {total} correct! I can see you really understood how to use the present perfect tense - you correctly identified when to use 'have' versus 'has' and chose the right past participles. Excellent job!"
 """
                         elif score_percent >= 50:
                             feedback_hint = f"""The student completed '{game_title}' with a good effort: {final_score}/{total} correct ({score_percent}%) and earned {stars} star(s).
@@ -674,7 +678,8 @@ Your response should:
 2. LOOK at the screen to see which answers were correct
 3. BRIEFLY EXPLAIN what they got right and why
 4. ASK if they'd like to try again or continue: "Would you like to practice this again, or shall we move on?"
-5. Wait for their response, then use [GAME:1] to restart OR [NEXT] to continue
+
+IMPORTANT: Do NOT use navigation markers. Wait for their response - if they want to retry, you can then say [GAME:1]. If they want to continue, you can say [NEXT].
 
 Example: "Good effort! You got {final_score} out of {total}. I can see you understood the basic pattern - nice work on those! Would you like to practice this one more time to get even better, or are you ready to move on?"
 """
@@ -685,10 +690,11 @@ Your response should:
 1. BE ENCOURAGING - don't make them feel bad
 2. LOOK at the screen to see what happened
 3. EXPLAIN the key concept they seem to have missed (the grammar rule or vocabulary pattern)
-4. SUGGEST trying again: "Let's practice this one more time - I'll help you!"
-5. Use [GAME:1] to restart the exercise
+4. OFFER to help: "Let me explain this, and then we can try again!"
 
-Example: "Nice try! Let me help you with this. Looking at the exercises, I can see the tricky part was knowing when to use the past simple versus present perfect. Remember: we use present perfect for experiences without a specific time. Let's try this again! [GAME:1]"
+IMPORTANT: Do NOT use navigation markers yet. Explain the concept first, then after a moment we'll restart.
+
+Example: "Nice try! Let me help you with this. Looking at the exercises, I can see the tricky part was knowing when to use the past simple versus present perfect. Remember: we use present perfect for experiences without a specific time."
 """
 
                         # Use generate_reply to have avatar respond naturally
@@ -700,7 +706,55 @@ Example: "Nice try! Let me help you with this. Looking at the exercises, I can s
                     except Exception as e:
                         logger.error(f"❌ [GAME] Failed to trigger feedback: {e}")
 
+                async def auto_advance_after_feedback():
+                    """Auto-advance to next slide/game after giving avatar time to provide feedback."""
+                    # Wait 30 seconds for avatar to fully deliver feedback
+                    await asyncio.sleep(30)
+
+                    if not self._session:
+                        logger.warning("🎮 [GAME] No session for auto-advance - skipping")
+                        return
+
+                    try:
+                        if score_percent >= 80:
+                            # High score: Advance to next slide
+                            logger.info("🎮 [GAME→SLIDE] Auto-advancing to next slide after high score")
+                            await self._send_slide_command("next")
+
+                            # Wait for slide to load, then prompt avatar to introduce it
+                            await asyncio.sleep(3)
+                            await self._session.generate_reply(
+                                user_input="",
+                                instructions="""The screen just changed to show new content.
+LOOK at the screen and see what's now displayed.
+If it's a new exercise or game, introduce it and explain what the student needs to do.
+If it's informational content, discuss what's shown.
+Be natural and enthusiastic about the new content!"""
+                            )
+                            logger.info("🎮 [GAME→AVATAR] Prompted avatar to introduce new content")
+
+                        elif score_percent < 50:
+                            # Low score: Restart the game for more practice
+                            logger.info("🎮 [GAME] Auto-restarting game for more practice after low score")
+                            await self._send_game_command("goto", 0)
+
+                            await asyncio.sleep(2)
+                            await self._session.generate_reply(
+                                user_input="",
+                                instructions="""The game has been reset for another try.
+LOOK at the screen - you can see the exercise is ready to start again.
+Encourage the student: "Let's try this again! I know you can do it!"
+Give them a quick tip about the grammar/vocabulary pattern to help them succeed this time."""
+                            )
+                            logger.info("🎮 [GAME→AVATAR] Prompted avatar for retry encouragement")
+                        # For 50-79%: Don't auto-advance, wait for student's choice
+
+                    except Exception as e:
+                        logger.error(f"❌ [GAME] Auto-advance failed: {e}")
+
+                # Start both tasks
                 asyncio.create_task(trigger_game_feedback())
+                asyncio.create_task(auto_advance_after_feedback())
 
             elif msg_type == "game_ended":
                 logger.info(f"🎮 [GAME] Game ended/closed")
