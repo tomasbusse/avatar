@@ -1,0 +1,115 @@
+import { setRequestLocale } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
+import { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { fetchQuery } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
+import { Breadcrumbs, BlogCard, CTASection } from "@/components/landing";
+
+interface PageProps {
+  params: Promise<{ locale: string; slug: string }>;
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { locale, slug } = await params;
+
+  const category = await fetchQuery(api.blogCategories.getBySlug, { slug });
+
+  if (!category) {
+    return {
+      title: "Category Not Found | Simmonds Language Services",
+    };
+  }
+
+  const name = locale === "de" ? category.name.de : category.name.en;
+  const description = locale === "de" ? category.description.de : category.description.en;
+
+  return {
+    title: `${name} | Blog | Simmonds Language Services`,
+    description,
+  };
+}
+
+export default async function BlogCategoryPage({ params }: PageProps) {
+  const { locale, slug } = await params;
+  setRequestLocale(locale);
+  const t = await getTranslations({ locale, namespace: "blog" });
+
+  // Fetch the category by slug
+  const category = await fetchQuery(api.blogCategories.getBySlug, { slug });
+
+  if (!category) {
+    notFound();
+  }
+
+  // Get the localized name and description
+  const categoryName = locale === "de" ? category.name.de : category.name.en;
+  const categoryDescription = locale === "de" ? category.description.de : category.description.en;
+
+  // Fetch blog posts for this category
+  const dbPosts = await fetchQuery(api.landing.getBlogPostsByCategoryId, {
+    locale,
+    categoryId: category._id,
+  });
+
+  // Transform DB posts to expected format
+  const posts = dbPosts.map(post => ({
+    slug: post.slug,
+    title: post.title,
+    excerpt: post.excerpt,
+    author: post.author,
+    category: categoryName,
+    featuredImageUrl: post.featuredImageUrl,
+    publishedAt: post.publishedAt || post.createdAt,
+    readTimeMinutes: post.readTimeMinutes || 5,
+  }));
+
+  return (
+    <div className="pt-20">
+      {/* Breadcrumbs */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <Breadcrumbs
+          items={[
+            { label: t("headline"), href: `/${locale}/blog` },
+            { label: categoryName },
+          ]}
+        />
+      </div>
+
+      {/* Header */}
+      <section className="py-16 bg-sls-cream">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <span className="inline-block px-4 py-2 rounded-full bg-sls-teal/10 text-sls-teal text-sm font-semibold mb-4">
+            {t("categories")}
+          </span>
+          <h1 className="text-4xl sm:text-5xl font-bold text-sls-teal mb-4">
+            {categoryName}
+          </h1>
+          <p className="text-xl text-sls-olive/70 max-w-2xl mx-auto">
+            {categoryDescription}
+          </p>
+        </div>
+      </section>
+
+      {/* Blog Grid */}
+      <section className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {posts.length > 0 ? (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {posts.map((post) => (
+                <BlogCard key={post.slug} {...post} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-lg text-sls-olive/70">{t("noPosts")}</p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* CTA */}
+      <CTASection variant="accent" />
+    </div>
+  );
+}

@@ -901,6 +901,36 @@ export const getBlogPost = query({
   },
 });
 
+export const getBlogPostsByCategoryId = query({
+  args: {
+    locale: v.string(),
+    categoryId: v.id("blogCategories"),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    let posts = await ctx.db
+      .query("blogPosts")
+      .withIndex("by_categoryId", (q) => q.eq("categoryId", args.categoryId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("locale"), args.locale),
+          q.eq(q.field("status"), "published")
+        )
+      )
+      .collect();
+
+    // Sort by published date (newest first)
+    posts.sort((a, b) => (b.publishedAt ?? 0) - (a.publishedAt ?? 0));
+
+    // Apply limit
+    if (args.limit) {
+      posts = posts.slice(0, args.limit);
+    }
+
+    return posts;
+  },
+});
+
 export const createBlogPost = mutation({
   args: {
     locale: v.string(),
