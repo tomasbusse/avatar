@@ -347,6 +347,18 @@ interface GameCompleteMessage {
   totalItems: number;
 }
 
+interface ItemCheckedMessage {
+  type: "item_checked";
+  gameId: string;
+  itemIndex: number;
+  totalItems: number;
+  isCorrect: boolean;
+  attempts: number;
+  hintsUsed: number;
+  correctSoFar: number;
+  incorrectSoFar: number;
+}
+
 interface GameCommandMessage {
   type: "game_command";
   command: "next" | "prev" | "goto" | "hint";
@@ -730,21 +742,38 @@ function RoomContent({
   }) => {
     if (!activeGame) return;
 
-    // Update results
-    setGameResults(prev => ({
-      correctAnswers: prev.correctAnswers + (result.isCorrect ? 1 : 0),
-      incorrectAnswers: prev.incorrectAnswers + (result.isCorrect ? 0 : 1),
-    }));
+    const newCorrect = gameResults.correctAnswers + (result.isCorrect ? 1 : 0);
+    const newIncorrect = gameResults.incorrectAnswers + (result.isCorrect ? 0 : 1);
 
-    // Notify avatar of state change
+    // Update results
+    setGameResults({
+      correctAnswers: newCorrect,
+      incorrectAnswers: newIncorrect,
+    });
+
     const totalItems = getTotalItems(activeGame.config);
+
+    // Send item_checked event with details about this specific answer
+    await publishDataMessage({
+      type: "item_checked",
+      gameId: activeGame._id,
+      itemIndex: result.itemIndex,
+      totalItems,
+      isCorrect: result.isCorrect,
+      attempts: result.attempts,
+      hintsUsed: result.hintsUsed,
+      correctSoFar: newCorrect,
+      incorrectSoFar: newIncorrect,
+    } as ItemCheckedMessage);
+
+    // Also send game_state for backwards compatibility
     await publishDataMessage({
       type: "game_state",
       gameId: activeGame._id,
       currentItemIndex: result.itemIndex,
       totalItems,
-      correctAnswers: gameResults.correctAnswers + (result.isCorrect ? 1 : 0),
-      incorrectAnswers: gameResults.incorrectAnswers + (result.isCorrect ? 0 : 1),
+      correctAnswers: newCorrect,
+      incorrectAnswers: newIncorrect,
     });
   }, [activeGame, gameResults, publishDataMessage]);
 

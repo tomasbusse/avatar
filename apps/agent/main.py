@@ -621,6 +621,69 @@ class BeethovenTeacher(Agent):
                 self._game_screenshot = payload.get("imageBase64")
                 logger.info(f"🎮 [VISION] Received game screenshot")
 
+            elif msg_type == "item_checked":
+                # Student checked an individual answer
+                item_index = payload.get("itemIndex", 0)
+                total_items = payload.get("totalItems", 1)
+                is_correct = payload.get("isCorrect", False)
+                attempts = payload.get("attempts", 1)
+                hints_used = payload.get("hintsUsed", 0)
+                correct_so_far = payload.get("correctSoFar", 0)
+                incorrect_so_far = payload.get("incorrectSoFar", 0)
+                game_title = self._game_info.get("title", "the exercise") if self._game_info else "the exercise"
+
+                logger.info(f"🎮 [ITEM] Answer checked: item {item_index+1}/{total_items}, correct={is_correct}, attempts={attempts}")
+
+                # Trigger avatar to briefly explain why it's right or wrong
+                import asyncio
+
+                async def trigger_item_feedback():
+                    """Trigger avatar to give brief feedback on individual answer."""
+                    await asyncio.sleep(0.5)  # Brief delay
+
+                    if not self._session:
+                        logger.warning("🎮 [ITEM] No session for feedback - skipping")
+                        return
+
+                    try:
+                        if is_correct:
+                            feedback_hint = f"""The student just checked their answer for item {item_index+1} of {total_items} in '{game_title}' - and it's CORRECT!
+(Score so far: {correct_so_far} correct, {incorrect_so_far} incorrect)
+
+Give a BRIEF (1-2 sentences) response:
+1. LOOK at the screen to see what they answered
+2. Say "That's right!" or "Correct!" with enthusiasm
+3. BRIEFLY explain WHY it's correct (the grammar rule or pattern)
+4. If this isn't the last item, encourage them to continue
+
+Keep it short - don't hold up the game. Example: "That's right! You correctly used 'have been' because we're talking about an experience. Keep going!"
+"""
+                        else:
+                            feedback_hint = f"""The student just checked their answer for item {item_index+1} of {total_items} in '{game_title}' - and it's INCORRECT.
+(Score so far: {correct_so_far} correct, {incorrect_so_far} incorrect. They used {attempts} attempt(s) and {hints_used} hint(s).)
+
+Give a BRIEF (1-2 sentences) response:
+1. LOOK at the screen to see what they tried
+2. Be encouraging - "Not quite!" or "Almost!"
+3. Give a QUICK hint about the grammar rule or pattern
+4. Encourage them to try again
+
+Keep it short - don't hold up the game. Example: "Not quite! Remember, we use 'has' with he/she/it. Try again!"
+"""
+
+                        await self._session.generate_reply(
+                            user_input="",
+                            instructions=feedback_hint
+                        )
+                        logger.info(f"🎮 [ITEM→AVATAR] Triggered feedback for {'correct' if is_correct else 'incorrect'} answer")
+                    except Exception as e:
+                        logger.error(f"❌ [ITEM] Failed to trigger feedback: {e}")
+
+                # Start the 30-second timer for auto-advance (if this was the last item and correct)
+                # Note: game_complete will handle the final auto-advance, so we don't duplicate here
+
+                asyncio.create_task(trigger_item_feedback())
+
             elif msg_type == "game_complete":
                 # Extract score info (handle both field naming conventions)
                 final_score = payload.get("totalCorrect") or payload.get("correctAnswers", 0)
