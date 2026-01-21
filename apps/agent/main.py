@@ -1371,27 +1371,40 @@ Example: "Okay, let me see... Ah, so here we have another practice exercise! I c
         logger.debug(f"[TTS] Added {silence_duration_ms}ms silence padding")
 
         # ============================================================
-        # AFTER SPEECH COMPLETES: Execute queued commands
+        # AFTER SPEECH COMPLETES: Execute queued commands in BACKGROUND
         # ============================================================
-        # Wait a moment for audio to finish playing on client
-        import asyncio
-        await asyncio.sleep(0.5)
+        # IMPORTANT: We must NOT block the generator here! The pipeline
+        # expects the generator to finish quickly after the last yield.
+        # Schedule command execution as a background task instead.
 
-        # Execute slide commands
-        for cmd in pending_slide_commands:
-            try:
-                await self._send_slide_command(cmd.action, cmd.slide_number)
-                logger.info(f"📊 [SLIDE] Executed queued command: {cmd.action}")
-            except Exception as e:
-                logger.error(f"[SLIDE] Failed to send command: {e}")
+        if pending_slide_commands or pending_game_commands:
+            async def execute_queued_commands():
+                """Execute commands after a brief delay (runs in background)."""
+                try:
+                    # Wait for audio to reach client and play
+                    await asyncio.sleep(0.5)
 
-        # Execute game commands
-        for cmd in pending_game_commands:
-            try:
-                await self._send_game_command(cmd.action, cmd.item_index)
-                logger.info(f"🎮 [GAME] Executed queued command: {cmd.action}")
-            except Exception as e:
-                logger.error(f"[GAME] Failed to send command: {e}")
+                    # Execute slide commands
+                    for cmd in pending_slide_commands:
+                        try:
+                            await self._send_slide_command(cmd.action, cmd.slide_number)
+                            logger.info(f"📊 [SLIDE] Executed queued command: {cmd.action}")
+                        except Exception as e:
+                            logger.error(f"[SLIDE] Failed to send command: {e}")
+
+                    # Execute game commands
+                    for cmd in pending_game_commands:
+                        try:
+                            await self._send_game_command(cmd.action, cmd.item_index)
+                            logger.info(f"🎮 [GAME] Executed queued command: {cmd.action}")
+                        except Exception as e:
+                            logger.error(f"[GAME] Failed to send command: {e}")
+                except Exception as e:
+                    logger.error(f"[CMD] Error executing queued commands: {e}")
+
+            # Schedule as background task - doesn't block the generator
+            asyncio.create_task(execute_queued_commands())
+            logger.info(f"📋 [CMD] Scheduled {len(pending_slide_commands)} slide + {len(pending_game_commands)} game commands for execution")
 
     async def _send_slide_command(self, cmd_type: str, slide_num: Optional[int] = None):
         """Send slide command via data channel."""
