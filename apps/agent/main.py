@@ -680,6 +680,7 @@ Example: "Almost! The correct answer is '{correct_answer}'. Try again!"
                 total = payload.get("totalItems", 1)
                 stars = payload.get("stars", 0)
                 score_percent = payload.get("scorePercent", 0)
+                correct_answer = payload.get("correctAnswer", "")
                 logger.info(f"🎮 [GAME] Complete! Score: {final_score}/{total} ({score_percent}%), Stars: {stars}")
 
                 # Mark game as no longer active
@@ -692,20 +693,51 @@ Example: "Almost! The correct answer is '{correct_answer}'. Try again!"
                     "scorePercent": score_percent,
                 }
 
-                # NO immediate feedback here - the last item_checked already gave feedback
-                # We only start the 30-second timer for auto-advance
                 import asyncio
 
-                async def auto_advance_after_30_seconds():
-                    """Wait 30 seconds, then advance to next slide and prompt avatar to look at it."""
-                    logger.info("🎮 [TIMER] Starting 30-second countdown before auto-advance")
-                    await asyncio.sleep(30)
+                async def give_summary_then_wait_30_seconds():
+                    """
+                    Flow:
+                    1. Wait 2 seconds for any item_checked feedback to finish
+                    2. Avatar gives summary congratulations
+                    3. Wait 30 seconds for student to absorb
+                    4. Advance to next slide
+                    """
+                    # Wait for item_checked feedback to complete
+                    await asyncio.sleep(2)
 
                     if not self._session:
-                        logger.warning("🎮 [GAME] No session for auto-advance - skipping")
+                        logger.warning("🎮 [GAME] No session - skipping summary")
                         return
 
                     try:
+                        # Avatar gives summary feedback
+                        if score_percent >= 80:
+                            summary_prompt = f"""The student just completed the exercise with a score of {final_score}/{total} ({score_percent}%).
+
+Congratulate them warmly! They did well.
+Keep it to 1-2 sentences, natural and encouraging.
+
+Example: "Excellent work! You got {final_score} out of {total} correct - that's great progress!"
+"""
+                        else:
+                            summary_prompt = f"""The student just completed the exercise with a score of {final_score}/{total} ({score_percent}%).
+
+Acknowledge their effort and encourage them. Don't be negative.
+Keep it to 1-2 sentences.
+
+Example: "Good effort! You got {final_score} out of {total}. Keep practicing and you'll improve!"
+"""
+                        logger.info("🎮 [GAME] Avatar giving summary feedback")
+                        await self._session.generate_reply(user_input="", instructions=summary_prompt)
+
+                        # NOW wait 30 seconds for the student to absorb
+                        logger.info("🎮 [TIMER] Starting 30-second countdown before auto-advance")
+                        await asyncio.sleep(30)
+
+                        if not self._session:
+                            return
+
                         # Advance to next slide
                         logger.info("🎮 [GAME→SLIDE] 30 seconds passed - advancing to next slide")
                         await self._send_slide_command("next")
@@ -725,10 +757,9 @@ Keep it natural and brief."""
                         logger.info("🎮 [GAME→AVATAR] Prompted avatar to introduce new slide")
 
                     except Exception as e:
-                        logger.error(f"❌ [GAME] Auto-advance failed: {e}")
+                        logger.error(f"❌ [GAME] Summary/auto-advance failed: {e}")
 
-                # Start the 30-second timer (no immediate feedback - item_checked handled that)
-                asyncio.create_task(auto_advance_after_30_seconds())
+                asyncio.create_task(give_summary_then_wait_30_seconds())
 
             elif msg_type == "game_ended":
                 logger.info(f"🎮 [GAME] Game ended/closed")
