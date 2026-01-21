@@ -1025,7 +1025,7 @@ function FAQBlockEditor({
 
         {items.length === 0 && (
           <div className="text-sm text-muted-foreground text-center py-4">
-            No FAQ items yet. Click "Add Item" to create one.
+            No FAQ items yet. Click &quot;Add Item&quot; to create one.
           </div>
         )}
       </div>

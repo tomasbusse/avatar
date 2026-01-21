@@ -1276,7 +1276,7 @@ export default function AdminPracticePage() {
                 <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-sm">
                   <p className="text-amber-800">
                     <strong>How it works:</strong> When a user joins this practice session,
-                    Tavily will fetch fresh news/information and inject it into the avatar's
+                    Tavily will fetch fresh news/information and inject it into the avatar&apos;s
                     context. The avatar will be able to discuss this current information naturally.
                     {previewResults.searchDepth === "detailed" && (
                       <span className="block mt-1 text-purple-700">

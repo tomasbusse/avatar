@@ -112,12 +112,12 @@ export default function OnboardingPage() {
               Welcome to Beethoven, {user?.firstName || "there"}!
             </h2>
             <p className="text-muted-foreground max-w-md mx-auto mb-8">
-              Let's personalize your learning experience. We'll ask you a few
+              Let&apos;s personalize your learning experience. We&apos;ll ask you a few
               questions to understand your goals and create the perfect learning
               path for you.
             </p>
             <Button onClick={handleNext} size="lg">
-              Let's Get Started
+              Let&apos;s Get Started
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </div>
@@ -127,10 +127,10 @@ export default function OnboardingPage() {
         return (
           <div className="py-6">
             <h2 className="text-xl font-bold mb-2 text-center">
-              What's your current English level?
+              What&apos;s your current English level?
             </h2>
             <p className="text-muted-foreground text-center mb-6">
-              Don't worry, you can always adjust this later
+              Don&apos;t worry, you can always adjust this later
             </p>
             <div className="grid gap-3 max-w-lg mx-auto">
               {levels.map((level) => (
@@ -239,9 +239,9 @@ export default function OnboardingPage() {
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <Check className="w-10 h-10 text-green-600" />
             </div>
-            <h2 className="text-2xl font-bold mb-4">You're all set!</h2>
+            <h2 className="text-2xl font-bold mb-4">You&apos;re all set!</h2>
             <p className="text-muted-foreground max-w-md mx-auto mb-8">
-              Great! We've personalized your learning experience. You can now
+              Great! We&apos;ve personalized your learning experience. You can now
               start practicing with Ludwig, your AI English teacher.
             </p>
             <div className="bg-muted/50 rounded-lg p-4 max-w-sm mx-auto mb-8">

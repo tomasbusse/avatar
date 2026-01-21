@@ -407,7 +407,7 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
 
         {/* Testimonial */}
         <div className="relative pl-8 pt-2 italic">
-          <span className="absolute left-0 top-0 text-5xl text-[#b3592d] opacity-40 font-serif">"</span>
+          <span className="absolute left-0 top-0 text-5xl text-[#b3592d] opacity-40 font-serif">&quot;</span>
           <div className="flex gap-1 mb-2 justify-center lg:justify-start">
             {[1, 2, 3, 4, 5].map((i) => (
               <svg key={i} className="w-4 h-4 text-orange-400 fill-current" viewBox="0 0 20 20">

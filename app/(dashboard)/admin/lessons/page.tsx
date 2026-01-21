@@ -1439,7 +1439,7 @@ function AssignLessonDialog({
             <div>
               <CardTitle>Assign Lesson</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                Assign "{lesson.title}" to students or groups
+                Assign &quot;{lesson.title}&quot; to students or groups
               </p>
             </div>
             <Button variant="ghost" size="icon" onClick={onClose}>

@@ -631,8 +631,8 @@ export function IdentityEditor({
                 onChange={(e) => setAiForm({ ...aiForm, educationLevel: e.target.value as typeof aiForm.educationLevel })}
                 className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
               >
-                <option value="bachelors">Bachelor's Degree</option>
-                <option value="masters">Master's Degree</option>
+                <option value="bachelors">Bachelor&apos;s Degree</option>
+                <option value="masters">Master&apos;s Degree</option>
                 <option value="phd">PhD / Doctorate</option>
               </select>
             </div>

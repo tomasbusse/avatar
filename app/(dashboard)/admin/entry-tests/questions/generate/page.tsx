@@ -557,7 +557,7 @@ export default function GenerateQuestionsPage() {
               <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
                 <li>Configure question type, level, and count</li>
                 <li>Click generate to create questions with AI</li>
-                <li>Questions are saved as "pending" review</li>
+                <li>Questions are saved as &quot;pending&quot; review</li>
                 <li>Review and approve questions in the Question Bank</li>
                 <li>Approved questions can be used in tests</li>
               </ol>

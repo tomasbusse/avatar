@@ -766,7 +766,7 @@ function PagesTab() {
             {(!pageSections || pageSections.length === 0) && !isAddingSection && (
               <Card>
                 <CardContent className="py-12 text-center text-muted-foreground">
-                  No sections configured for this page yet. Click "Add Section" to create one.
+                  No sections configured for this page yet. Click &quot;Add Section&quot; to create one.
                 </CardContent>
               </Card>
             )}
@@ -1894,7 +1894,7 @@ function FAQTab() {
         {faqs?.length === 0 && !isAdding && (
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground">
-              No FAQs yet. Click "Add FAQ" to create one.
+              No FAQs yet. Click &quot;Add FAQ&quot; to create one.
             </CardContent>
           </Card>
         )}
@@ -2198,7 +2198,7 @@ function TestimonialsTab() {
                       </Button>
                     </div>
                   </div>
-                  <p className="text-muted-foreground italic">"{testimonial.quote}"</p>
+                  <p className="text-muted-foreground italic">&quot;{testimonial.quote}&quot;</p>
                   {testimonial.rating && (
                     <div className="mt-2 text-yellow-500">
                       {"★".repeat(testimonial.rating)}{"☆".repeat(5 - testimonial.rating)}
@@ -2213,7 +2213,7 @@ function TestimonialsTab() {
         {testimonials?.length === 0 && !isAdding && (
           <Card className="col-span-2">
             <CardContent className="py-12 text-center text-muted-foreground">
-              No testimonials yet. Click "Add Testimonial" to create one.
+              No testimonials yet. Click &quot;Add Testimonial&quot; to create one.
             </CardContent>
           </Card>
         )}
@@ -2758,7 +2758,7 @@ function BlogTab() {
         {posts?.length === 0 && !isAdding && (
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground">
-              No blog posts yet. Click "New Post" to create one.
+              No blog posts yet. Click &quot;New Post&quot; to create one.
             </CardContent>
           </Card>
         )}

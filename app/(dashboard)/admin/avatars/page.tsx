@@ -2222,7 +2222,7 @@ You are fluent in both German and English.
                 <div className="p-4 bg-cyan-50 border border-cyan-200 rounded-lg mb-4">
                   <h4 className="font-medium text-cyan-900 mb-1">👁️ Vision Configuration</h4>
                   <p className="text-sm text-cyan-700">
-                    Enable the avatar to see the student's webcam or screen. Ensure your main LLM (under LLM Config) supports vision (e.g., Gemini or Claude 3.5).
+                    Enable the avatar to see the student&apos;s webcam or screen. Ensure your main LLM (under LLM Config) supports vision (e.g., Gemini or Claude 3.5).
                   </p>
                 </div>
 
@@ -2258,7 +2258,7 @@ You are fluent in both German and English.
                         <option value="always">Always (Every turn)</option>
                       </select>
                       <p className="text-xs text-muted-foreground mt-1">
-                        "Smart" is recommended - captures when slides are shown or student is presenting
+                        &quot;Smart&quot; is recommended - captures when slides are shown or student is presenting
                       </p>
                     </div>
 
@@ -2273,7 +2273,7 @@ You are fluent in both German and English.
                         />
                         <label htmlFor="captureWebcam" className="cursor-pointer">
                           <span className="font-medium">Webcam</span>
-                          <p className="text-xs text-muted-foreground">See the student's face</p>
+                          <p className="text-xs text-muted-foreground">See the student&apos;s face</p>
                         </label>
                       </div>
                       <div className="flex items-center gap-3 p-3 border rounded-lg">
@@ -3394,7 +3394,7 @@ You are fluent in both German and English.
                 <div className="p-4 bg-cyan-50 border border-cyan-200 rounded-lg mb-4">
                   <h4 className="font-medium text-cyan-900 mb-1">👁️ Vision Configuration</h4>
                   <p className="text-sm text-cyan-700">
-                    Enable the avatar to see the student's webcam or screen. Ensure your main LLM (under LLM Config) supports vision (e.g., Gemini or Claude 3.5).
+                    Enable the avatar to see the student&apos;s webcam or screen. Ensure your main LLM (under LLM Config) supports vision (e.g., Gemini or Claude 3.5).
                   </p>
                 </div>
 
@@ -3430,7 +3430,7 @@ You are fluent in both German and English.
                         <option value="always">Always (Every turn)</option>
                       </select>
                       <p className="text-xs text-muted-foreground mt-1">
-                        "Smart" is recommended - captures when slides are shown or student is presenting
+                        &quot;Smart&quot; is recommended - captures when slides are shown or student is presenting
                       </p>
                     </div>
 
@@ -3445,7 +3445,7 @@ You are fluent in both German and English.
                         />
                         <label htmlFor="captureWebcamEdit" className="cursor-pointer">
                           <span className="font-medium">Webcam</span>
-                          <p className="text-xs text-muted-foreground">See the student's face</p>
+                          <p className="text-xs text-muted-foreground">See the student&apos;s face</p>
                         </label>
                       </div>
                       <div className="flex items-center gap-3 p-3 border rounded-lg">

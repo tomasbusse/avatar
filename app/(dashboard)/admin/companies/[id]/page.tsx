@@ -100,7 +100,7 @@ export default function CompanyDetailPage() {
           <Building2 className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
           <h2 className="text-xl font-semibold mb-2">Company Not Found</h2>
           <p className="text-muted-foreground mb-4">
-            This company doesn't exist or you don't have access.
+            This company doesn&apos;t exist or you don&apos;t have access.
           </p>
           <Link href="/admin/companies">
             <Button variant="outline">Back to Companies</Button>
@@ -1052,7 +1052,7 @@ function AddStudentDialog({
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                User will be created with "pending" status until they sign up.
+                User will be created with &quot;pending&quot; status until they sign up.
               </p>
             </>
           )}
