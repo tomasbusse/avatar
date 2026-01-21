@@ -253,7 +253,7 @@ function getCorrectAnswerString(config: SimpleGameConfig | null): string {
     case "fill_in_blank": {
       const fibConfig = config as FillInBlankConfig;
       if (fibConfig.items && fibConfig.items[0]) {
-        return fibConfig.items[0].correctAnswer || fibConfig.items[0].answer || "";
+        return fibConfig.items[0].correctAnswer || "";
       }
       return "";
     }
