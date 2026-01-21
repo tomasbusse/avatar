@@ -386,7 +386,7 @@ interface LoadSlidesCommand {
   slideCount: number;
 }
 
-type DataChannelMessage = SlideCommand | PresentationCommand | LoadPresentationCommand | SlideChangedNotification | PresentationReadyNotification | SlideScreenshotMessage | SlidesContextMessage | SlideUrlMessage | GameLoadedMessage | GameStateMessage | GameScreenshotMessage | GameCompleteMessage | GameCommandMessage | LoadGameCommand | LoadSlidesCommand;
+type DataChannelMessage = SlideCommand | PresentationCommand | LoadPresentationCommand | SlideChangedNotification | PresentationReadyNotification | SlideScreenshotMessage | SlidesContextMessage | SlideUrlMessage | GameLoadedMessage | GameStateMessage | GameScreenshotMessage | GameCompleteMessage | ItemCheckedMessage | GameCommandMessage | LoadGameCommand | LoadSlidesCommand;
 
 function RoomContent({
   sessionId,
