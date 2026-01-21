@@ -294,33 +294,6 @@ export function GameViewer({
   const completedItems = itemResults.size;
   const correctItems = Array.from(itemResults.values()).filter(r => r.isCorrect).length;
 
-  // Trigger screenshot when item changes
-  useEffect(() => {
-    if (!onScreenshot) return;
-
-    if (prevIndexRef.current !== currentIndex) {
-      prevIndexRef.current = currentIndex;
-
-      // Capture screenshot after render
-      const timer = setTimeout(() => {
-        captureScreenshot();
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [currentIndex, onScreenshot]);
-
-  // Periodic screenshot capture at 2 FPS (every 500ms) for avatar vision
-  useEffect(() => {
-    if (!onScreenshot) return;
-
-    // Capture every 500ms (2 FPS) to ensure avatar has fresh screen content
-    const intervalId = setInterval(() => {
-      captureScreenshot();
-    }, 500);
-
-    return () => clearInterval(intervalId);
-  }, [captureScreenshot, onScreenshot]);
-
   // Capture screenshot of current game state
   const captureScreenshot = useCallback(async () => {
     if (!containerRef.current || !onScreenshot) return;
@@ -338,6 +311,33 @@ export function GameViewer({
       console.error("[GameViewer] Screenshot capture failed:", error);
     }
   }, [currentIndex, onScreenshot]);
+
+  // Trigger screenshot when item changes
+  useEffect(() => {
+    if (!onScreenshot) return;
+
+    if (prevIndexRef.current !== currentIndex) {
+      prevIndexRef.current = currentIndex;
+
+      // Capture screenshot after render
+      const timer = setTimeout(() => {
+        captureScreenshot();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [currentIndex, onScreenshot, captureScreenshot]);
+
+  // Periodic screenshot capture at 2 FPS (every 500ms) for avatar vision
+  useEffect(() => {
+    if (!onScreenshot) return;
+
+    // Capture every 500ms (2 FPS) to ensure avatar has fresh screen content
+    const intervalId = setInterval(() => {
+      captureScreenshot();
+    }, 500);
+
+    return () => clearInterval(intervalId);
+  }, [captureScreenshot, onScreenshot]);
 
   // Handle item completion
   const handleItemComplete = useCallback(
