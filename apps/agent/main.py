@@ -647,41 +647,41 @@ class BeethovenTeacher(Agent):
 
                     try:
                         if is_correct:
-                            feedback_hint = f"""The student checked their answer (item {item_index+1}/{total_items}) - CORRECT!
+                            feedback_hint = f"""✅ THE ANSWER IS CORRECT - THIS IS A FACT, DO NOT QUESTION IT.
 
-⚠️ CRITICAL - USE THE SCREEN:
-You MUST read and reference the ACTUAL content visible on screen:
-- What EXACT words/sentence did they build or select? Quote them!
-- What specific vocabulary or grammar is shown?
-- DO NOT invent generic examples - describe what you actually SEE
+The student's answer for item {item_index+1}/{total_items} has been marked CORRECT by the system.
+
+YOUR TASK: Look at the screen to see WHAT they answered, then praise them.
+- The system has verified the answer is correct - trust this
+- Use the screen to see the SPECIFIC words/sentence they built
+- DO NOT say it's wrong - it IS correct
 
 Your response (BRIEF, 1-2 sentences):
-1. Reference the SPECIFIC answer you see on screen
-2. "That's right!" or "Correct!" with enthusiasm
-3. Explain WHY this specific answer works (use what you see!)
-4. Encourage them to continue if more items remain
+1. "That's right!" or "Correct!" or "Perfect!"
+2. Quote the specific answer you see on screen
+3. Briefly explain why this answer works
+4. Encourage: "Keep going!" or "Next one!"
 
-BAD: "You correctly used the present perfect." (too generic)
-GOOD: "That's right! 'She has visited Paris' - you correctly matched 'has' with 'she'. Next one!"
+Example: "That's right! 'She has visited Paris' - perfect use of 'has' with 'she'. Keep going!"
 """
                         else:
-                            feedback_hint = f"""The student checked their answer (item {item_index+1}/{total_items}) - INCORRECT.
+                            feedback_hint = f"""❌ THE ANSWER IS INCORRECT - THIS IS A FACT, DO NOT QUESTION IT.
+
+The student's answer for item {item_index+1}/{total_items} has been marked INCORRECT by the system.
 (Attempts: {attempts}, Hints: {hints_used})
 
-⚠️ CRITICAL - USE THE SCREEN:
-You MUST read and reference the ACTUAL content visible on screen:
-- What EXACT answer did they try? Quote it!
-- What should it have been? (often visible or implied on screen)
-- DO NOT invent generic examples - describe what you actually SEE
+YOUR TASK: Look at the screen to see WHAT they tried, then help them.
+- The system has verified the answer is wrong - trust this
+- Use the screen to see the SPECIFIC answer they attempted
+- DO NOT say it's correct - it IS wrong
 
 Your response (BRIEF, 1-2 sentences):
-1. Reference their SPECIFIC wrong answer that you see
-2. Be encouraging - "Not quite!" or "Almost!"
-3. Give a hint based on what you SEE they got wrong
-4. Encourage retry
+1. "Not quite!" or "Almost!" (be encouraging)
+2. Reference what you see they tried
+3. Give a quick hint to help them
+4. "Try again!"
 
-BAD: "Remember to use 'has' with third person." (too generic)
-GOOD: "Almost! I see you put 'have visited' but with 'she' we need 'has visited'. Try again!"
+Example: "Almost! I see 'have visited' but with 'she' we need 'has'. Try again!"
 """
 
                         await self._session.generate_reply(
@@ -733,63 +733,76 @@ GOOD: "Almost! I see you put 'have visited' but with 'she' we need 'has visited'
                         # Build detailed feedback context based on score
                         # NOTE: No navigation markers - we handle advancement separately with delays
                         if score_percent >= 80:
-                            feedback_hint = f"""The student completed '{game_title}': {final_score}/{total} correct ({score_percent}%), {stars} star(s) - EXCELLENT!
+                            feedback_hint = f"""🎉 GAME COMPLETE - EXCELLENT SCORE! (THIS IS VERIFIED DATA)
 
-⚠️ CRITICAL - USE THE SCREEN:
-You MUST look at and reference the ACTUAL completed exercises visible on screen:
-- READ the specific sentences/words the student answered correctly
-- QUOTE examples from what you SEE (e.g., "I can see 'She has visited Paris' - perfect!")
-- DO NOT give generic feedback - be SPECIFIC about what's on screen
+FACTS (do not contradict these):
+- Game: '{game_title}'
+- Score: {final_score}/{total} correct ({score_percent}%)
+- Stars earned: {stars}
+- Result: EXCELLENT - they did great!
+
+YOUR TASK: Look at the screen to see WHAT answers they gave, then praise them.
+- The score is verified by the system - trust it
+- Use the screen to see specific sentences/words they built
+- Quote 1-2 examples you can see
 
 Your response:
-1. PRAISE enthusiastically
-2. REFERENCE 1-2 specific answers you can SEE on screen
-3. EXPLAIN WHY those specific answers are correct
-4. End positively: "Excellent work!" or "Great job!"
+1. "Fantastic!" / "Excellent!" / "Amazing work!"
+2. Mention the score: "You got {final_score} out of {total}!"
+3. Quote a specific answer you see on screen
+4. End positively
 
 NO navigation markers - screen advances automatically.
 
-BAD: "You understood the present perfect well." (generic)
-GOOD: "Fantastic! I can see you got 'has been working' and 'have visited' exactly right - you know when to use 'has' vs 'have'. Excellent!"
+Example: "Fantastic work! {final_score} out of {total} - I can see you nailed 'She has visited Paris'. Excellent job!"
 """
                         elif score_percent >= 50:
-                            feedback_hint = f"""The student completed '{game_title}': {final_score}/{total} correct ({score_percent}%), {stars} star(s) - GOOD EFFORT!
+                            feedback_hint = f"""📊 GAME COMPLETE - GOOD EFFORT! (THIS IS VERIFIED DATA)
 
-⚠️ CRITICAL - USE THE SCREEN:
-You MUST look at and reference the ACTUAL exercises visible on screen:
-- SEE which answers are marked correct (usually green/checkmarks)
-- QUOTE specific correct answers you can see
-- DO NOT give generic feedback - be SPECIFIC about what's on screen
+FACTS (do not contradict these):
+- Game: '{game_title}'
+- Score: {final_score}/{total} correct ({score_percent}%)
+- Stars earned: {stars}
+- Result: GOOD - decent score, could improve
+
+YOUR TASK: Look at the screen to see WHAT they got right, then encourage them.
+- The score is verified by the system - trust it
+- Use the screen to see which answers are marked correct
+- Reference specific correct answers
 
 Your response:
-1. PRAISE their effort
-2. REFERENCE specific correct answers you SEE
-3. ASK: "Would you like to practice this again, or shall we move on?"
+1. "Good effort!" / "Nice work!"
+2. Mention the score positively
+3. Reference a correct answer you see
+4. ASK: "Would you like to practice again, or move on?"
 
-Wait for their response before using any navigation markers.
+Wait for their response before using navigation markers.
 
-BAD: "You got some right!" (generic)
-GOOD: "Good effort! I see you got 'They have eaten' correct - nice work with the irregular past participle. Would you like to try again or move on?"
+Example: "Good effort - {final_score} out of {total}! I see you got the first one right. Want to try again or continue?"
 """
                         else:
-                            feedback_hint = f"""The student completed '{game_title}': {final_score}/{total} correct ({score_percent}%), {stars} star(s) - NEEDS PRACTICE.
+                            feedback_hint = f"""📊 GAME COMPLETE - NEEDS PRACTICE (THIS IS VERIFIED DATA)
 
-⚠️ CRITICAL - USE THE SCREEN:
-You MUST look at and reference the ACTUAL exercises visible on screen:
-- SEE what answers were marked incorrect
-- IDENTIFY the pattern of mistakes from what you SEE
-- DO NOT guess - describe the actual errors visible
+FACTS (do not contradict these):
+- Game: '{game_title}'
+- Score: {final_score}/{total} correct ({score_percent}%)
+- Stars earned: {stars}
+- Result: Needs more practice
+
+YOUR TASK: Look at the screen, be encouraging, help them understand.
+- The score is verified by the system - trust it
+- Use the screen to see what went wrong
+- Be supportive, not critical
 
 Your response:
-1. BE ENCOURAGING - "Good try!" or "Let's work on this together!"
-2. LOOK at the screen and identify what went wrong
-3. EXPLAIN the concept based on the SPECIFIC mistakes you see
-4. Offer help: "Let me explain, then we'll try again!"
+1. "Good try!" / "Let's work on this together!"
+2. Be encouraging about the effort
+3. Look at screen for patterns in mistakes
+4. Offer help: "Let me explain this!"
 
-NO navigation markers yet - explain first.
+NO navigation markers yet - explain first, then we'll retry.
 
-BAD: "You need to practice the grammar rule." (generic)
-GOOD: "Good try! I can see you mixed up 'has' and 'have' a few times - remember, 'has' goes with he/she/it. Let me help you with this!"
+Example: "Good try! Let me help - I can see the tricky part was choosing between 'has' and 'have'. Let's go through this together!"
 """
 
                         # Use generate_reply to have avatar respond naturally
