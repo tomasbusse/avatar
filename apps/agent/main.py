@@ -72,6 +72,7 @@ from src.knowledge import (
 from src.memory import process_session_end
 from src.agents import EntryTestAgent, create_entry_test_session
 from src.games import AvatarGameHandler
+from src.slides import SlideCommandTTSWrapper, SlideCommandProcessor, SLIDE_NAVIGATION_PROMPT
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("beethoven-agent")
@@ -2404,8 +2405,15 @@ async def entrypoint(ctx: JobContext):
             sample_rate=24000,
         )
 
-    # Use base TTS directly (slide navigation handled via LLM tool calls)
-    tts = base_tts
+    # Wrap TTS with slide command processor - strips [NEXT], [PREV], [SLIDE:N] markers
+    # and sends commands via data channel before TTS synthesis
+    slide_processor = SlideCommandProcessor()
+    tts = SlideCommandTTSWrapper(
+        tts=base_tts,
+        command_callback=send_slide_command,
+        processor=slide_processor
+    )
+    logger.info("📊 TTS wrapped with SlideCommandProcessor for silent slide navigation")
 
     # Store language mode and settings for runtime language switching (bilingual mode)
     ctx.proc.userdata["language_mode"] = language_mode
@@ -2885,7 +2893,7 @@ You are conducting a structured lesson from this presentation.
    - Give a brief overview of what's ahead
 
 3. **Teaching from Slides**
-   - Use next_slide, prev_slide, and goto_slide to navigate
+   - Use silent markers to navigate: [NEXT], [PREV], [SLIDE:N]
    - Explain each slide clearly and engagingly
    - Ask questions to check understanding
    - Encourage the student to speak and practice
@@ -2898,7 +2906,7 @@ You are conducting a structured lesson from this presentation.
 
 ## Key Behaviors:
 - The slides are ALREADY VISIBLE to the student - don't offer to "show" or "load" them
-- Navigate slides naturally as you teach: "Let's move to the next slide..."
+- Navigate slides using SILENT MARKERS: [NEXT] to advance, [PREV] to go back, [SLIDE:3] to jump
 - Reference visual elements on the slides when explaining
 - Keep a conversational, encouraging tone
 - Check understanding before moving on: "Does that make sense?" or "Any questions about this?"
@@ -2906,7 +2914,10 @@ You are conducting a structured lesson from this presentation.
         final_prompt = final_prompt + structured_lesson_prompt
         logger.info("🎓 Added structured lesson teaching mode to prompt")
 
-    # NOTE: Slide navigation removed - focusing on ultra-low latency
+    # Add slide navigation instructions (silent markers)
+    # This prompt explains how to use [NEXT], [PREV], [SLIDE:N] markers
+    final_prompt = final_prompt + SLIDE_NAVIGATION_PROMPT
+    logger.info("📊 Added slide navigation prompt with silent markers")
 
     # Get RAG components from prewarm
     rag_retriever = ctx.proc.userdata.get("rag_retriever")
