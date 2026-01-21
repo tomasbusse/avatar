@@ -3,7 +3,8 @@ import { getTranslations } from "next-intl/server";
 import { Metadata } from "next";
 import { fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
-import { Breadcrumbs, BlogCard, CTASection } from "@/components/landing";
+import { Breadcrumbs, CTASection } from "@/components/landing";
+import { CategoryFilterTabs } from "@/components/blog/CategoryFilterTabs";
 
 interface PageProps {
   params: Promise<{ locale: string }>;
@@ -24,11 +25,14 @@ export default async function BlogPage({ params }: PageProps) {
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: "blog" });
 
-  // Fetch blog posts from Convex
-  const dbPosts = await fetchQuery(api.landing.getBlogPosts, {
-    locale,
-    status: "published",
-  });
+  // Fetch blog posts and categories from Convex
+  const [dbPosts, categories] = await Promise.all([
+    fetchQuery(api.landing.getBlogPosts, {
+      locale,
+      status: "published",
+    }),
+    fetchQuery(api.blogCategories.list, {}),
+  ]);
 
   // Transform DB posts to expected format
   const posts = dbPosts.map(post => ({
@@ -37,6 +41,8 @@ export default async function BlogPage({ params }: PageProps) {
     excerpt: post.excerpt,
     author: post.author,
     category: post.category,
+    categoryId: post.categoryId,
+    featuredImageUrl: post.featuredImageUrl,
     publishedAt: post.publishedAt || post.createdAt,
     readTimeMinutes: post.readTimeMinutes || 5,
   }));
@@ -63,20 +69,16 @@ export default async function BlogPage({ params }: PageProps) {
         </div>
       </section>
 
-      {/* Blog Grid */}
+      {/* Blog Grid with Category Filter */}
       <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {posts.length > 0 ? (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {posts.map((post) => (
-                <BlogCard key={post.slug} {...post} />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <p className="text-lg text-sls-olive/70">{t("noPosts")}</p>
-            </div>
-          )}
+          <CategoryFilterTabs
+            categories={categories}
+            posts={posts}
+            locale={locale}
+            allLabel={t("allCategories")}
+            noPostsLabel={t("noPosts")}
+          />
         </div>
       </section>
 
