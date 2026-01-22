@@ -1683,10 +1683,21 @@ function RoomContent({
   const hasPresentation = hasHtmlSlides || hasImagePresentation;
 
   // Get the active image slides (prefer dynamically loaded, fall back to session)
+  // Ensure storageId is always a string (required by Slide type)
   const activeImageSlides = hasDynamicPresentation
-    ? dynamicPresentation.slides.map(s => ({ ...s, url: s.url ?? undefined }))
+    ? dynamicPresentation.slides.map(s => ({
+        index: s.index,
+        storageId: s.storageId || `dynamic-${s.index}`,
+        url: s.url,
+      }))
     : hasSessionPresentation
-      ? presentation.slides.map(s => ({ ...s, url: s.url ?? undefined }))
+      ? presentation.slides.map(s => ({
+          index: s.index,
+          storageId: s.storageId,
+          url: s.url ?? undefined,
+          width: s.width,
+          height: s.height,
+        }))
       : [];
 
   return (
