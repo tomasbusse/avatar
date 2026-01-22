@@ -449,6 +449,15 @@ function RoomContent({
     contentId: string;
   } | null>(null);
 
+  // Dynamically loaded image presentation from agent (via load_content command)
+  // This is for PowerPoint-style image slides (different from HTML slides)
+  const [dynamicPresentation, setDynamicPresentation] = useState<{
+    slides: Array<{ index: number; url: string; storageId?: string }>;
+    title: string;
+    contentId: string;
+    totalSlides: number;
+  } | null>(null);
+
   // Pending content ID for fetching content not in session-linked content
   // This handles when avatar knows about content from its knowledge base that isn't linked to current lesson
   // Using string type since content can be from either knowledgeContent or presentations table
@@ -946,8 +955,10 @@ function RoomContent({
       return;
     }
 
-    // Skip if no image presentation
-    if (!presentation?.slides?.length) {
+    // Skip if no image presentation (check both session and dynamically loaded)
+    const hasSessionSlides = presentation?.slides?.length ?? 0;
+    const hasDynamicSlides = dynamicPresentation?.slides?.length ?? 0;
+    if (!hasSessionSlides && !hasDynamicSlides) {
       return;
     }
 
@@ -956,8 +967,9 @@ function RoomContent({
       return;
     }
 
-    // Check if slide has a valid URL before attempting capture
-    const slideUrl = presentation.slides[currentSlideIndex]?.url;
+    // Check if slide has a valid URL before attempting capture (prefer dynamic, fall back to session)
+    const slides = hasDynamicSlides ? dynamicPresentation?.slides : presentation?.slides;
+    const slideUrl = slides?.[currentSlideIndex]?.url;
     if (!slideUrl) {
       console.log(`[TeachingRoom] Skipping image capture - slide ${currentSlideIndex} has no URL`);
       return;
@@ -970,7 +982,7 @@ function RoomContent({
     }, 500); // Delay to ensure slide is rendered
 
     return () => clearTimeout(timer);
-  }, [currentSlideIndex, useHtmlSlides, presentation?.slides, room.state, captureImageSlide]);
+  }, [currentSlideIndex, useHtmlSlides, presentation?.slides, dynamicPresentation?.slides, room.state, captureImageSlide]);
 
   // Notify avatar when slide changes
   const notifySlideChange = useCallback(async (newIndex: number) => {
@@ -1404,20 +1416,42 @@ function RoomContent({
         }
       } else if (directFetchContent.type === "presentation") {
         // Handle image slides from presentations
-        // TODO: For now, log that we found a presentation - image slides need different handling
-        console.log("[TeachingRoom] Found presentation with image slides:", directFetchContent.title);
-        console.log("[TeachingRoom] Presentation slides count:", directFetchContent.slides?.length);
+        const slides = directFetchContent.slides as Array<{ index: number; url: string; storageId?: string }>;
+        if (slides && slides.length > 0) {
+          console.log("[TeachingRoom] Loading image presentation:", directFetchContent.title);
+          console.log("[TeachingRoom] Presentation slides count:", slides.length);
 
-        // Log to debug panel
-        setAgentCommands(prev => [...prev.slice(-9), {
-          type: "load_content",
-          time: new Date().toLocaleTimeString(),
-          data: `Found presentation: ${directFetchContent.title} (image-based)`,
-        }]);
+          // Store the dynamically loaded presentation
+          setDynamicPresentation({
+            slides,
+            title: directFetchContent.title,
+            contentId: directFetchContent._id,
+            totalSlides: directFetchContent.totalSlides || slides.length,
+          });
+          // Clear any HTML slides that might be active
+          setDynamicSlides(null);
+          setPresentationModeActive(true);
+          setCurrentSlideIndex(0);
+          setGameModeActive(false);
 
-        // For presentations, we need to trigger the existing presentation loading mechanism
-        // which handles image slides differently
-        // TODO: Integrate with existing presentation loading if needed
+          // Log to debug panel
+          setAgentCommands(prev => [...prev.slice(-9), {
+            type: "load_content",
+            time: new Date().toLocaleTimeString(),
+            data: `Loaded: ${directFetchContent.title} (${slides.length} slides)`,
+          }]);
+
+          // Send confirmation to avatar
+          publishDataMessage({
+            type: "content_loaded",
+            contentId: directFetchContent._id,
+            title: directFetchContent.title,
+            slideCount: slides.length,
+            contentType: "presentation",
+          });
+        } else {
+          console.warn("[TeachingRoom] Presentation has no slides:", pendingContentId);
+        }
       }
 
       // Clear pending ID after processing
@@ -1471,7 +1505,10 @@ function RoomContent({
   const [hasShownScreenSharePrompt, setHasShownScreenSharePrompt] = useState(false);
 
   useEffect(() => {
-    const hasSlides = useHtmlSlides || (presentation?.slides?.length ?? 0) > 0;
+    // Check for slides from any source: HTML slides, session presentation, or dynamically loaded
+    const hasSlides = useHtmlSlides ||
+      (presentation?.slides?.length ?? 0) > 0 ||
+      (dynamicPresentation?.slides?.length ?? 0) > 0;
     const hasGame = gameModeActive && activeGame;
     const hasContent = hasSlides || hasGame;
 
@@ -1486,7 +1523,7 @@ function RoomContent({
       setShowScreenSharePrompt(true);
       setHasShownScreenSharePrompt(true);
     }
-  }, [room.state, hasShownScreenSharePrompt, useHtmlSlides, presentation?.slides?.length, isScreenShareEnabled, gameModeActive, activeGame]);
+  }, [room.state, hasShownScreenSharePrompt, useHtmlSlides, presentation?.slides?.length, dynamicPresentation?.slides?.length, isScreenShareEnabled, gameModeActive, activeGame]);
 
   // Handle screen share from prompt (user gesture satisfies Chrome requirement)
   const handleStartScreenShare = useCallback(async () => {
@@ -1629,9 +1666,19 @@ function RoomContent({
     info: (msg: string) => console.log(`[TeachingRoom] ${msg}`),
   };
 
-  const hasImagePresentation = presentation?.status === "ready" && presentation.slides.length > 0;
+  // Check for image presentations: either from session query OR dynamically loaded by avatar
+  const hasSessionPresentation = presentation?.status === "ready" && presentation.slides.length > 0;
+  const hasDynamicPresentation = dynamicPresentation && dynamicPresentation.slides.length > 0;
+  const hasImagePresentation = hasSessionPresentation || hasDynamicPresentation;
   const hasHtmlSlides = useHtmlSlides;
   const hasPresentation = hasHtmlSlides || hasImagePresentation;
+
+  // Get the active image slides (prefer dynamically loaded, fall back to session)
+  const activeImageSlides = hasDynamicPresentation
+    ? dynamicPresentation.slides.map(s => ({ ...s, url: s.url ?? undefined }))
+    : hasSessionPresentation
+      ? presentation.slides.map(s => ({ ...s, url: s.url ?? undefined }))
+      : [];
 
   return (
     <div className="h-full flex bg-sls-cream">
@@ -1659,10 +1706,7 @@ function RoomContent({
           ) : hasPresentation ? (
             <div ref={slideContainerRef} className="w-full max-w-5xl">
               <SlideViewer
-                slides={hasImagePresentation ? presentation.slides.map(s => ({
-                  ...s,
-                  url: s.url ?? undefined,
-                })) : []}
+                slides={activeImageSlides}
                 currentIndex={currentSlideIndex}
                 onIndexChange={handleSlideIndexChange}
                 slideContent={presentation?.slideContent}

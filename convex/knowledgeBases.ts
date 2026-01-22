@@ -1557,49 +1557,70 @@ export const batchGenerateRlm = mutation({
 /**
  * Get any content by ID - handles both knowledgeContent and presentations
  * Used when avatar requests content that may be from either table
+ *
+ * Note: Convex IDs are globally unique, so we can fetch any document with ctx.db.get()
+ * but need to detect the actual document type by checking which fields exist.
  */
 export const getAnyContentById = query({
   args: { contentId: v.string() },
   handler: async (ctx, args) => {
-    // Try knowledgeContent first
+    // Fetch the document - works for any table since Convex IDs are globally unique
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let doc: any = null;
     try {
-      const knowledgeContent = await ctx.db.get(args.contentId as Id<"knowledgeContent">);
-      if (knowledgeContent) {
-        return {
-          type: "knowledgeContent" as const,
-          _id: knowledgeContent._id,
-          title: knowledgeContent.title,
-          htmlSlides: knowledgeContent.htmlSlides,
-          processingStatus: knowledgeContent.processingStatus,
-        };
-      }
+      doc = await ctx.db.get(args.contentId as Id<"knowledgeContent">);
     } catch {
-      // ID might not be from knowledgeContent table, try presentations
+      // Invalid ID format
+      return null;
     }
 
-    // Try presentations
-    try {
-      const presentation = await ctx.db.get(args.contentId as Id<"presentations">);
-      if (presentation) {
-        // Get fresh URLs for all slides
-        const slidesWithUrls = await Promise.all(
-          (presentation.slides || []).map(async (slide) => ({
-            ...slide,
-            url: await ctx.storage.getUrl(slide.storageId),
-          }))
-        );
-        return {
-          type: "presentation" as const,
-          _id: presentation._id,
-          title: presentation.name,
-          slides: slidesWithUrls,
-          status: presentation.status,
-        };
-      }
-    } catch {
-      // ID not found in presentations either
+    if (!doc) {
+      return null;
     }
 
-    return null;
+    // Detect document type by checking which fields exist
+    // Presentations have: name, slides (array), totalSlides, originalFileName
+    // KnowledgeContent has: title, content, contentType, knowledgeBaseId
+
+    const isPresentation = "slides" in doc && Array.isArray(doc.slides) && "totalSlides" in doc;
+    const isKnowledgeContent = "content" in doc && "contentType" in doc && "knowledgeBaseId" in doc;
+
+    if (isPresentation) {
+      // This is a presentation document
+      const slidesWithUrls = await Promise.all(
+        (doc.slides || []).map(async (slide: { storageId: Id<"_storage">; index: number }) => ({
+          ...slide,
+          url: await ctx.storage.getUrl(slide.storageId),
+        }))
+      );
+      return {
+        type: "presentation" as const,
+        _id: doc._id,
+        title: doc.name || doc.originalFileName || "Untitled Presentation",
+        slides: slidesWithUrls,
+        totalSlides: doc.totalSlides,
+        status: doc.status,
+      };
+    }
+
+    if (isKnowledgeContent) {
+      // This is a knowledgeContent document
+      return {
+        type: "knowledgeContent" as const,
+        _id: doc._id,
+        title: doc.title || doc.originalFileName || "Untitled Content",
+        htmlSlides: doc.htmlSlides,
+        content: doc.content,
+        jsonContent: doc.jsonContent,
+        processingStatus: doc.processingStatus,
+      };
+    }
+
+    // Unknown document type - return basic info
+    return {
+      type: "unknown" as const,
+      _id: doc._id,
+      title: doc.title || doc.name || "Unknown Content",
+    };
   },
 });
