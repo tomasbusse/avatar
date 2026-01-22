@@ -11,6 +11,12 @@ export {
   getSlideStats,
 } from "./generator";
 
+export {
+  generateGrammarSlides,
+  isGrammarKnowledgeContent,
+  type GrammarKnowledgeContent,
+} from "./grammar-generator";
+
 export type {
   HtmlSlide,
   SlideType,

@@ -11,7 +11,13 @@
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
 import { Id } from "../convex/_generated/dataModel";
-import { generateHtmlSlides, validateHtmlSlides, getSlideStats } from "../lib/html-slides";
+import {
+  generateHtmlSlides,
+  validateHtmlSlides,
+  getSlideStats,
+  generateGrammarSlides,
+  isGrammarKnowledgeContent,
+} from "../lib/html-slides";
 import { LessonContent } from "../lib/types/lesson-content";
 
 // Load environment
@@ -62,25 +68,37 @@ function isValidLessonContent(jsonContent: unknown): jsonContent is LessonConten
 async function generateSlidesForContent(
   content: KnowledgeContent,
   dryRun: boolean
-): Promise<{ success: boolean; slideCount?: number; error?: string; skipped?: boolean }> {
+): Promise<{ success: boolean; slideCount?: number; error?: string; skipped?: boolean; contentType?: string }> {
   try {
-    // Check if JSON content has the expected LessonContent structure
-    if (!isValidLessonContent(content.jsonContent)) {
+    let slides;
+    let contentType: string;
+
+    // Try LessonContent structure first (from web scraping)
+    if (isValidLessonContent(content.jsonContent)) {
+      contentType = "lesson";
+      const lessonContent = content.jsonContent;
+      slides = generateHtmlSlides(lessonContent, {
+        maxVocabPerSlide: 6,
+        maxExerciseItemsPerSlide: 4,
+        includeDeutsch: true,
+      });
+    }
+    // Try Grammar Knowledge structure (from grammar import)
+    else if (isGrammarKnowledgeContent(content.jsonContent)) {
+      contentType = "grammar";
+      slides = generateGrammarSlides(content.jsonContent, content.title, {
+        maxRulesPerSlide: 3,
+        maxExercisesPerSlide: 4,
+      });
+    }
+    // Unknown structure
+    else {
       return {
         success: false,
         skipped: true,
-        error: "JSON structure not compatible (missing metadata.title or content wrapper)"
+        error: "JSON structure not compatible (neither LessonContent nor GrammarKnowledge)"
       };
     }
-
-    const lessonContent = content.jsonContent;
-
-    // Generate HTML slides
-    const slides = generateHtmlSlides(lessonContent, {
-      maxVocabPerSlide: 6,
-      maxExerciseItemsPerSlide: 4,
-      includeDeutsch: true,
-    });
 
     // Validate slides
     const validation = validateHtmlSlides(slides);
@@ -90,8 +108,8 @@ async function generateSlidesForContent(
 
     if (dryRun) {
       const stats = getSlideStats(slides);
-      console.log(`   Would generate ${slides.length} slides (${JSON.stringify(stats)})`);
-      return { success: true, slideCount: slides.length };
+      console.log(`   [${contentType}] Would generate ${slides.length} slides (${JSON.stringify(stats)})`);
+      return { success: true, slideCount: slides.length, contentType };
     }
 
     // Store slides in Convex
@@ -107,7 +125,7 @@ async function generateSlidesForContent(
       })),
     });
 
-    return { success: true, slideCount: slides.length };
+    return { success: true, slideCount: slides.length, contentType };
   } catch (error) {
     return {
       success: false,
@@ -170,7 +188,8 @@ async function main() {
     const result = await generateSlidesForContent(content, dryRun);
 
     if (result.success) {
-      console.log(`   ✅ ${dryRun ? "Would generate" : "Generated"} ${result.slideCount} slides`);
+      const typeLabel = result.contentType ? ` [${result.contentType}]` : "";
+      console.log(`   ✅${typeLabel} ${dryRun ? "Would generate" : "Generated"} ${result.slideCount} slides`);
       successCount++;
       totalSlides += result.slideCount || 0;
     } else if (result.skipped) {
