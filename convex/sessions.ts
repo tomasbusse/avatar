@@ -1419,3 +1419,103 @@ export const getWebSearchResults = query({
   },
 });
 
+/**
+ * Get session materials for agent (content and games with fallback to legacy fields)
+ * Used by Python agent to know what materials are available for the lesson
+ */
+export const getSessionMaterialsForAgent = query({
+  args: { sessionId: v.id("sessions") },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session?.structuredLessonId) return { content: [], games: [] };
+
+    const lessonId = session.structuredLessonId;
+    const lesson = await ctx.db.get(lessonId);
+
+    // Get content (with fallback to legacy knowledgeContentId)
+    let content: Array<{
+      id: string;
+      title: string;
+      slideCount: number;
+    }> = [];
+
+    const contentLinks = await ctx.db
+      .query("contentLessonLinks")
+      .withIndex("by_lesson", (q) => q.eq("lessonId", lessonId))
+      .collect();
+
+    if (contentLinks.length > 0) {
+      // Use linking table
+      const items = await Promise.all(
+        contentLinks.map(async (link) => {
+          const c = await ctx.db.get(link.contentId);
+          if (!c || c.processingStatus !== "completed") return null;
+          return {
+            id: c._id,
+            title: c.title,
+            slideCount: c.htmlSlides?.length || 0,
+          };
+        })
+      );
+      content = items.filter(
+        (i): i is NonNullable<typeof i> => i !== null
+      );
+    } else if (lesson?.knowledgeContentId) {
+      // Fallback to legacy
+      const c = await ctx.db.get(lesson.knowledgeContentId);
+      if (c && c.processingStatus === "completed") {
+        content = [
+          {
+            id: c._id,
+            title: c.title,
+            slideCount: c.htmlSlides?.length || 0,
+          },
+        ];
+      }
+    }
+
+    // Get games (with fallback to legacy wordGameId)
+    let games: Array<{
+      id: string;
+      title: string;
+      type: string;
+      itemCount: number;
+    }> = [];
+
+    const gameLinks = await ctx.db
+      .query("gameLessonLinks")
+      .withIndex("by_lesson", (q) => q.eq("lessonId", lessonId))
+      .collect();
+
+    if (gameLinks.length > 0) {
+      const items = await Promise.all(
+        gameLinks.map(async (link) => {
+          const g = await ctx.db.get(link.gameId);
+          if (!g || g.status !== "published") return null;
+          return {
+            id: g._id,
+            title: g.title,
+            type: g.type,
+            itemCount: g.config?.pairs?.length || 0,
+          };
+        })
+      );
+      games = items.filter((i): i is NonNullable<typeof i> => i !== null);
+    } else if (lesson?.wordGameId) {
+      const g = await ctx.db.get(lesson.wordGameId);
+      if (g && g.status === "published") {
+        games = [
+          {
+            id: g._id,
+            title: g.title,
+            type: g.type,
+            itemCount: g.config?.pairs?.length || 0,
+          },
+        ];
+      }
+    }
+
+    return { content, games };
+  },
+});
+

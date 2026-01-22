@@ -72,7 +72,14 @@ from src.knowledge import (
 from src.memory import process_session_end
 from src.agents import EntryTestAgent, create_entry_test_session
 from src.games import AvatarGameHandler
-from src.slides import SlideCommandProcessor, GameCommandProcessor, NAVIGATION_PROMPT
+from src.slides import (
+    SlideCommandProcessor,
+    GameCommandProcessor,
+    DocumentCommandProcessor,
+    DocumentCommand,
+    NAVIGATION_PROMPT,
+    DOCUMENT_LOADING_PROMPT,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("beethoven-agent")
@@ -1259,17 +1266,19 @@ Example: "Okay, let me see... Ah, so here we have another practice exercise! I c
         # Command processors for stripping markers
         slide_processor = SlideCommandProcessor()
         game_processor = GameCommandProcessor()
+        doc_processor = DocumentCommandProcessor()
 
         # BUFFER for commands - execute AFTER speech completes
         pending_slide_commands = []
         pending_game_commands = []
+        pending_doc_commands = []
 
         async def process_text_for_commands(text_stream: AsyncIterable[str]) -> AsyncIterable[str]:
             """
-            Async generator that processes text chunks for slide and game commands.
+            Async generator that processes text chunks for slide, game, and document commands.
             Strips markers but BUFFERS commands instead of sending immediately.
             """
-            nonlocal pending_slide_commands, pending_game_commands
+            nonlocal pending_slide_commands, pending_game_commands, pending_doc_commands
             buffer = ""
 
             async for chunk in text_stream:
@@ -1282,9 +1291,10 @@ Example: "Okay, let me see... Ah, so here we have another practice exercise! I c
                 while True:
                     has_slide_cmds = slide_processor.has_commands(buffer)
                     has_game_cmds = game_processor.has_commands(buffer)
+                    has_doc_cmds = doc_processor.has_commands(buffer)
 
                     # Check for complete markers in buffer
-                    if has_slide_cmds or has_game_cmds:
+                    if has_slide_cmds or has_game_cmds or has_doc_cmds:
                         # Process slide commands first - BUFFER, don't send
                         if has_slide_cmds:
                             buffer, slide_commands = slide_processor.process(buffer)
@@ -1298,6 +1308,13 @@ Example: "Okay, let me see... Ah, so here we have another practice exercise! I c
                             for cmd in game_commands:
                                 pending_game_commands.append(cmd)
                                 logger.info(f"🎮 [GAME] Queued command: {cmd.action} (will execute after speech)")
+
+                        # Process document commands - BUFFER, don't send
+                        if has_doc_cmds:
+                            buffer, doc_commands = doc_processor.process(buffer)
+                            for cmd in doc_commands:
+                                pending_doc_commands.append(cmd)
+                                logger.info(f"📄 [DOC] Queued command: {cmd.action} (will execute after speech)")
 
                         # Yield cleaned text and clear buffer
                         if buffer:
@@ -1334,6 +1351,12 @@ Example: "Okay, let me see... Ah, so here we have another practice exercise! I c
                 for cmd in game_commands:
                     pending_game_commands.append(cmd)
                     logger.info(f"🎮 [GAME] Queued command: {cmd.action} (will execute after speech)")
+
+                # Process any remaining document commands - BUFFER, don't send
+                buffer, doc_commands = doc_processor.process(buffer)
+                for cmd in doc_commands:
+                    pending_doc_commands.append(cmd)
+                    logger.info(f"📄 [DOC] Queued command: {cmd.action} (will execute after speech)")
 
                 if buffer:
                     yield buffer
@@ -1377,12 +1400,24 @@ Example: "Okay, let me see... Ah, so here we have another practice exercise! I c
         # expects the generator to finish quickly after the last yield.
         # Schedule command execution as a background task instead.
 
-        if pending_slide_commands or pending_game_commands:
+        if pending_slide_commands or pending_game_commands or pending_doc_commands:
             async def execute_queued_commands():
                 """Execute commands after a brief delay (runs in background)."""
                 try:
                     # Wait for audio to reach client and play
                     await asyncio.sleep(0.5)
+
+                    # Execute document commands FIRST (load content before navigating)
+                    for cmd in pending_doc_commands:
+                        try:
+                            await self._send_document_command(cmd.action, cmd.content_id)
+                            logger.info(f"📄 [DOC] Executed queued command: {cmd.action}")
+                        except Exception as e:
+                            logger.error(f"[DOC] Failed to send command: {e}")
+
+                    # Brief delay after loading content before navigation
+                    if pending_doc_commands and (pending_slide_commands or pending_game_commands):
+                        await asyncio.sleep(0.3)
 
                     # Execute slide commands
                     for cmd in pending_slide_commands:
@@ -1404,7 +1439,7 @@ Example: "Okay, let me see... Ah, so here we have another practice exercise! I c
 
             # Schedule as background task - doesn't block the generator
             asyncio.create_task(execute_queued_commands())
-            logger.info(f"📋 [CMD] Scheduled {len(pending_slide_commands)} slide + {len(pending_game_commands)} game commands for execution")
+            logger.info(f"📋 [CMD] Scheduled {len(pending_doc_commands)} doc + {len(pending_slide_commands)} slide + {len(pending_game_commands)} game commands for execution")
 
     async def _send_slide_command(self, cmd_type: str, slide_num: Optional[int] = None):
         """Send slide command via data channel."""
@@ -1443,6 +1478,27 @@ Example: "Okay, let me see... Ah, so here we have another practice exercise! I c
             logger.info(f"🎮 [GAME] Command sent: {msg}")
         except Exception as e:
             logger.error(f"❌ [GAME] Failed to send command: {e}")
+
+    async def _send_document_command(self, cmd_type: str, content_id: Optional[str] = None):
+        """Send document/game loading command via data channel."""
+        try:
+            if cmd_type == "load_content" and content_id:
+                # Send command to load specific content slides
+                msg = {"type": "load_content", "contentId": content_id}
+            elif cmd_type == "load_game" and content_id:
+                # Send command to load specific game
+                msg = {"type": "load_game", "gameId": content_id}
+            elif cmd_type == "show_materials":
+                # Send command to prompt materials panel
+                msg = {"type": "show_materials_prompt"}
+            else:
+                return
+
+            data = json.dumps(msg).encode('utf-8')
+            await self._room.local_participant.publish_data(data, reliable=True)
+            logger.info(f"📄 [DOC] Command sent: {msg}")
+        except Exception as e:
+            logger.error(f"❌ [DOC] Failed to send command: {e}")
 
 
 def build_system_prompt(avatar_config: Dict[str, Any], memory_context: str = "") -> str:
@@ -2527,6 +2583,25 @@ async def entrypoint(ctx: JobContext):
         except Exception as e:
             logger.warning(f"⚠️ Failed to fetch material context: {e}")
 
+    # ==========================================================================
+    # SESSION MATERIALS FOR AGENT - Content and games with legacy fallback
+    # ==========================================================================
+    session_materials = None
+    if session_data and session_data.get("_id"):
+        try:
+            materials_convex = ConvexClient(config.convex_url)
+            session_materials = await materials_convex.query(
+                "sessions:getSessionMaterialsForAgent",
+                {"sessionId": session_data["_id"]}
+            )
+            await materials_convex.close()
+
+            content_count = len(session_materials.get("content", []))
+            games_count = len(session_materials.get("games", []))
+            logger.info(f"📚 Session materials: {content_count} content, {games_count} games")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to load session materials: {e}")
+
     if not avatar_config:
         logger.error("❌ No avatar config found!")
         return
@@ -3295,6 +3370,32 @@ Example: "Perfect! You've got that. Let's see what's next. [NEXT]"
 """
         final_prompt = final_prompt + structured_lesson_prompt
         logger.info("🎓 Added structured lesson teaching mode to prompt")
+
+    # Add session materials context (content and games available for loading)
+    if session_materials:
+        content_list = session_materials.get("content", [])
+        games_list = session_materials.get("games", [])
+
+        if content_list or games_list:
+            material_prompt = "\n\n## AVAILABLE MATERIALS FOR THIS LESSON\n"
+            material_prompt += "You can load these materials using silent markers.\n"
+
+            if content_list:
+                material_prompt += "\n### Slide Content:\n"
+                for c in content_list:
+                    material_prompt += f"- {c['title']} (ID: {c['id']}, {c['slideCount']} slides)\n"
+                material_prompt += "Use `[LOAD_CONTENT:<id>]` to load slides, then navigate with [NEXT], [PREV], etc.\n"
+
+            if games_list:
+                material_prompt += "\n### Games:\n"
+                for g in games_list:
+                    material_prompt += f"- {g['title']} ({g['type']}, ID: {g['id']}, {g['itemCount']} items)\n"
+                material_prompt += "Use `[LOAD_GAME:<id>]` to load a game, then use [GAME:NEXT], etc.\n"
+
+            material_prompt += "\nAt the start of the lesson, ask what the student wants to work on and load the appropriate material.\n"
+
+            final_prompt = final_prompt + material_prompt
+            logger.info(f"📚 Added {len(content_list)} content + {len(games_list)} games to prompt context")
 
     # Add slide and game navigation instructions (silent markers)
     # This prompt explains how to use [NEXT], [PREV], [SLIDE:N], [GAME:NEXT], etc. markers

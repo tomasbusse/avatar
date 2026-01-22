@@ -8,8 +8,11 @@ from .slide_command_processor import (
     SlideCommandTTSWrapper,
     GameCommand,
     GameCommandProcessor,
+    DocumentCommand,
+    DocumentCommandProcessor,
     SLIDE_NAVIGATION_PROMPT,
     GAME_NAVIGATION_PROMPT,
+    DOCUMENT_LOADING_PROMPT,
     NAVIGATION_PROMPT,
 )
 
@@ -19,7 +22,10 @@ __all__ = [
     "SlideCommandTTSWrapper",
     "GameCommand",
     "GameCommandProcessor",
+    "DocumentCommand",
+    "DocumentCommandProcessor",
     "SLIDE_NAVIGATION_PROMPT",
     "GAME_NAVIGATION_PROMPT",
+    "DOCUMENT_LOADING_PROMPT",
     "NAVIGATION_PROMPT",
 ]

@@ -387,7 +387,18 @@ interface LoadSlidesCommand {
   slideCount: number;
 }
 
-type DataChannelMessage = SlideCommand | PresentationCommand | LoadPresentationCommand | SlideChangedNotification | PresentationReadyNotification | SlideScreenshotMessage | SlidesContextMessage | SlideUrlMessage | GameLoadedMessage | GameStateMessage | GameScreenshotMessage | GameCompleteMessage | ItemCheckedMessage | GameCommandMessage | LoadGameCommand | LoadSlidesCommand;
+// Agent-initiated content loading command (by ID - fetches from available content)
+interface LoadContentCommand {
+  type: "load_content";
+  contentId: string;
+}
+
+// Agent prompt to open materials panel
+interface ShowMaterialsPromptCommand {
+  type: "show_materials_prompt";
+}
+
+type DataChannelMessage = SlideCommand | PresentationCommand | LoadPresentationCommand | SlideChangedNotification | PresentationReadyNotification | SlideScreenshotMessage | SlidesContextMessage | SlideUrlMessage | GameLoadedMessage | GameStateMessage | GameScreenshotMessage | GameCompleteMessage | ItemCheckedMessage | GameCommandMessage | LoadGameCommand | LoadSlidesCommand | LoadContentCommand | ShowMaterialsPromptCommand;
 
 function RoomContent({
   sessionId,
@@ -1175,6 +1186,63 @@ function RoomContent({
 
           console.log(`[TeachingRoom] Dynamic slides loaded and presentation mode activated`);
         }
+
+        // Handle avatar-initiated content loading (by ID - will fetch content)
+        if (message.type === "load_content") {
+          const requestedContentId = message.contentId;
+          console.log("[TeachingRoom] Avatar requested content load:", requestedContentId);
+
+          // Log to debug panel
+          setAgentCommands(prev => [...prev.slice(-9), {
+            type: "load_content",
+            time: new Date().toLocaleTimeString(),
+            data: `Content ID: ${requestedContentId}`,
+          }]);
+
+          // Try to find content in availableContent (from getContentForSession)
+          let contentToLoad = null;
+          if (availableContent) {
+            contentToLoad = availableContent.find((c) => c._id === requestedContentId);
+          }
+
+          // Fallback: check legacy knowledgeContent
+          if (!contentToLoad && knowledgeContent && knowledgeContent._id === requestedContentId) {
+            // For legacy content, we use the existing htmlSlides from knowledgeContent
+            console.log("[TeachingRoom] Loading legacy knowledgeContent:", knowledgeContent.title);
+            setPresentationModeActive(true);
+            setCurrentSlideIndex(0);
+            setGameModeActive(false);
+          } else if (contentToLoad) {
+            // Load content's slides
+            const slides = contentToLoad.htmlSlides as HtmlSlide[];
+            if (slides && slides.length > 0) {
+              setDynamicSlides({
+                slides,
+                title: contentToLoad.title,
+                contentId: contentToLoad._id,
+              });
+              setPresentationModeActive(true);
+              setCurrentSlideIndex(0);
+              setGameModeActive(false);
+              console.log("[TeachingRoom] Loaded content slides:", contentToLoad.title);
+            }
+          } else {
+            console.warn("[TeachingRoom] Content not found:", requestedContentId);
+          }
+        }
+
+        // Handle avatar prompt to show materials panel
+        if (message.type === "show_materials_prompt") {
+          console.log("[TeachingRoom] Avatar prompted materials panel");
+          setShowMaterialsPanel(true);
+
+          // Log to debug panel
+          setAgentCommands(prev => [...prev.slice(-9), {
+            type: "show_materials",
+            time: new Date().toLocaleTimeString(),
+            data: "Materials panel opened",
+          }]);
+        }
       } catch (error) {
         console.error("Error parsing data channel message:", error);
       }
@@ -1187,7 +1255,7 @@ function RoomContent({
       console.log("[TeachingRoom] Unregistering DataReceived listener");
       room.off(RoomEvent.DataReceived, handleDataReceived);
     };
-  }, [room, startPresentationMode, linkedGame, notifyGameLoaded]);
+  }, [room, startPresentationMode, linkedGame, notifyGameLoaded, availableContent, knowledgeContent]);
 
   // Sync presentation mode state from session
   useEffect(() => {

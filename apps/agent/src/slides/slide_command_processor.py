@@ -266,6 +266,113 @@ class GameCommandProcessor:
         return bool(self.ALL_MARKERS.search(text))
 
 
+@dataclass
+class DocumentCommand:
+    """Represents a document/game loading command."""
+    action: str  # "load_content", "load_game", "show_materials"
+    content_id: Optional[str] = None
+    position: int = 0
+
+
+class DocumentCommandProcessor:
+    """
+    Detects and strips silent document loading markers from text.
+
+    The avatar can include these markers to load teaching materials.
+    Markers are stripped before TTS so the student never hears them.
+
+    Supported Markers:
+        [LOAD_CONTENT:abc123]  - Load specific content slides
+        [LOAD_SLIDES:abc123]   - Alias for load content
+        [LOAD_GAME:xyz789]     - Load specific game
+        [SHOW_MATERIALS]       - Prompt student to open Materials panel
+        [OPEN_MATERIALS]       - Alias for show materials
+
+    Examples:
+        "Let's practice vocabulary! [LOAD_GAME:xyz789] Here we go..." → loads game, speaks clean
+        "[SHOW_MATERIALS] You can see all available materials in your panel" → prompts panel open
+    """
+
+    PATTERNS = {
+        "load_content": re.compile(
+            r'\[LOAD_CONTENT:([a-zA-Z0-9_-]+)\]|\[LOAD_SLIDES:([a-zA-Z0-9_-]+)\]',
+            re.IGNORECASE
+        ),
+        "load_game": re.compile(
+            r'\[LOAD_GAME:([a-zA-Z0-9_-]+)\]',
+            re.IGNORECASE
+        ),
+        "show_materials": re.compile(
+            r'\[SHOW_MATERIALS\]|\[OPEN_MATERIALS\]',
+            re.IGNORECASE
+        ),
+    }
+
+    ALL_MARKERS = re.compile(
+        r'\[LOAD_CONTENT:[a-zA-Z0-9_-]+\]|\[LOAD_SLIDES:[a-zA-Z0-9_-]+\]|'
+        r'\[LOAD_GAME:[a-zA-Z0-9_-]+\]|'
+        r'\[SHOW_MATERIALS\]|\[OPEN_MATERIALS\]',
+        re.IGNORECASE
+    )
+
+    def process(self, text: str) -> Tuple[str, List[DocumentCommand]]:
+        """
+        Process text to extract document commands and clean the text.
+
+        Args:
+            text: Input text potentially containing document markers
+
+        Returns:
+            Tuple of (cleaned_text, list_of_commands)
+        """
+        commands: List[DocumentCommand] = []
+
+        # Find load_content commands
+        for match in self.PATTERNS["load_content"].finditer(text):
+            content_id = match.group(1) or match.group(2)
+            commands.append(DocumentCommand(
+                action="load_content",
+                content_id=content_id,
+                position=match.start()
+            ))
+            logger.debug(f"[DOC] Detected LOAD_CONTENT {content_id} at position {match.start()}")
+
+        # Find load_game commands
+        for match in self.PATTERNS["load_game"].finditer(text):
+            commands.append(DocumentCommand(
+                action="load_game",
+                content_id=match.group(1),
+                position=match.start()
+            ))
+            logger.debug(f"[DOC] Detected LOAD_GAME {match.group(1)} at position {match.start()}")
+
+        # Find show_materials commands
+        for match in self.PATTERNS["show_materials"].finditer(text):
+            commands.append(DocumentCommand(
+                action="show_materials",
+                position=match.start()
+            ))
+            logger.debug(f"[DOC] Detected SHOW_MATERIALS at position {match.start()}")
+
+        # Sort commands by position
+        commands.sort(key=lambda c: c.position)
+
+        # Strip all markers from text
+        cleaned = self.ALL_MARKERS.sub('', text)
+
+        # Clean up extra whitespace
+        cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+
+        if commands:
+            logger.info(f"[DOC] Processed text: {len(commands)} command(s) found, stripped markers")
+
+        return cleaned, commands
+
+    def has_commands(self, text: str) -> bool:
+        """Quick check if text contains any document markers."""
+        return bool(self.ALL_MARKERS.search(text))
+
+
 class SlideCommandTTSWrapper:
     """
     Wraps a TTS instance to intercept text, strip slide markers,
@@ -475,8 +582,45 @@ Always be ready to let students retry:
 - Always be positive, even when correcting mistakes
 """
 
+DOCUMENT_LOADING_PROMPT = """
+## Document & Game Loading
+
+You can load teaching materials using SILENT MARKERS that are stripped before speech.
+
+### Loading Markers:
+- `[LOAD_CONTENT:id]` - Load specific slide content by ID
+- `[LOAD_SLIDES:id]` - Alias for loading slides
+- `[LOAD_GAME:id]` - Start a specific game by ID
+- `[SHOW_MATERIALS]` - Prompt student to open the Materials panel
+
+### Usage Flow:
+1. At lesson start, ask what the student wants to work on
+2. You will see available materials in your context (with IDs)
+3. Based on their response, use the appropriate loading marker
+4. The marker executes AFTER your speech completes
+
+### Examples:
+
+**Loading slides when student chooses a topic:**
+Student: "Let's work on the present tense today."
+Teacher: "[LOAD_CONTENT:abc123xyz] Great choice! Let's look at the present tense together. [NEXT] Here on this first slide..."
+
+**Loading a game for practice:**
+Student: "I want to practice vocabulary!"
+Teacher: "[LOAD_GAME:xyz789abc] Perfect! Let's practice some vocabulary together. [GAME:NEXT] Look at this first word..."
+
+**Prompting student to explore materials:**
+Teacher: "[SHOW_MATERIALS] Take a look at the Materials panel - you can see all the topics and games available for today's lesson. What catches your interest?"
+
+### Important:
+- NEVER speak the marker IDs out loud
+- Use the exact IDs shown in your available materials context
+- Loading markers are SILENT - the student only hears your natural speech
+- Combine with navigation markers: first load content, then use [NEXT], [PREV] etc.
+"""
+
 # Combined prompt for both slides and games
-NAVIGATION_PROMPT = SLIDE_NAVIGATION_PROMPT + "\n" + GAME_NAVIGATION_PROMPT
+NAVIGATION_PROMPT = SLIDE_NAVIGATION_PROMPT + "\n" + GAME_NAVIGATION_PROMPT + "\n" + DOCUMENT_LOADING_PROMPT
 
 
 # For easy testing
@@ -527,3 +671,25 @@ if __name__ == "__main__":
         print(f"\nInput:   {text}")
         print(f"Clean:   {clean}")
         print(f"Commands: {[(c.action, c.item_index) for c in commands]}")
+
+    print("\n" + "=" * 70)
+    print("DOCUMENT COMMAND PROCESSOR TEST")
+    print("=" * 70)
+
+    doc_processor = DocumentCommandProcessor()
+
+    doc_test_cases = [
+        "Let's practice vocabulary! [LOAD_GAME:xyz789abc] Here we go...",
+        "[LOAD_CONTENT:abc123xyz] Great choice! Let's look at this together.",
+        "[SHOW_MATERIALS] You can see all available materials in your panel.",
+        "Let me load some slides. [LOAD_SLIDES:content_id_here] Now let's begin.",
+        "[OPEN_MATERIALS] Take a look at what's available.",
+        "This sentence has no document markers.",
+        "[LOAD_CONTENT:lesson_1] First the slides, [LOAD_GAME:game_2] then the game!",
+    ]
+
+    for text in doc_test_cases:
+        clean, commands = doc_processor.process(text)
+        print(f"\nInput:   {text}")
+        print(f"Clean:   {clean}")
+        print(f"Commands: {[(c.action, c.content_id) for c in commands]}")

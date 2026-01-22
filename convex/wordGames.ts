@@ -148,10 +148,31 @@ export const getGamesForSession = query({
       })
     );
 
-    // Filter out nulls and sort by order
-    return games
-      .filter((g): g is NonNullable<typeof g> => g !== null)
-      .sort((a, b) => (a.order || 0) - (b.order || 0));
+    // Filter out nulls
+    const validGames = games.filter(
+      (g): g is NonNullable<typeof g> => g !== null
+    );
+
+    // If no links found, fallback to legacy wordGameId
+    if (validGames.length === 0) {
+      const lesson = await ctx.db.get(lessonId);
+      if (lesson?.wordGameId) {
+        const game = await ctx.db.get(lesson.wordGameId);
+        if (game && game.status === "published") {
+          return [
+            {
+              ...game,
+              linkId: null,
+              order: 0,
+              triggerType: "student" as const,
+            },
+          ];
+        }
+      }
+    }
+
+    // Sort by order
+    return validGames.sort((a, b) => (a.order || 0) - (b.order || 0));
   },
 });
 

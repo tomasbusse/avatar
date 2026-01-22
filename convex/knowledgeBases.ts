@@ -1111,10 +1111,31 @@ export const getContentForSession = query({
       })
     );
 
-    // Filter out nulls and sort by order
-    return contentItems
-      .filter((c): c is NonNullable<typeof c> => c !== null)
-      .sort((a, b) => (a.order || 0) - (b.order || 0));
+    // Filter out nulls
+    const validItems = contentItems.filter(
+      (c): c is NonNullable<typeof c> => c !== null
+    );
+
+    // If no links found, fallback to legacy knowledgeContentId
+    if (validItems.length === 0) {
+      const lesson = await ctx.db.get(lessonId);
+      if (lesson?.knowledgeContentId) {
+        const content = await ctx.db.get(lesson.knowledgeContentId);
+        if (content && content.processingStatus === "completed") {
+          return [
+            {
+              ...content,
+              linkId: null,
+              order: 0,
+              triggerType: "student" as const,
+            },
+          ];
+        }
+      }
+    }
+
+    // Sort by order
+    return validItems.sort((a, b) => (a.order || 0) - (b.order || 0));
   },
 });
 
