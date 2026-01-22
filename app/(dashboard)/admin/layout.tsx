@@ -13,6 +13,7 @@ const adminNavItems = [
   { title: "Users", href: "/admin/users" },
   { title: "Companies", href: "/admin/companies" },
   { title: "Groups", href: "/admin/groups" },
+  { title: "Teachers", href: "/admin/teachers" },
   { title: "Roles", href: "/admin/roles" },
   { title: "Avatars", href: "/admin/avatars" },
   { title: "Knowledge", href: "/admin/knowledge" },
@@ -20,6 +21,7 @@ const adminNavItems = [
   { title: "Entry Tests", href: "/admin/entry-tests" },
   { title: "Landing CMS", href: "/admin/landing" },
   { title: "Tools", href: "/admin/tools" },
+  { title: "Previews", href: "/admin/previews" },
 ];
 
 export default function AdminLayout({
@@ -65,11 +67,13 @@ export default function AdminLayout({
           </div>
           <nav className="flex gap-4">
             {adminNavItems.map((item) => {
-              // For tools and entry-tests, also highlight when on sub-routes
+              // For tools, entry-tests, and previews, also highlight when on sub-routes
               const isActive = item.href === "/admin/tools"
                 ? pathname.startsWith("/admin/tools")
                 : item.href === "/admin/entry-tests"
                 ? pathname.startsWith("/admin/entry-tests")
+                : item.href === "/admin/previews"
+                ? pathname.startsWith("/admin/previews")
                 : pathname === item.href;
               return (
                 <Link
