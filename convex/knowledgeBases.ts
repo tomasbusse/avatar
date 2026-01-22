@@ -1553,3 +1553,53 @@ export const batchGenerateRlm = mutation({
     return { success: true, processed, skipped };
   },
 });
+
+/**
+ * Get any content by ID - handles both knowledgeContent and presentations
+ * Used when avatar requests content that may be from either table
+ */
+export const getAnyContentById = query({
+  args: { contentId: v.string() },
+  handler: async (ctx, args) => {
+    // Try knowledgeContent first
+    try {
+      const knowledgeContent = await ctx.db.get(args.contentId as Id<"knowledgeContent">);
+      if (knowledgeContent) {
+        return {
+          type: "knowledgeContent" as const,
+          _id: knowledgeContent._id,
+          title: knowledgeContent.title,
+          htmlSlides: knowledgeContent.htmlSlides,
+          processingStatus: knowledgeContent.processingStatus,
+        };
+      }
+    } catch {
+      // ID might not be from knowledgeContent table, try presentations
+    }
+
+    // Try presentations
+    try {
+      const presentation = await ctx.db.get(args.contentId as Id<"presentations">);
+      if (presentation) {
+        // Get fresh URLs for all slides
+        const slidesWithUrls = await Promise.all(
+          (presentation.slides || []).map(async (slide) => ({
+            ...slide,
+            url: await ctx.storage.getUrl(slide.storageId),
+          }))
+        );
+        return {
+          type: "presentation" as const,
+          _id: presentation._id,
+          title: presentation.name,
+          slides: slidesWithUrls,
+          status: presentation.status,
+        };
+      }
+    } catch {
+      // ID not found in presentations either
+    }
+
+    return null;
+  },
+});

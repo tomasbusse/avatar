@@ -451,7 +451,8 @@ function RoomContent({
 
   // Pending content ID for fetching content not in session-linked content
   // This handles when avatar knows about content from its knowledge base that isn't linked to current lesson
-  const [pendingContentId, setPendingContentId] = useState<Id<"knowledgeContent"> | null>(null);
+  // Using string type since content can be from either knowledgeContent or presentations table
+  const [pendingContentId, setPendingContentId] = useState<string | null>(null);
 
   // Session timer state
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -516,8 +517,9 @@ function RoomContent({
 
   // Fetch content directly by ID when avatar requests content not in session-linked content
   // This allows loading content from avatar's knowledge base even if not linked to current lesson
+  // Uses getAnyContentById which handles both knowledgeContent and presentations tables
   const directFetchContent = useQuery(
-    api.knowledgeBases.getContentById,
+    api.knowledgeBases.getAnyContentById,
     pendingContentId ? { contentId: pendingContentId } : "skip"
   );
 
@@ -1247,14 +1249,11 @@ function RoomContent({
             }
           } else {
             // Content not found in session-linked content or legacy content
-            // Try to fetch directly by ID (avatar may know about content from its knowledge base)
+            // Try to fetch directly by ID (avatar may know about content from its knowledge base or presentations)
             console.log("[TeachingRoom] Content not in session links, fetching directly:", requestedContentId);
-            try {
-              // Set pending content ID to trigger direct fetch via useQuery
-              setPendingContentId(requestedContentId as Id<"knowledgeContent">);
-            } catch (e) {
-              console.warn("[TeachingRoom] Invalid content ID format:", requestedContentId);
-            }
+            // Set pending content ID to trigger direct fetch via useQuery
+            // The query handles both knowledgeContent and presentations tables
+            setPendingContentId(requestedContentId);
           }
         }
 
@@ -1369,36 +1368,58 @@ function RoomContent({
   }, [knowledgeContentId, dynamicSlides?.contentId]);
 
   // Handle directly fetched content (when avatar requests content not in session-linked content)
+  // Supports both knowledgeContent (htmlSlides) and presentations (image slides)
   useEffect(() => {
     if (directFetchContent && pendingContentId) {
-      const slides = directFetchContent.htmlSlides as HtmlSlide[];
-      if (slides && slides.length > 0) {
-        console.log("[TeachingRoom] Loading directly fetched content:", directFetchContent.title);
-        setDynamicSlides({
-          slides,
-          title: directFetchContent.title,
-          contentId: directFetchContent._id,
-        });
-        setPresentationModeActive(true);
-        setCurrentSlideIndex(0);
-        setGameModeActive(false);
+      console.log("[TeachingRoom] Direct fetch result:", directFetchContent.type, directFetchContent.title);
+
+      if (directFetchContent.type === "knowledgeContent") {
+        // Handle HTML slides from knowledgeContent
+        const slides = directFetchContent.htmlSlides as HtmlSlide[];
+        if (slides && slides.length > 0) {
+          console.log("[TeachingRoom] Loading HTML slides from knowledgeContent:", directFetchContent.title);
+          setDynamicSlides({
+            slides,
+            title: directFetchContent.title,
+            contentId: directFetchContent._id,
+          });
+          setPresentationModeActive(true);
+          setCurrentSlideIndex(0);
+          setGameModeActive(false);
+
+          // Log to debug panel
+          setAgentCommands(prev => [...prev.slice(-9), {
+            type: "load_content",
+            time: new Date().toLocaleTimeString(),
+            data: `Loaded: ${directFetchContent.title}`,
+          }]);
+
+          // Send slides context to avatar after loading
+          slidesContextSentRef.current = false;
+          setTimeout(() => {
+            sendSlidesContext();
+          }, 500);
+        } else {
+          console.warn("[TeachingRoom] KnowledgeContent has no HTML slides:", pendingContentId);
+        }
+      } else if (directFetchContent.type === "presentation") {
+        // Handle image slides from presentations
+        // TODO: For now, log that we found a presentation - image slides need different handling
+        console.log("[TeachingRoom] Found presentation with image slides:", directFetchContent.title);
+        console.log("[TeachingRoom] Presentation slides count:", directFetchContent.slides?.length);
 
         // Log to debug panel
         setAgentCommands(prev => [...prev.slice(-9), {
           type: "load_content",
           time: new Date().toLocaleTimeString(),
-          data: `Loaded: ${directFetchContent.title}`,
+          data: `Found presentation: ${directFetchContent.title} (image-based)`,
         }]);
 
-        // Send slides context to avatar after loading
-        // This ensures avatar knows about the newly loaded slides
-        slidesContextSentRef.current = false;
-        setTimeout(() => {
-          sendSlidesContext();
-        }, 500);
-      } else {
-        console.warn("[TeachingRoom] Fetched content has no slides:", pendingContentId);
+        // For presentations, we need to trigger the existing presentation loading mechanism
+        // which handles image slides differently
+        // TODO: Integrate with existing presentation loading if needed
       }
+
       // Clear pending ID after processing
       setPendingContentId(null);
     }
