@@ -84,6 +84,7 @@ export default function UsersPage() {
     name: string;
   } | null>(null);
   const [bulkAssignDialogOpen, setBulkAssignDialogOpen] = useState(false);
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
   const [createUserDialogOpen, setCreateUserDialogOpen] = useState(false);
 
   // Queries
@@ -118,6 +119,7 @@ export default function UsersPage() {
   const createUserByAdmin = useMutation(api.users.createUserByAdmin);
   const updateUser = useMutation(api.users.updateUser);
   const deleteUser = useMutation(api.users.deleteUser);
+  const bulkDeleteUsers = useMutation(api.users.bulkDeleteUsers);
 
   // Filter users by search
   const filteredUsers = usersData?.users?.filter((user) => {
@@ -215,6 +217,28 @@ export default function UsersPage() {
       setBulkAssignDialogOpen(false);
     } catch (error) {
       toast.error("Failed to assign roles");
+    }
+  };
+
+  const handleBulkDelete = async (hardDelete: boolean) => {
+    try {
+      const result = await bulkDeleteUsers({
+        userIds: Array.from(selectedUsers),
+        hardDelete,
+      });
+      if (result.failCount > 0) {
+        toast.warning(
+          `${result.successCount} users ${hardDelete ? "deleted" : "deactivated"}, ${result.failCount} failed`
+        );
+      } else {
+        toast.success(
+          `${result.successCount} users ${hardDelete ? "permanently deleted" : "deactivated"}`
+        );
+      }
+      setSelectedUsers(new Set());
+      setBulkDeleteDialogOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete users");
     }
   };
 
@@ -361,6 +385,14 @@ export default function UsersPage() {
                     >
                       <Plus className="w-4 h-4 mr-1" />
                       Assign Role
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => setBulkDeleteDialogOpen(true)}
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" />
+                      Delete
                     </Button>
                     <Button
                       variant="ghost"
@@ -609,6 +641,14 @@ export default function UsersPage() {
         onOpenChange={(open) => !open && setEditingUser(null)}
         user={editingUser}
         onSubmit={(data) => handleUpdateUser({ userId: editingUser!._id, ...data })}
+      />
+
+      {/* Bulk Delete Dialog */}
+      <BulkDeleteDialog
+        open={bulkDeleteDialogOpen}
+        onOpenChange={setBulkDeleteDialogOpen}
+        count={selectedUsers.size}
+        onDelete={handleBulkDelete}
       />
     </div>
   );
@@ -1234,6 +1274,115 @@ function EditUserDialog({
             ) : (
               "Save Changes"
             )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function BulkDeleteDialog({
+  open,
+  onOpenChange,
+  count,
+  onDelete,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  count: number;
+  onDelete: (hardDelete: boolean) => Promise<void>;
+}) {
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async (hardDelete: boolean) => {
+    setIsDeleting(true);
+    try {
+      await onDelete(hardDelete);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-destructive">
+            <Trash2 className="w-5 h-5" />
+            Delete {count} User{count !== 1 ? "s" : ""}
+          </DialogTitle>
+          <DialogDescription>
+            Choose how you want to delete the selected users. This action affects {count} user{count !== 1 ? "s" : ""}.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          <div className="rounded-lg border p-4 space-y-2">
+            <h4 className="font-medium flex items-center gap-2">
+              <Ban className="w-4 h-4 text-orange-500" />
+              Deactivate (Soft Delete)
+            </h4>
+            <p className="text-sm text-muted-foreground">
+              Sets user status to &quot;banned&quot; and deactivates their role assignments.
+              User data is preserved and can be restored.
+            </p>
+            <Button
+              variant="outline"
+              className="w-full mt-2 border-orange-200 text-orange-700 hover:bg-orange-50"
+              onClick={() => handleDelete(false)}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deactivating...
+                </>
+              ) : (
+                <>
+                  <Ban className="w-4 h-4 mr-2" />
+                  Deactivate {count} User{count !== 1 ? "s" : ""}
+                </>
+              )}
+            </Button>
+          </div>
+
+          <div className="rounded-lg border border-red-200 p-4 space-y-2 bg-red-50/50">
+            <h4 className="font-medium flex items-center gap-2 text-red-700">
+              <Trash2 className="w-4 h-4" />
+              Permanent Delete
+            </h4>
+            <p className="text-sm text-red-600/80">
+              Permanently removes users and all related data including student profiles,
+              group memberships, and role assignments. This cannot be undone.
+            </p>
+            <Button
+              variant="destructive"
+              className="w-full mt-2"
+              onClick={() => handleDelete(true)}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Permanently Delete {count} User{count !== 1 ? "s" : ""}
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
+            disabled={isDeleting}
+          >
+            Cancel
           </Button>
         </DialogFooter>
       </DialogContent>

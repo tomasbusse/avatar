@@ -1058,3 +1058,107 @@ export const deleteUser = mutation({
     return { success: true, hardDeleted: args.hardDelete ?? false };
   },
 });
+
+export const bulkDeleteUsers = mutation({
+  args: {
+    userIds: v.array(v.id("users")),
+    hardDelete: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const currentUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!currentUser || currentUser.role !== "admin") {
+      throw new Error("Only admins can delete users");
+    }
+
+    // Prevent deleting yourself
+    if (args.userIds.includes(currentUser._id)) {
+      throw new Error("Cannot delete yourself");
+    }
+
+    const results: { userId: Id<"users">; success: boolean; error?: string }[] = [];
+
+    for (const userId of args.userIds) {
+      try {
+        const user = await ctx.db.get(userId);
+        if (!user) {
+          results.push({ userId, success: false, error: "User not found" });
+          continue;
+        }
+
+        if (args.hardDelete) {
+          // Hard delete: Remove user and all related data
+          // Delete role assignments
+          const roleAssignments = await ctx.db
+            .query("userRoleAssignments")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .collect();
+          for (const assignment of roleAssignments) {
+            await ctx.db.delete(assignment._id);
+          }
+
+          // Delete student profile
+          const student = await ctx.db
+            .query("students")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+          if (student) {
+            // Remove from groups
+            const groupMemberships = await ctx.db
+              .query("groupMembers")
+              .withIndex("by_student", (q) => q.eq("studentId", student._id))
+              .collect();
+            for (const membership of groupMemberships) {
+              await ctx.db.delete(membership._id);
+            }
+            await ctx.db.delete(student._id);
+          }
+
+          // Delete user
+          await ctx.db.delete(userId);
+        } else {
+          // Soft delete: Set status to banned
+          await ctx.db.patch(userId, {
+            status: "banned",
+            updatedAt: Date.now(),
+          });
+
+          // Deactivate role assignments
+          const roleAssignments = await ctx.db
+            .query("userRoleAssignments")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .filter((q) => q.eq(q.field("isActive"), true))
+            .collect();
+          for (const assignment of roleAssignments) {
+            await ctx.db.patch(assignment._id, { isActive: false });
+          }
+        }
+
+        results.push({ userId, success: true });
+      } catch (error) {
+        results.push({
+          userId,
+          success: false,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+    }
+
+    const successCount = results.filter((r) => r.success).length;
+    const failCount = results.filter((r) => !r.success).length;
+
+    return {
+      success: failCount === 0,
+      successCount,
+      failCount,
+      results,
+      hardDeleted: args.hardDelete ?? false,
+    };
+  },
+});
