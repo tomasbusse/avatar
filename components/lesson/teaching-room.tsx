@@ -406,7 +406,16 @@ interface WhiteboardReadyMessage {
   timestamp: number;
 }
 
-type DataChannelMessage = SlideCommand | PresentationCommand | LoadPresentationCommand | SlideChangedNotification | PresentationReadyNotification | SlideScreenshotMessage | SlidesContextMessage | SlideUrlMessage | GameLoadedMessage | GameStateMessage | GameScreenshotMessage | GameCompleteMessage | ItemCheckedMessage | GameCommandMessage | LoadGameCommand | LoadSlidesCommand | LoadContentCommand | ShowMaterialsPromptCommand | WhiteboardReadyMessage;
+// Content loaded confirmation (sent after avatar-requested content is loaded)
+interface ContentLoadedMessage {
+  type: "content_loaded";
+  contentId: string;
+  title: string;
+  slideCount: number;
+  contentType: "presentation" | "knowledgeContent";
+}
+
+type DataChannelMessage = SlideCommand | PresentationCommand | LoadPresentationCommand | SlideChangedNotification | PresentationReadyNotification | SlideScreenshotMessage | SlidesContextMessage | SlideUrlMessage | GameLoadedMessage | GameStateMessage | GameScreenshotMessage | GameCompleteMessage | ItemCheckedMessage | GameCommandMessage | LoadGameCommand | LoadSlidesCommand | LoadContentCommand | ShowMaterialsPromptCommand | WhiteboardReadyMessage | ContentLoadedMessage;
 
 function RoomContent({
   sessionId,
