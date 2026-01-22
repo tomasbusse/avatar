@@ -1441,12 +1441,21 @@ Example: "Okay, let me see... Ah, so here we have another practice exercise! I c
                     await asyncio.sleep(0.5)
 
                     # Execute document commands FIRST (load content before navigating)
+                    loaded_content = False
                     for cmd in pending_doc_commands:
                         try:
                             await self._send_document_command(cmd.action, cmd.content_id)
                             logger.info(f"📄 [DOC] Executed queued command: {cmd.action}")
+                            if cmd.action == "load_content":
+                                loaded_content = True
                         except Exception as e:
                             logger.error(f"[DOC] Failed to send command: {e}")
+
+                    # Auto-close materials panel after loading content
+                    if loaded_content:
+                        await asyncio.sleep(0.3)  # Brief delay for content to load
+                        await self._send_document_command("close_materials")
+                        logger.info(f"📄 [DOC] Auto-closed materials panel after loading content")
 
                     # Brief delay after loading content before navigation
                     if pending_doc_commands and (pending_slide_commands or pending_game_commands):
@@ -1524,6 +1533,9 @@ Example: "Okay, let me see... Ah, so here we have another practice exercise! I c
             elif cmd_type == "show_materials":
                 # Send command to prompt materials panel
                 msg = {"type": "show_materials_prompt"}
+            elif cmd_type == "close_materials":
+                # Send command to close materials panel
+                msg = {"type": "close_materials"}
             else:
                 return
 

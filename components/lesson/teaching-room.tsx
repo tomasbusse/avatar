@@ -398,6 +398,11 @@ interface ShowMaterialsPromptCommand {
   type: "show_materials_prompt";
 }
 
+// Agent command to close materials panel
+interface CloseMaterialsCommand {
+  type: "close_materials";
+}
+
 // Whiteboard ready notification (sent when room connects)
 interface WhiteboardReadyMessage {
   type: "whiteboard_ready";
@@ -415,7 +420,7 @@ interface ContentLoadedMessage {
   contentType: "presentation" | "knowledgeContent";
 }
 
-type DataChannelMessage = SlideCommand | PresentationCommand | LoadPresentationCommand | SlideChangedNotification | PresentationReadyNotification | SlideScreenshotMessage | SlidesContextMessage | SlideUrlMessage | GameLoadedMessage | GameStateMessage | GameScreenshotMessage | GameCompleteMessage | ItemCheckedMessage | GameCommandMessage | LoadGameCommand | LoadSlidesCommand | LoadContentCommand | ShowMaterialsPromptCommand | WhiteboardReadyMessage | ContentLoadedMessage;
+type DataChannelMessage = SlideCommand | PresentationCommand | LoadPresentationCommand | SlideChangedNotification | PresentationReadyNotification | SlideScreenshotMessage | SlidesContextMessage | SlideUrlMessage | GameLoadedMessage | GameStateMessage | GameScreenshotMessage | GameCompleteMessage | ItemCheckedMessage | GameCommandMessage | LoadGameCommand | LoadSlidesCommand | LoadContentCommand | ShowMaterialsPromptCommand | CloseMaterialsCommand | WhiteboardReadyMessage | ContentLoadedMessage;
 
 function RoomContent({
   sessionId,
@@ -471,6 +476,10 @@ function RoomContent({
   // This handles when avatar knows about content from its knowledge base that isn't linked to current lesson
   // Using string type since content can be from either knowledgeContent or presentations table
   const [pendingContentId, setPendingContentId] = useState<string | null>(null);
+
+  // Pending game ID for fetching games not in session-linked games
+  // This handles when avatar requests a game that isn't linked to the current lesson
+  const [pendingGameId, setPendingGameId] = useState<string | null>(null);
 
   // Session timer state
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -541,6 +550,13 @@ function RoomContent({
     pendingContentId ? { contentId: pendingContentId } : "skip"
   );
 
+  // Fetch game directly by ID when avatar requests a game not in session-linked games
+  // This allows loading any game from the database even if not linked to current lesson
+  const directFetchGame = useQuery(
+    api.wordGames.getGame,
+    pendingGameId ? { gameId: pendingGameId as Id<"wordGames"> } : "skip"
+  );
+
   // Extract HTML slides - prioritize dynamically loaded slides from agent
   const knowledgeContentSlides: HtmlSlide[] | undefined = knowledgeContent?.htmlSlides as HtmlSlide[] | undefined;
   const htmlSlides: HtmlSlide[] | undefined = dynamicSlides?.slides || knowledgeContentSlides;
@@ -577,8 +593,12 @@ function RoomContent({
       console.log("[TeachingRoom] First slide URL:", presentation.slides?.[0]?.url);
     }
 
-    const hasPresentation = presentation?.status === "ready" && (presentation?.slides?.length ?? 0) > 0;
-    console.log("[TeachingRoom] hasPresentation (will render slides):", hasPresentation);
+    const hasImagePresentation = presentation?.status === "ready" && (presentation?.slides?.length ?? 0) > 0;
+    const hasHtmlSlidesDebug = (htmlSlides?.length ?? 0) > 0;
+    const willRenderSlides = hasHtmlSlidesDebug || hasImagePresentation;
+    console.log("[TeachingRoom] hasImagePresentation:", hasImagePresentation);
+    console.log("[TeachingRoom] hasHtmlSlides:", hasHtmlSlidesDebug);
+    console.log("[TeachingRoom] hasPresentation (will render slides):", willRenderSlides);
     console.log("[TeachingRoom] Linked game:", linkedGame?._id, linkedGame?.title);
     console.log("[TeachingRoom] ===== END DEBUG =====");
   }, [session, presentationId, presentation, roomName, htmlSlides, renderMode, linkedGame]);
@@ -626,6 +646,11 @@ function RoomContent({
 
   // Publish data channel message to avatar
   const publishDataMessage = useCallback(async (message: DataChannelMessage) => {
+    // Check if room is still connected before publishing
+    if (room.state !== "connected") {
+      console.warn("[TeachingRoom] Skipping data publish - room not connected:", room.state);
+      return;
+    }
     try {
       const encoder = new TextEncoder();
       const data = encoder.encode(JSON.stringify(message));
@@ -633,7 +658,7 @@ function RoomContent({
     } catch (error) {
       console.error("Failed to publish data message:", error);
     }
-  }, [localParticipant]);
+  }, [localParticipant, room.state]);
 
   // Capture and send image slide screenshot (for non-HTML presentations)
   const captureImageSlide = useCallback(async (slideIndex: number) => {
@@ -726,6 +751,10 @@ function RoomContent({
 
   // Handle screenshot capture from SlideViewer (for HTML slides / avatar vision)
   const handleSlideScreenshot = useCallback(async (imageBase64: string, slideIndex: number) => {
+    // Skip if room not connected (prevents work after disconnect)
+    if (room.state !== "connected") {
+      return;
+    }
     if (!useHtmlSlides) {
       // For image slides, use captureImageSlide instead
       return;
@@ -744,7 +773,7 @@ function RoomContent({
       slideType,
       timestamp: Date.now(),
     });
-  }, [useHtmlSlides, htmlSlides, publishDataMessage]);
+  }, [room.state, useHtmlSlides, htmlSlides, publishDataMessage]);
 
   // ============================================
   // GAME MODE HANDLERS
@@ -752,6 +781,8 @@ function RoomContent({
 
   // Handle game screenshot capture for avatar vision
   const handleGameScreenshot = useCallback(async (imageBase64: string, itemIndex: number) => {
+    // Skip if room not connected
+    if (room.state !== "connected") return;
     if (!activeGame) return;
 
     console.log(`[TeachingRoom] Captured game screenshot for item ${itemIndex}, size: ${imageBase64.length} chars`);
@@ -762,7 +793,7 @@ function RoomContent({
       itemIndex,
       timestamp: Date.now(),
     });
-  }, [activeGame, publishDataMessage]);
+  }, [room.state, activeGame, publishDataMessage]);
 
   // Handle game item index change
   const handleGameIndexChange = useCallback(async (newIndex: number) => {
@@ -1170,7 +1201,7 @@ function RoomContent({
             data: `Game: ${message.title || requestedGameId}`,
           }]);
 
-          // Try to get game from: 1) linked game, 2) broadcast gameData
+          // Try to get game from: 1) linked game, 2) broadcast gameData, 3) availableGames
           let gameToActivate: WordGame | null = null;
 
           if (linkedGame && linkedGame._id === requestedGameId) {
@@ -1180,6 +1211,13 @@ function RoomContent({
             // Use game data from broadcast (multi-participant sync)
             console.log("[TeachingRoom] Activating game from broadcast:", message.gameData.title);
             gameToActivate = message.gameData;
+          } else if (availableGames) {
+            // Search in availableGames fetched from session
+            const foundGame = availableGames.find((g) => g._id === requestedGameId);
+            if (foundGame) {
+              console.log("[TeachingRoom] Activating game from availableGames:", foundGame.title);
+              gameToActivate = foundGame as WordGame;
+            }
           }
 
           if (gameToActivate) {
@@ -1188,13 +1226,15 @@ function RoomContent({
             setCurrentGameItemIndex(0);
             setGameResults({ correctAnswers: 0, incorrectAnswers: 0 });
             gameActivatedRef.current = true;
+            setShowMaterialsPanel(false); // Close materials panel
 
-            // Notify avatar that game is loaded (only if from linkedGame)
-            if (linkedGame && linkedGame._id === requestedGameId) {
-              notifyGameLoaded(gameToActivate);
-            }
+            // Notify avatar that game is loaded
+            notifyGameLoaded(gameToActivate);
           } else {
-            console.warn("[TeachingRoom] Game not available and no broadcast data:", requestedGameId);
+            // Game not found in session-linked games, try to fetch directly by ID
+            console.log("[TeachingRoom] Game not in session links, fetching directly:", requestedGameId);
+            // Set pending game ID to trigger direct fetch via useQuery
+            setPendingGameId(requestedGameId);
           }
         }
 
@@ -1226,6 +1266,9 @@ function RoomContent({
           // Reset the slides context sent flag so we re-send context with new slides
           slidesContextSentRef.current = false;
 
+          // Close materials panel since content is now loaded
+          setShowMaterialsPanel(false);
+
           console.log(`[TeachingRoom] Dynamic slides loaded and presentation mode activated`);
         }
 
@@ -1254,6 +1297,7 @@ function RoomContent({
             setPresentationModeActive(true);
             setCurrentSlideIndex(0);
             setGameModeActive(false);
+            setShowMaterialsPanel(false); // Close materials panel
           } else if (contentToLoad) {
             // Load content's slides
             const slides = contentToLoad.htmlSlides as HtmlSlide[];
@@ -1266,6 +1310,7 @@ function RoomContent({
               setPresentationModeActive(true);
               setCurrentSlideIndex(0);
               setGameModeActive(false);
+              setShowMaterialsPanel(false); // Close materials panel
               console.log("[TeachingRoom] Loaded content slides:", contentToLoad.title);
             }
           } else {
@@ -1290,6 +1335,19 @@ function RoomContent({
             data: "Materials panel opened",
           }]);
         }
+
+        // Handle avatar command to close materials panel
+        if (message.type === "close_materials") {
+          console.log("[TeachingRoom] Avatar closed materials panel");
+          setShowMaterialsPanel(false);
+
+          // Log to debug panel
+          setAgentCommands(prev => [...prev.slice(-9), {
+            type: "close_materials",
+            time: new Date().toLocaleTimeString(),
+            data: "Materials panel closed",
+          }]);
+        }
       } catch (error) {
         console.error("Error parsing data channel message:", error);
       }
@@ -1302,7 +1360,7 @@ function RoomContent({
       console.log("[TeachingRoom] Unregistering DataReceived listener");
       room.off(RoomEvent.DataReceived, handleDataReceived);
     };
-  }, [room, startPresentationMode, linkedGame, notifyGameLoaded, availableContent, knowledgeContent]);
+  }, [room, startPresentationMode, linkedGame, notifyGameLoaded, availableContent, knowledgeContent, availableGames]);
 
   // Sync presentation mode state from session
   useEffect(() => {
@@ -1415,6 +1473,9 @@ function RoomContent({
             data: `Loaded: ${directFetchContent.title}`,
           }]);
 
+          // Close materials panel since content is loaded
+          setShowMaterialsPanel(false);
+
           // Send slides context to avatar after loading
           slidesContextSentRef.current = false;
           setTimeout(() => {
@@ -1450,6 +1511,9 @@ function RoomContent({
             data: `Loaded: ${directFetchContent.title} (${slides.length} slides)`,
           }]);
 
+          // Close materials panel since content is loaded
+          setShowMaterialsPanel(false);
+
           // Send confirmation to avatar
           publishDataMessage({
             type: "content_loaded",
@@ -1467,6 +1531,34 @@ function RoomContent({
       setPendingContentId(null);
     }
   }, [directFetchContent, pendingContentId, sendSlidesContext]);
+
+  // Handle direct game fetch results (when avatar requests game not in session-linked games)
+  useEffect(() => {
+    if (directFetchGame && pendingGameId) {
+      console.log("[TeachingRoom] Direct fetch game result:", directFetchGame.title);
+
+      // Activate the game
+      setActiveGame(directFetchGame as WordGame);
+      setGameModeActive(true);
+      setCurrentGameItemIndex(0);
+      setGameResults({ correctAnswers: 0, incorrectAnswers: 0 });
+      gameActivatedRef.current = true;
+      setShowMaterialsPanel(false); // Close materials panel
+
+      // Log to debug panel
+      setAgentCommands(prev => [...prev.slice(-9), {
+        type: "load_game",
+        time: new Date().toLocaleTimeString(),
+        data: `Loaded: ${directFetchGame.title} (direct fetch)`,
+      }]);
+
+      // Notify avatar that game is loaded
+      notifyGameLoaded(directFetchGame as WordGame);
+
+      // Clear pending ID after processing
+      setPendingGameId(null);
+    }
+  }, [directFetchGame, pendingGameId, notifyGameLoaded]);
 
   const toggleMute = useCallback(async () => {
     if (localParticipant) {
