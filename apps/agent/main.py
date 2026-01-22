@@ -526,6 +526,11 @@ class BeethovenTeacher(Agent):
         self._game_state = None  # Progress (currentItem, correctAnswers, etc.)
         self._game_screenshot = None  # Latest game screenshot for vision
 
+        # Whiteboard/slides state tracking
+        self._whiteboard_ready = False
+        self._whiteboard_state = None  # hasSlides, hasGame, timestamp
+        self._slides_context = None  # totalSlides, currentIndex, slides array
+
         logger.info(f"[BEETHOVENTEACHER] Initialized with model={llm_model}, vision={self._is_vision_model}")
         logger.info(f"[BEETHOVENTEACHER] RLM fast lookup: {bool(rlm_provider)}, loaded: {rlm_provider.is_loaded() if rlm_provider else False}")
         logger.info(f"[BEETHOVENTEACHER] RAG enabled: {bool(rag_retriever)}, KBs: {len(self._knowledge_base_ids)}")
@@ -821,6 +826,34 @@ Example: "Okay, let me see... Ah, so here we have another practice exercise! I c
                 self._game_info = None
                 self._game_state = None
                 self._game_screenshot = None
+
+            elif msg_type == "whiteboard_ready":
+                # Frontend whiteboard is ready for content
+                has_slides = payload.get("hasSlides", False)
+                has_game = payload.get("hasGame", False)
+                logger.info(f"📺 [WHITEBOARD] Ready! hasSlides={has_slides}, hasGame={has_game}")
+                self._whiteboard_ready = True
+                self._whiteboard_state = {
+                    "hasSlides": has_slides,
+                    "hasGame": has_game,
+                    "timestamp": payload.get("timestamp"),
+                }
+
+            elif msg_type == "slides_context":
+                # Frontend sent slides metadata for teaching
+                total_slides = payload.get("totalSlides", 0)
+                current_index = payload.get("currentIndex", 0)
+                slides = payload.get("slides", [])
+                logger.info(f"📊 [SLIDES] Context received: {total_slides} slides, current={current_index}")
+                self._slides_context = {
+                    "totalSlides": total_slides,
+                    "currentIndex": current_index,
+                    "slides": slides,
+                }
+                # Log teaching prompts for debugging
+                for slide in slides[:3]:  # Log first 3 slides
+                    prompt = slide.get("teachingPrompt", "")[:50]
+                    logger.debug(f"📊 [SLIDES] Slide {slide.get('index')}: {prompt}...")
 
         except Exception as e:
             logger.error(f"[DATA] Error processing data packet: {e}")

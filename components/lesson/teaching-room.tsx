@@ -398,7 +398,15 @@ interface ShowMaterialsPromptCommand {
   type: "show_materials_prompt";
 }
 
-type DataChannelMessage = SlideCommand | PresentationCommand | LoadPresentationCommand | SlideChangedNotification | PresentationReadyNotification | SlideScreenshotMessage | SlidesContextMessage | SlideUrlMessage | GameLoadedMessage | GameStateMessage | GameScreenshotMessage | GameCompleteMessage | ItemCheckedMessage | GameCommandMessage | LoadGameCommand | LoadSlidesCommand | LoadContentCommand | ShowMaterialsPromptCommand;
+// Whiteboard ready notification (sent when room connects)
+interface WhiteboardReadyMessage {
+  type: "whiteboard_ready";
+  hasSlides: boolean;
+  hasGame: boolean;
+  timestamp: number;
+}
+
+type DataChannelMessage = SlideCommand | PresentationCommand | LoadPresentationCommand | SlideChangedNotification | PresentationReadyNotification | SlideScreenshotMessage | SlidesContextMessage | SlideUrlMessage | GameLoadedMessage | GameStateMessage | GameScreenshotMessage | GameCompleteMessage | ItemCheckedMessage | GameCommandMessage | LoadGameCommand | LoadSlidesCommand | LoadContentCommand | ShowMaterialsPromptCommand | WhiteboardReadyMessage;
 
 function RoomContent({
   sessionId,
@@ -440,6 +448,10 @@ function RoomContent({
     title: string;
     contentId: string;
   } | null>(null);
+
+  // Pending content ID for fetching content not in session-linked content
+  // This handles when avatar knows about content from its knowledge base that isn't linked to current lesson
+  const [pendingContentId, setPendingContentId] = useState<Id<"knowledgeContent"> | null>(null);
 
   // Session timer state
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -500,6 +512,13 @@ function RoomContent({
   const availableContent = useQuery(
     api.knowledgeBases.getContentForSession,
     session?._id ? { sessionId: session._id } : "skip"
+  );
+
+  // Fetch content directly by ID when avatar requests content not in session-linked content
+  // This allows loading content from avatar's knowledge base even if not linked to current lesson
+  const directFetchContent = useQuery(
+    api.knowledgeBases.getContentById,
+    pendingContentId ? { contentId: pendingContentId } : "skip"
   );
 
   // Extract HTML slides - prioritize dynamically loaded slides from agent
@@ -1227,7 +1246,15 @@ function RoomContent({
               console.log("[TeachingRoom] Loaded content slides:", contentToLoad.title);
             }
           } else {
-            console.warn("[TeachingRoom] Content not found:", requestedContentId);
+            // Content not found in session-linked content or legacy content
+            // Try to fetch directly by ID (avatar may know about content from its knowledge base)
+            console.log("[TeachingRoom] Content not in session links, fetching directly:", requestedContentId);
+            try {
+              // Set pending content ID to trigger direct fetch via useQuery
+              setPendingContentId(requestedContentId as Id<"knowledgeContent">);
+            } catch (e) {
+              console.warn("[TeachingRoom] Invalid content ID format:", requestedContentId);
+            }
           }
         }
 
@@ -1318,10 +1345,64 @@ function RoomContent({
     }
   }, [useHtmlSlides, room.state, sendSlidesContext]);
 
+  // Send whiteboard ready message when room connects (informs avatar the screen is ready for content)
+  const whiteboardReadySentRef = useRef(false);
+  useEffect(() => {
+    if (room.state === "connected" && !whiteboardReadySentRef.current) {
+      const timer = setTimeout(async () => {
+        console.log("[TeachingRoom] Sending whiteboard_ready to avatar");
+        await publishDataMessage({
+          type: "whiteboard_ready",
+          hasSlides: useHtmlSlides || false,
+          hasGame: gameModeActive || false,
+          timestamp: Date.now(),
+        });
+        whiteboardReadySentRef.current = true;
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [room.state, publishDataMessage, useHtmlSlides, gameModeActive]);
+
   // Reset slides context sent flag when slides change (either from knowledge content or dynamically loaded)
   useEffect(() => {
     slidesContextSentRef.current = false;
   }, [knowledgeContentId, dynamicSlides?.contentId]);
+
+  // Handle directly fetched content (when avatar requests content not in session-linked content)
+  useEffect(() => {
+    if (directFetchContent && pendingContentId) {
+      const slides = directFetchContent.htmlSlides as HtmlSlide[];
+      if (slides && slides.length > 0) {
+        console.log("[TeachingRoom] Loading directly fetched content:", directFetchContent.title);
+        setDynamicSlides({
+          slides,
+          title: directFetchContent.title,
+          contentId: directFetchContent._id,
+        });
+        setPresentationModeActive(true);
+        setCurrentSlideIndex(0);
+        setGameModeActive(false);
+
+        // Log to debug panel
+        setAgentCommands(prev => [...prev.slice(-9), {
+          type: "load_content",
+          time: new Date().toLocaleTimeString(),
+          data: `Loaded: ${directFetchContent.title}`,
+        }]);
+
+        // Send slides context to avatar after loading
+        // This ensures avatar knows about the newly loaded slides
+        slidesContextSentRef.current = false;
+        setTimeout(() => {
+          sendSlidesContext();
+        }, 500);
+      } else {
+        console.warn("[TeachingRoom] Fetched content has no slides:", pendingContentId);
+      }
+      // Clear pending ID after processing
+      setPendingContentId(null);
+    }
+  }, [directFetchContent, pendingContentId, sendSlidesContext]);
 
   const toggleMute = useCallback(async () => {
     if (localParticipant) {
