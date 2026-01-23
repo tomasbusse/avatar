@@ -84,7 +84,7 @@ export default async function BlogPage({ params }: PageProps) {
       <PopularGamesSection className="bg-white" />
 
       {/* Blog Grid with Category Filter */}
-      <section className="py-16 bg-sls-cream">
+      <section id="articles-section" className="py-16 bg-sls-cream">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <CategoryFilterTabs
             categories={categories}

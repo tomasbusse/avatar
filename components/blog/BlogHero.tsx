@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowRight, MessageCircle } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ContactDialog } from "./ContactDialog";
 import { cn } from "@/lib/utils";
 
 interface BlogHeroProps {
@@ -64,27 +64,20 @@ export function BlogHero({
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
               <Button
-                asChild
                 size="lg"
                 className="bg-sls-orange hover:bg-sls-orange/90 text-white font-semibold px-8 py-6 text-base rounded-lg shadow-lg shadow-sls-orange/25 transition-all hover:shadow-xl hover:shadow-sls-orange/30 hover:-translate-y-0.5"
+                onClick={() => {
+                  const articlesSection = document.getElementById("articles-section");
+                  if (articlesSection) {
+                    articlesSection.scrollIntoView({ behavior: "smooth" });
+                  }
+                }}
               >
-                <Link href="/blog">
-                  Browse Articles
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
+                Browse Articles
+                <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
 
-              <Button
-                asChild
-                variant="outline"
-                size="lg"
-                className="border-2 border-white/30 bg-white/5 backdrop-blur-sm text-white hover:bg-white/10 hover:border-white/50 font-semibold px-8 py-6 text-base rounded-lg transition-all hover:-translate-y-0.5"
-              >
-                <Link href="/contact">
-                  <MessageCircle className="mr-2 h-5 w-5" />
-                  Free Consultation
-                </Link>
-              </Button>
+              <ContactDialog triggerText="Free Consultation" />
             </div>
 
             {/* Trust Indicators */}
