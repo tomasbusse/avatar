@@ -43,6 +43,13 @@ import {
   Send,
   Inbox,
   RefreshCw,
+  FolderOpen,
+  BookOpen,
+  Briefcase,
+  Gamepad2,
+  Languages,
+  Lightbulb,
+  type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { BlockEditor } from "@/components/admin/blog/BlockEditor";
@@ -203,7 +210,7 @@ export default function LandingAdminPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6 mb-8">
+        <TabsList className="grid w-full grid-cols-7 mb-8">
           <TabsTrigger value="pages" className="flex items-center gap-2">
             <Layout className="w-4 h-4" />
             Pages
@@ -219,6 +226,10 @@ export default function LandingAdminPage() {
           <TabsTrigger value="blog" className="flex items-center gap-2">
             <FileText className="w-4 h-4" />
             Blog
+          </TabsTrigger>
+          <TabsTrigger value="categories" className="flex items-center gap-2">
+            <FolderOpen className="w-4 h-4" />
+            Categories
           </TabsTrigger>
           <TabsTrigger value="email" className="flex items-center gap-2">
             <Mail className="w-4 h-4" />
@@ -241,6 +252,9 @@ export default function LandingAdminPage() {
         </TabsContent>
         <TabsContent value="blog">
           <BlogTab />
+        </TabsContent>
+        <TabsContent value="categories">
+          <CategoriesTab />
         </TabsContent>
         <TabsContent value="email">
           <EmailTab />
@@ -2222,6 +2236,363 @@ function TestimonialsTab() {
   );
 }
 
+// ============ Categories Tab ============
+
+// Icon mapping for category icons
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  BookOpen: BookOpen,
+  Briefcase: Briefcase,
+  Gamepad2: Gamepad2,
+  Languages: Languages,
+  Lightbulb: Lightbulb,
+  FileText: FileText,
+  MessageSquareQuote: MessageSquareQuote,
+  HelpCircle: HelpCircle,
+  Globe: Globe,
+  Sparkles: Sparkles,
+};
+
+const CATEGORY_COLORS = [
+  { value: "sls-teal", label: "SLS Teal", hex: "#4A6D5B" },
+  { value: "sls-olive", label: "SLS Olive", hex: "#6B7B5B" },
+  { value: "sls-orange", label: "SLS Orange", hex: "#E07A3D" },
+  { value: "sls-chartreuse", label: "SLS Chartreuse", hex: "#8DC04C" },
+  { value: "sls-beige", label: "SLS Beige", hex: "#D5C4A1" },
+  { value: "gray", label: "Gray", hex: "#6B7280" },
+];
+
+function CategoriesTab() {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
+
+  const categories = useQuery(api.blogCategories.list);
+  const posts = useQuery(api.landing.getBlogPosts, { locale: "en" });
+  const createCategory = useMutation(api.blogCategories.create);
+  const updateCategory = useMutation(api.blogCategories.update);
+  const deleteCategory = useMutation(api.blogCategories.remove);
+
+  const [formData, setFormData] = useState({
+    slug: "",
+    nameEn: "",
+    nameDe: "",
+    descriptionEn: "",
+    descriptionDe: "",
+    icon: "BookOpen",
+    color: "sls-teal",
+    order: 0,
+  });
+
+  const generateSlug = (name: string) => {
+    return name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
+  };
+
+  const handleCreate = async () => {
+    try {
+      await createCategory({
+        slug: formData.slug || generateSlug(formData.nameEn),
+        name: { en: formData.nameEn, de: formData.nameDe },
+        description: { en: formData.descriptionEn, de: formData.descriptionDe },
+        icon: formData.icon,
+        color: formData.color,
+        order: formData.order,
+      });
+      resetForm();
+      setIsAdding(false);
+      toast.success("Category created");
+    } catch (error) {
+      toast.error("Failed to create category");
+    }
+  };
+
+  const handleUpdate = async (id: Id<"blogCategories">) => {
+    try {
+      await updateCategory({
+        id,
+        slug: formData.slug,
+        name: { en: formData.nameEn, de: formData.nameDe },
+        description: { en: formData.descriptionEn, de: formData.descriptionDe },
+        icon: formData.icon,
+        color: formData.color,
+        order: formData.order,
+      });
+      setEditingId(null);
+      toast.success("Category updated");
+    } catch (error) {
+      toast.error("Failed to update category");
+    }
+  };
+
+  const handleDelete = async (id: Id<"blogCategories">) => {
+    if (!confirm("Are you sure you want to delete this category?")) return;
+
+    try {
+      await deleteCategory({ id });
+      toast.success("Category deleted");
+    } catch (error) {
+      toast.error("Failed to delete category");
+    }
+  };
+
+  const startEdit = (category: Doc<"blogCategories">) => {
+    setEditingId(category._id);
+    setFormData({
+      slug: category.slug,
+      nameEn: category.name.en,
+      nameDe: category.name.de,
+      descriptionEn: category.description.en,
+      descriptionDe: category.description.de,
+      icon: category.icon,
+      color: category.color,
+      order: category.order,
+    });
+  };
+
+  const resetForm = () => {
+    setFormData({
+      slug: "",
+      nameEn: "",
+      nameDe: "",
+      descriptionEn: "",
+      descriptionDe: "",
+      icon: "BookOpen",
+      color: "sls-teal",
+      order: categories?.length || 0,
+    });
+  };
+
+  const getPostCount = (categorySlug: string) => {
+    if (!posts) return 0;
+    return posts.filter((p) => p.category === categorySlug || p.category === formData.nameEn).length;
+  };
+
+  const IconComponent = (iconName: string) => {
+    const Icon = CATEGORY_ICONS[iconName] || BookOpen;
+    return <Icon className="w-5 h-5" />;
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold">Blog Categories</h2>
+          <p className="text-muted-foreground text-sm">
+            Manage categories for organizing blog posts
+          </p>
+        </div>
+        <Button onClick={() => { resetForm(); setIsAdding(true); }} disabled={isAdding}>
+          <Plus className="w-4 h-4 mr-2" />
+          New Category
+        </Button>
+      </div>
+
+      {/* Add/Edit Form */}
+      {(isAdding || editingId) && (
+        <Card className="border-primary">
+          <CardHeader>
+            <CardTitle className="text-lg">
+              {editingId ? "Edit Category" : "New Category"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Name (English) *</Label>
+                <Input
+                  value={formData.nameEn}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    nameEn: e.target.value,
+                    slug: formData.slug || generateSlug(e.target.value),
+                  })}
+                  placeholder="Grammar"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Name (German) *</Label>
+                <Input
+                  value={formData.nameDe}
+                  onChange={(e) => setFormData({ ...formData, nameDe: e.target.value })}
+                  placeholder="Grammatik"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Description (English)</Label>
+                <Textarea
+                  value={formData.descriptionEn}
+                  onChange={(e) => setFormData({ ...formData, descriptionEn: e.target.value })}
+                  placeholder="Learn English grammar rules..."
+                  rows={2}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Description (German)</Label>
+                <Textarea
+                  value={formData.descriptionDe}
+                  onChange={(e) => setFormData({ ...formData, descriptionDe: e.target.value })}
+                  placeholder="Englische Grammatikregeln lernen..."
+                  rows={2}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Slug</Label>
+                <Input
+                  value={formData.slug}
+                  onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                  placeholder="grammar"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Icon</Label>
+                <Select
+                  value={formData.icon}
+                  onValueChange={(v) => setFormData({ ...formData, icon: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.keys(CATEGORY_ICONS).map((iconName) => {
+                      const Icon = CATEGORY_ICONS[iconName];
+                      return (
+                        <SelectItem key={iconName} value={iconName}>
+                          <span className="flex items-center gap-2">
+                            <Icon className="w-4 h-4" />
+                            {iconName}
+                          </span>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Color</Label>
+                <Select
+                  value={formData.color}
+                  onValueChange={(v) => setFormData({ ...formData, color: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORY_COLORS.map((color) => (
+                      <SelectItem key={color.value} value={color.value}>
+                        <span className="flex items-center gap-2">
+                          <span
+                            className="w-4 h-4 rounded-full"
+                            style={{ backgroundColor: color.hex }}
+                          />
+                          {color.label}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Order</Label>
+              <Input
+                type="number"
+                value={formData.order}
+                onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value) || 0 })}
+                className="w-24"
+              />
+              <p className="text-xs text-muted-foreground">Lower numbers appear first</p>
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                onClick={() => editingId ? handleUpdate(editingId as Id<"blogCategories">) : handleCreate()}
+                disabled={!formData.nameEn || !formData.nameDe}
+              >
+                <Save className="w-4 h-4 mr-2" />
+                {editingId ? "Update" : "Create"} Category
+              </Button>
+              <Button variant="outline" onClick={() => { setIsAdding(false); setEditingId(null); }}>
+                <X className="w-4 h-4 mr-2" />
+                Cancel
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Categories List */}
+      <div className="grid gap-4">
+        {categories?.map((category) => {
+          const Icon = CATEGORY_ICONS[category.icon] || BookOpen;
+          const colorInfo = CATEGORY_COLORS.find((c) => c.value === category.color);
+          const postCount = getPostCount(category.slug);
+
+          return (
+            <Card key={category._id} className="hover:shadow-md transition-shadow">
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div
+                      className="w-12 h-12 rounded-lg flex items-center justify-center"
+                      style={{ backgroundColor: colorInfo?.hex || "#6B7280" }}
+                    >
+                      <Icon className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold">{category.name.en}</h3>
+                        <Badge variant="outline" className="text-xs">
+                          {category.slug}
+                        </Badge>
+                        <Badge variant="secondary" className="text-xs">
+                          {postCount} posts
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {category.name.de} • {category.description.en || "No description"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Order: {category.order}</span>
+                    <Button variant="ghost" size="icon" onClick={() => startEdit(category)}>
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDelete(category._id)}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+
+        {categories?.length === 0 && !isAdding && (
+          <Card>
+            <CardContent className="py-12 text-center text-muted-foreground">
+              No categories yet. Click &quot;New Category&quot; to create one.
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ============ Blog Tab ============
 function BlogTab() {
   const [locale, setLocale] = useState<Locale>("en");
@@ -2235,9 +2606,20 @@ function BlogTab() {
   const { generateContent, analyzeSEO, isGenerating, isAnalyzing } = useAIGeneration();
 
   const posts = useQuery(api.landing.getBlogPosts, { locale });
+  const categories = useQuery(api.blogCategories.list);
   const createPost = useMutation(api.landing.createBlogPost);
   const updatePost = useMutation(api.landing.updateBlogPost);
   const deletePost = useMutation(api.landing.deleteBlogPost);
+
+  // Build dynamic category options from database, with fallback
+  const blogCategories = categories?.map((cat) => ({
+    value: cat.name.en,
+    label: cat.name.en,
+  })) || [
+    { value: "Business English", label: "Business English" },
+    { value: "Grammar", label: "Grammar" },
+    { value: "Tips", label: "Tips" },
+  ];
 
   const [formData, setFormData] = useState({
     title: "",
@@ -2399,14 +2781,6 @@ function BlogTab() {
     });
   };
 
-  const blogCategories = [
-    { value: "Business English", label: "Business English" },
-    { value: "Communication", label: "Communication" },
-    { value: "Culture", label: "Culture" },
-    { value: "Grammar", label: "Grammar" },
-    { value: "Tips", label: "Tips" },
-  ];
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -2535,11 +2909,11 @@ function BlogTab() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Business English">Business English</SelectItem>
-                    <SelectItem value="Communication">Communication</SelectItem>
-                    <SelectItem value="Culture">Culture</SelectItem>
-                    <SelectItem value="Grammar">Grammar</SelectItem>
-                    <SelectItem value="Tips">Tips</SelectItem>
+                    {blogCategories.map((cat) => (
+                      <SelectItem key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
