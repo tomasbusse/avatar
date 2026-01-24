@@ -2983,6 +2983,52 @@ export default defineSchema({
     .index("by_created", ["createdAt"]),
 
   // ============================================
+  // CITY SERVICE PAGES (SEO Landing Pages)
+  // ============================================
+
+  // City-specific service pages (e.g., /hannover/business-englisch)
+  cityServicePages: defineTable({
+    // URL structure: /{city}/{service} -> e.g., hannover/business-englisch
+    city: v.string(), // e.g., "hannover", "berlin"
+    service: v.string(), // e.g., "business-englisch", "firmenkurse"
+    slug: v.string(), // Full path: "hannover/business-englisch"
+
+    // Page metadata
+    title: v.string(), // "Business Englischkurse in Hannover"
+    metaTitle: v.optional(v.string()), // SEO title
+    metaDescription: v.optional(v.string()), // SEO description
+
+    // Content sections (stored as structured blocks)
+    sections: v.array(v.object({
+      id: v.string(),
+      type: v.union(
+        v.literal("hero"),
+        v.literal("content"),
+        v.literal("services"),
+        v.literal("features"),
+        v.literal("faq"),
+        v.literal("cta"),
+        v.literal("contact")
+      ),
+      order: v.number(),
+      isPublished: v.boolean(),
+      content: v.any(), // Section-specific content object
+    })),
+
+    // Publishing
+    status: v.union(v.literal("draft"), v.literal("published"), v.literal("archived")),
+    publishedAt: v.optional(v.number()),
+
+    // Tracking
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_city", ["city"])
+    .index("by_city_service", ["city", "service"])
+    .index("by_status", ["status"]),
+
+  // ============================================
   // KNOWLEDGE FEEDBACK SYSTEM
   // ============================================
 
@@ -3067,4 +3113,23 @@ export default defineSchema({
       v.null()
     ),
   }),
+
+  // ============================================
+  // TEACHERS
+  // ============================================
+  // Teachers can be allocated one or more avatars.
+  // Teachers can be company-scoped or global (companyId = null).
+  teachers: defineTable({
+    userId: v.id("users"), // Reference to user
+    companyId: v.optional(v.id("companies")), // null = global teacher
+    avatarIds: v.array(v.id("avatars")), // Multiple avatars allowed
+    status: v.union(v.literal("active"), v.literal("inactive")),
+    notes: v.optional(v.string()),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_company", ["companyId"])
+    .index("by_status", ["status"]),
 });

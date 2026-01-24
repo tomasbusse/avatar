@@ -11,6 +11,7 @@
 import type * as agentControl from "../agentControl.js";
 import type * as avatars from "../avatars.js";
 import type * as blogCategories from "../blogCategories.js";
+import type * as cityPages from "../cityPages.js";
 import type * as companies from "../companies.js";
 import type * as conversationPractice from "../conversationPractice.js";
 import type * as crons from "../crons.js";
@@ -54,6 +55,7 @@ declare const fullApi: ApiFromModules<{
   agentControl: typeof agentControl;
   avatars: typeof avatars;
   blogCategories: typeof blogCategories;
+  cityPages: typeof cityPages;
   companies: typeof companies;
   conversationPractice: typeof conversationPractice;
   crons: typeof crons;
