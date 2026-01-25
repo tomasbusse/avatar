@@ -19,6 +19,7 @@ const adminNavItems = [
   { title: "Knowledge", href: "/admin/knowledge" },
   { title: "Lessons", href: "/admin/lessons" },
   { title: "Entry Tests", href: "/admin/entry-tests" },
+  { title: "Video Creator", href: "/admin/video-creator" },
   { title: "Landing CMS", href: "/admin/landing" },
   { title: "Tools", href: "/admin/tools" },
   { title: "Previews", href: "/admin/previews" },
@@ -67,13 +68,15 @@ export default function AdminLayout({
           </div>
           <nav className="flex gap-4">
             {adminNavItems.map((item) => {
-              // For tools, entry-tests, and previews, also highlight when on sub-routes
+              // For tools, entry-tests, previews, and video-creator, also highlight when on sub-routes
               const isActive = item.href === "/admin/tools"
                 ? pathname.startsWith("/admin/tools")
                 : item.href === "/admin/entry-tests"
                 ? pathname.startsWith("/admin/entry-tests")
                 : item.href === "/admin/previews"
                 ? pathname.startsWith("/admin/previews")
+                : item.href === "/admin/video-creator"
+                ? pathname.startsWith("/admin/video-creator")
                 : pathname === item.href;
               return (
                 <Link
