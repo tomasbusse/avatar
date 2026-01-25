@@ -151,11 +151,42 @@ export async function GET(
       chunks: progress.chunks,
     });
   } catch (error) {
-    console.error("Render status error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Status check failed";
+    console.error("Render status error:", errorMessage);
+
+    // Check if it's a rate limit error - return 429 instead of 500
+    const isRateLimit = errorMessage.toLowerCase().includes("rate") ||
+                        errorMessage.toLowerCase().includes("throttl");
+
+    // Check if render not found - might be expired or never existed
+    const isNotFound = errorMessage.toLowerCase().includes("not found") ||
+                       errorMessage.toLowerCase().includes("does not exist");
+
+    if (isRateLimit) {
+      return NextResponse.json(
+        {
+          status: "rate_limited",
+          error: "Rate limit exceeded. Please wait and try again.",
+          retryAfter: 5,
+        },
+        { status: 429 }
+      );
+    }
+
+    if (isNotFound) {
+      return NextResponse.json(
+        {
+          status: "not_found",
+          error: "Render not found. It may have expired or failed to start.",
+        },
+        { status: 404 }
+      );
+    }
+
     return NextResponse.json(
       {
         status: "error",
-        error: error instanceof Error ? error.message : "Status check failed",
+        error: errorMessage,
       },
       { status: 500 }
     );

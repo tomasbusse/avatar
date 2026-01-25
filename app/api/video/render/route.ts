@@ -117,31 +117,59 @@ export async function POST(request: NextRequest) {
     process.env.AWS_ACCESS_KEY_ID = process.env.REMOTION_AWS_ACCESS_KEY_ID;
     process.env.AWS_SECRET_ACCESS_KEY = process.env.REMOTION_AWS_SECRET_ACCESS_KEY;
 
-    // Trigger Remotion Lambda render
+    // Trigger Remotion Lambda render with retry logic for rate limits
     const { renderMediaOnLambda } = await import("@remotion/lambda/client");
 
     const region = (process.env.REMOTION_AWS_REGION || "eu-central-1") as "eu-central-1";
 
-    const { renderId, bucketName } = await renderMediaOnLambda({
-      region,
-      functionName: process.env.REMOTION_FUNCTION_NAME!,
-      serveUrl: process.env.REMOTION_SERVE_URL!,
-      composition: "NewsBroadcast",
-      inputProps: renderProps,
-      codec: "h264",
-      downloadBehavior: {
-        type: "download",
-        fileName: `video-${videoCreationId}.mp4`,
-      },
-    });
+    // Retry logic for rate limit errors
+    const maxRetries = 3;
+    let lastError: Error | null = null;
 
-    return NextResponse.json({
-      success: true,
-      renderId,
-      bucketName,
-      videoCreationId,
-      message: "Render started. Poll /api/video/render/[renderId] for progress.",
-    });
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        if (attempt > 0) {
+          // Wait before retry with exponential backoff: 2s, 4s, 8s
+          const waitTime = Math.pow(2, attempt) * 1000;
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+
+        const { renderId, bucketName } = await renderMediaOnLambda({
+          region,
+          functionName: process.env.REMOTION_FUNCTION_NAME!,
+          serveUrl: process.env.REMOTION_SERVE_URL!,
+          composition: "NewsBroadcast",
+          inputProps: renderProps,
+          codec: "h264",
+          downloadBehavior: {
+            type: "download",
+            fileName: `video-${videoCreationId}.mp4`,
+          },
+        });
+
+        return NextResponse.json({
+          success: true,
+          renderId,
+          bucketName,
+          videoCreationId,
+          message: "Render started. Poll /api/video/render/[renderId] for progress.",
+          attempt: attempt + 1,
+        });
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        const errorMsg = lastError.message.toLowerCase();
+
+        // Only retry on rate limit errors
+        if (!errorMsg.includes("rate") && !errorMsg.includes("throttl") && !errorMsg.includes("limit")) {
+          throw lastError;
+        }
+
+        console.log(`Rate limit hit, attempt ${attempt + 1}/${maxRetries}, retrying...`);
+      }
+    }
+
+    // All retries exhausted
+    throw lastError || new Error("Rate limit exceeded after retries");
   } catch (error) {
     console.error("Render API error:", error);
     return NextResponse.json(

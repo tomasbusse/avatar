@@ -174,6 +174,21 @@ export default function AdminVideoCreatorPage() {
           description: data.error || "Unknown error occurred",
         });
         return true; // Stop polling
+      } else if (data.status === "not_found") {
+        // Render doesn't exist anymore - stop polling
+        setRenderingVideos((prev) => {
+          const updated = { ...prev };
+          delete updated[videoId];
+          return updated;
+        });
+        toast.error("Render not found", {
+          description: "The render may have expired. Try starting a new render.",
+        });
+        return true; // Stop polling
+      } else if (data.status === "rate_limited") {
+        // Rate limited - continue polling but don't update progress
+        console.log("Rate limited, will retry...");
+        return false; // Continue polling (will retry after interval)
       } else {
         // Update progress
         setRenderingVideos((prev) => ({
