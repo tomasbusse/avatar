@@ -88,6 +88,7 @@ export default function AdminVideoCreatorPage() {
   const [scriptContent, setScriptContent] = useState("");
   const [rewriteWithOpus, setRewriteWithOpus] = useState(true);
   const [isRewriting, setIsRewriting] = useState(false);
+  const [targetWordCount, setTargetWordCount] = useState<number>(400);
   const [avatarId, setAvatarId] = useState<string>("");
   const [videoStyle, setVideoStyle] = useState<VideoStyle>("simple");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("16:9");
@@ -123,6 +124,7 @@ export default function AdminVideoCreatorPage() {
     setSourceUrls([""]);
     setScriptContent("");
     setRewriteWithOpus(true);
+    setTargetWordCount(400);
     setAvatarId("");
     setVideoStyle("simple");
     setAspectRatio("16:9");
@@ -180,6 +182,7 @@ export default function AdminVideoCreatorPage() {
           generateScript: true,
           rewriteWithOpus: rewriteWithOpus,
           videoStyle: videoStyle,
+          targetWordCount: targetWordCount,
         }),
       });
 
@@ -489,6 +492,29 @@ export default function AdminVideoCreatorPage() {
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
                           Add multiple URLs to combine content from different sources
+                        </p>
+                      </div>
+
+                      {/* Word Count Target */}
+                      <div>
+                        <Label htmlFor="wordCount">Target Word Count</Label>
+                        <div className="flex items-center gap-3 mt-1">
+                          <Input
+                            id="wordCount"
+                            type="number"
+                            min={100}
+                            max={2000}
+                            step={50}
+                            value={targetWordCount}
+                            onChange={(e) => setTargetWordCount(Number(e.target.value))}
+                            className="w-32"
+                          />
+                          <span className="text-sm text-muted-foreground">
+                            ~{Math.round(targetWordCount / 150)} min read time
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          100-300 words = short, 400-600 = medium, 800+ = detailed
                         </p>
                       </div>
 

@@ -78,10 +78,9 @@ function cleanArticleContent(rawContent: string): string {
 /**
  * Build prompt for creating a video script from article content (single source)
  */
-function buildScriptPrompt(title: string, content: string, targetDuration?: number): string {
-  const durationNote = targetDuration
-    ? `The script should be approximately ${targetDuration} seconds when read aloud (about ${Math.round(targetDuration * 2.5)} words).`
-    : "The script should be 1-2 minutes when read aloud (150-300 words).";
+function buildScriptPrompt(title: string, content: string, targetWordCount?: number): string {
+  const wordCount = targetWordCount || 300;
+  const durationNote = `The script MUST be approximately ${wordCount} words (about ${Math.round(wordCount / 150)} minutes when read aloud). This word count is CRITICAL - do not write significantly more or less.`;
 
   return `You are a professional scriptwriter for video presentations. Transform the following article into a compelling video script for a presenter to read.
 
@@ -109,10 +108,9 @@ Begin:`;
 /**
  * Build prompt for creating a video script from multiple sources
  */
-function buildMultiSourceScriptPrompt(sources: ScrapedSource[], targetDuration?: number): string {
-  const durationNote = targetDuration
-    ? `The script should be approximately ${targetDuration} seconds when read aloud (about ${Math.round(targetDuration * 2.5)} words).`
-    : "The script should be 2-3 minutes when read aloud (300-450 words).";
+function buildMultiSourceScriptPrompt(sources: ScrapedSource[], targetWordCount?: number): string {
+  const wordCount = targetWordCount || 450;
+  const durationNote = `The script MUST be approximately ${wordCount} words (about ${Math.round(wordCount / 150)} minutes when read aloud). This word count is CRITICAL - do not write significantly more or less.`;
 
   const sourcesText = sources.map((s, i) => `
 --- SOURCE ${i + 1}: ${s.title} ---
@@ -148,11 +146,10 @@ Begin:`;
 function buildOpusRewritePrompt(
   content: string,
   videoStyle: string,
-  targetDuration?: number
+  targetWordCount?: number
 ): string {
-  const durationNote = targetDuration
-    ? `Target length: approximately ${targetDuration} seconds when read aloud (about ${Math.round(targetDuration * 2.5)} words).`
-    : "Target length: 2-3 minutes when read aloud (300-450 words).";
+  const wordCount = targetWordCount || 450;
+  const durationNote = `Target length: EXACTLY ${wordCount} words (about ${Math.round(wordCount / 150)} minutes when read aloud). This word count is CRITICAL and MUST be followed precisely.`;
 
   const styleInstructions = videoStyle === "news_broadcast"
     ? `STYLE: Professional news broadcast
@@ -204,11 +201,11 @@ Write the complete, ready-to-read video script below. Return ONLY the script tex
 async function rewriteWithOpus(
   content: string,
   videoStyle: string,
-  targetDuration?: number
+  targetWordCount?: number
 ): Promise<string> {
   const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
 
-  const prompt = buildOpusRewritePrompt(content, videoStyle, targetDuration);
+  const prompt = buildOpusRewritePrompt(content, videoStyle, targetWordCount);
 
   console.log(`[Video Scrape] Rewriting with Opus 4.5...`);
 
@@ -410,6 +407,7 @@ export async function POST(request: NextRequest) {
       rewriteWithOpus: shouldRewrite = false,
       videoStyle = "simple",
       targetDuration,
+      targetWordCount,
     } = body as {
       url?: string;
       urls?: string[];
@@ -417,7 +415,14 @@ export async function POST(request: NextRequest) {
       rewriteWithOpus?: boolean;
       videoStyle?: string;
       targetDuration?: number;
+      targetWordCount?: number;
     };
+
+    // Convert word count to duration if provided (approx 150 words per minute)
+    const effectiveDuration = targetWordCount
+      ? Math.round(targetWordCount / 2.5) // words to seconds
+      : targetDuration;
+    const effectiveWordCount = targetWordCount || (targetDuration ? Math.round(targetDuration * 2.5) : 400);
 
     // Support both single url and multiple urls
     const urlList: string[] = urls && urls.length > 0
@@ -515,8 +520,8 @@ export async function POST(request: NextRequest) {
 
       // Use multi-source prompt if multiple sources, otherwise single source
       const prompt = scrapedSources.length > 1
-        ? buildMultiSourceScriptPrompt(scrapedSources, targetDuration)
-        : buildScriptPrompt(scrapedSources[0].title, scrapedSources[0].content, targetDuration);
+        ? buildMultiSourceScriptPrompt(scrapedSources, effectiveWordCount)
+        : buildScriptPrompt(scrapedSources[0].title, scrapedSources[0].content, effectiveWordCount);
 
       // Try Anthropic first, then OpenRouter
       if (ANTHROPIC_API_KEY) {
@@ -553,7 +558,7 @@ export async function POST(request: NextRequest) {
         const rewrittenContent = await rewriteWithOpus(
           processedContent.content,
           videoStyle,
-          targetDuration
+          effectiveWordCount
         );
         processedContent = {
           ...processedContent,
