@@ -183,12 +183,13 @@ export default function AdminVideoCreatorPage() {
     }
   }, []);
 
-  // Start polling effect
+  // Start polling effect - only poll when we have a valid jobId
   useEffect(() => {
     const intervals: Record<string, NodeJS.Timeout> = {};
 
     Object.entries(generatingVideos).forEach(([videoId, { jobId }]) => {
-      if (!intervals[videoId]) {
+      // Only poll if we have a valid (non-empty) jobId
+      if (jobId && !intervals[videoId]) {
         intervals[videoId] = setInterval(async () => {
           const shouldStop = await pollGenerationStatus(videoId, jobId);
           if (shouldStop) {

@@ -231,7 +231,24 @@ async function startHedraGeneration(
 }
 
 export async function POST(request: NextRequest) {
+  // Store videoCreationId for error handling
+  let videoCreationId: string | undefined;
+
   try {
+    // Early validation of required environment variables
+    const missingEnvVars: string[] = [];
+    if (!process.env.CARTESIA_API_KEY) missingEnvVars.push("CARTESIA_API_KEY");
+    if (!process.env.HEDRA_API_KEY) missingEnvVars.push("HEDRA_API_KEY");
+    if (!process.env.NEXT_PUBLIC_CONVEX_URL) missingEnvVars.push("NEXT_PUBLIC_CONVEX_URL");
+
+    if (missingEnvVars.length > 0) {
+      console.error("Missing environment variables:", missingEnvVars);
+      return NextResponse.json(
+        { error: `Server configuration error: Missing ${missingEnvVars.join(", ")}` },
+        { status: 500 }
+      );
+    }
+
     const body: GenerateRequest = await request.json();
     const {
       text,
@@ -240,9 +257,11 @@ export async function POST(request: NextRequest) {
       avatarImageUrl,
       resolution = "720p",
       aspectRatio = "16:9",
-      videoCreationId,
+      videoCreationId: vid,
       textPrompt,
     } = body;
+
+    videoCreationId = vid;
 
     // Validate required fields
     if (!text?.trim()) {
@@ -324,11 +343,10 @@ export async function POST(request: NextRequest) {
     console.error("Video generation error:", error);
 
     // Update Convex with error if we have a videoCreationId
-    const body = await request.clone().json().catch(() => ({}));
-    if (body.videoCreationId) {
+    if (videoCreationId) {
       try {
         await convex.mutation(api.videoCreation.markFailed, {
-          videoCreationId: body.videoCreationId as Id<"videoCreation">,
+          videoCreationId: videoCreationId as Id<"videoCreation">,
           errorMessage: error instanceof Error ? error.message : "Unknown error",
         });
       } catch (e) {
