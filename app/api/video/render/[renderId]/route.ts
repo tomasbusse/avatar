@@ -36,6 +36,10 @@ export async function GET(
       );
     }
 
+    // Set AWS credentials for Remotion Lambda
+    process.env.AWS_ACCESS_KEY_ID = process.env.REMOTION_AWS_ACCESS_KEY_ID;
+    process.env.AWS_SECRET_ACCESS_KEY = process.env.REMOTION_AWS_SECRET_ACCESS_KEY;
+
     // Import Remotion Lambda client
     const { getRenderProgress } = await import("@remotion/lambda/client");
 

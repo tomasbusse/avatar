@@ -25,8 +25,8 @@ function getConvexClient(): ConvexHttpClient {
 // Check if Remotion Lambda is configured
 function isRemotionConfigured(): boolean {
   return !!(
-    process.env.AWS_ACCESS_KEY_ID &&
-    process.env.AWS_SECRET_ACCESS_KEY &&
+    process.env.REMOTION_AWS_ACCESS_KEY_ID &&
+    process.env.REMOTION_AWS_SECRET_ACCESS_KEY &&
     process.env.REMOTION_SERVE_URL &&
     process.env.REMOTION_FUNCTION_NAME
   );
@@ -104,21 +104,26 @@ export async function POST(request: NextRequest) {
         message: "Remotion Lambda not configured. Please set up AWS credentials.",
         renderProps,
         setupSteps: [
-          "1. Create AWS account and IAM user",
-          "2. Add AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY to .env.local",
-          "3. Run: cd my-video && npx remotion lambda policies role",
-          "4. Run: cd my-video && npx ts-node scripts/deploy-lambda.ts",
-          "5. Add REMOTION_SERVE_URL and REMOTION_FUNCTION_NAME to .env.local",
+          "1. Add REMOTION_AWS_ACCESS_KEY_ID to .env.local",
+          "2. Add REMOTION_AWS_SECRET_ACCESS_KEY to .env.local",
+          "3. Add REMOTION_SERVE_URL to .env.local",
+          "4. Add REMOTION_FUNCTION_NAME to .env.local",
         ],
-        documentation: "/my-video/scripts/setup-aws.md",
+        documentation: "https://www.remotion.dev/docs/lambda/setup",
       });
     }
+
+    // Set AWS credentials for Remotion Lambda
+    process.env.AWS_ACCESS_KEY_ID = process.env.REMOTION_AWS_ACCESS_KEY_ID;
+    process.env.AWS_SECRET_ACCESS_KEY = process.env.REMOTION_AWS_SECRET_ACCESS_KEY;
 
     // Trigger Remotion Lambda render
     const { renderMediaOnLambda } = await import("@remotion/lambda/client");
 
+    const region = (process.env.REMOTION_AWS_REGION || "eu-central-1") as "eu-central-1";
+
     const { renderId, bucketName } = await renderMediaOnLambda({
-      region: (process.env.REMOTION_AWS_REGION || "eu-central-1") as "eu-central-1",
+      region,
       functionName: process.env.REMOTION_FUNCTION_NAME!,
       serveUrl: process.env.REMOTION_SERVE_URL!,
       composition: "NewsBroadcast",
@@ -128,11 +133,6 @@ export async function POST(request: NextRequest) {
         type: "download",
         fileName: `video-${videoCreationId}.mp4`,
       },
-      // Webhook for completion notification (optional)
-      // webhook: {
-      //   url: `${process.env.NEXT_PUBLIC_APP_URL}/api/video/render/webhook`,
-      //   secret: process.env.REMOTION_WEBHOOK_SECRET,
-      // },
     });
 
     return NextResponse.json({
@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
       renderId,
       bucketName,
       videoCreationId,
-      message: "Render started. Poll /api/video/render/[renderId]/status for progress.",
+      message: "Render started. Poll /api/video/render/[renderId] for progress.",
     });
   } catch (error) {
     console.error("Render API error:", error);

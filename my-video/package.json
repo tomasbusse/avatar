@@ -8,8 +8,10 @@
   "dependencies": {
     "@remotion/bundler": "^4.0.409",
     "@remotion/cli": "4.0.409",
+    "@remotion/cloudrun": "^4.0.409",
     "@remotion/lambda": "^4.0.409",
     "@remotion/media": "^4.0.409",
+    "@remotion/tailwind": "^4.0.409",
     "@remotion/tailwind-v4": "4.0.409",
     "react": "19.2.3",
     "react-dom": "19.2.3",
