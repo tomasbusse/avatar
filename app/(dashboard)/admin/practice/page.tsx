@@ -37,6 +37,7 @@ import {
   Link as LinkIcon,
   RefreshCw,
   Globe,
+  Code,
   Search,
   FileText,
   Upload,
@@ -81,6 +82,10 @@ export default function AdminPracticePage() {
   const [previewPracticeTitle, setPreviewPracticeTitle] = useState("");
   const [previewPracticeId, setPreviewPracticeId] = useState<Id<"conversationPractice"> | null>(null);
   const [expandedArticles, setExpandedArticles] = useState<Set<number>>(new Set());
+
+  // Embed dialog state
+  const [embedDialogOpen, setEmbedDialogOpen] = useState(false);
+  const [embedToken, setEmbedToken] = useState<string>("");
 
   // Form state
   const [title, setTitle] = useState("");
@@ -484,6 +489,25 @@ export default function AdminPracticePage() {
     const url = `${window.location.origin}/practice/join/${shareToken}`;
     navigator.clipboard.writeText(url);
     toast.success("Link copied to clipboard");
+  };
+
+  const showEmbedDialog = (shareToken: string) => {
+    setEmbedToken(shareToken);
+    setEmbedDialogOpen(true);
+  };
+
+  const copyEmbedCode = (shareToken: string) => {
+    const embedUrl = `${window.location.origin}/practice/join/${shareToken}?embed=true`;
+    const code = `<iframe
+  src="${embedUrl}"
+  width="100%"
+  height="700"
+  frameborder="0"
+  allow="microphone; camera; autoplay"
+  style="border-radius: 12px;"
+></iframe>`;
+    navigator.clipboard.writeText(code);
+    toast.success("Embed code copied to clipboard");
   };
 
   return (
@@ -1055,14 +1079,23 @@ export default function AdminPracticePage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleRegenerateToken(practice._id)}
+                          title="Regenerate link"
                         >
                           <RefreshCw className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => showEmbedDialog(practice.shareToken)}
+                          title="Embed code"
+                        >
+                          <Code className="w-4 h-4" />
                         </Button>
                         <Link
                           href={`/practice/join/${practice.shareToken}`}
                           target="_blank"
                         >
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" title="Open in new tab">
                             <ExternalLink className="w-4 h-4" />
                           </Button>
                         </Link>
@@ -1118,6 +1151,96 @@ export default function AdminPracticePage() {
             ))}
           </div>
         )}
+
+        {/* Embed Code Dialog */}
+        <Dialog open={embedDialogOpen} onOpenChange={setEmbedDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Code className="w-5 h-5" />
+                Embed This Practice
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              {/* Embed URL */}
+              <div>
+                <Label className="text-sm font-medium">Embed URL</Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <code className="flex-1 p-2 bg-muted rounded text-xs font-mono overflow-x-auto">
+                    {typeof window !== "undefined"
+                      ? `${window.location.origin}/practice/join/${embedToken}?embed=true`
+                      : `/practice/join/${embedToken}?embed=true`}
+                  </code>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const url = `${window.location.origin}/practice/join/${embedToken}?embed=true`;
+                      navigator.clipboard.writeText(url);
+                      toast.success("URL copied");
+                    }}
+                  >
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Iframe Code */}
+              <div>
+                <Label className="text-sm font-medium">Iframe Embed Code</Label>
+                <div className="relative mt-1">
+                  <pre className="p-3 bg-muted rounded text-xs font-mono overflow-x-auto whitespace-pre-wrap">
+{`<iframe
+  src="${typeof window !== "undefined" ? window.location.origin : ""}/practice/join/${embedToken}?embed=true"
+  width="100%"
+  height="700"
+  frameborder="0"
+  allow="microphone; camera; autoplay"
+  style="border-radius: 12px;"
+></iframe>`}
+                  </pre>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="absolute top-2 right-2"
+                    onClick={() => copyEmbedCode(embedToken)}
+                  >
+                    <Copy className="w-4 h-4 mr-1" />
+                    Copy
+                  </Button>
+                </div>
+              </div>
+
+              {/* Instructions */}
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-100 space-y-3">
+                <h4 className="font-medium text-blue-800 flex items-center gap-2">
+                  <Globe className="w-4 h-4" />
+                  Integration Instructions
+                </h4>
+                <ol className="text-sm text-blue-900 space-y-2 list-decimal list-inside">
+                  <li>Copy the iframe code above and paste it into your website&apos;s HTML</li>
+                  <li>Adjust the <code className="bg-blue-100 px-1 rounded">height</code> value to fit your layout (recommended: 600-800px)</li>
+                  <li>The <code className="bg-blue-100 px-1 rounded">allow</code> attribute enables microphone and camera access for the conversation</li>
+                  <li>Users will see a streamlined interface without navigation elements</li>
+                </ol>
+              </div>
+
+              {/* Event Listener Example */}
+              <div className="p-4 bg-amber-50 rounded-lg border border-amber-100">
+                <h4 className="font-medium text-amber-800 mb-2">Listen for Session Events (Optional)</h4>
+                <pre className="text-xs font-mono bg-amber-100/50 p-2 rounded overflow-x-auto">
+{`window.addEventListener("message", (event) => {
+  if (event.data.type === "practice-session-ended") {
+    console.log("Session ended:", event.data.sessionId);
+    // Handle session end (e.g., show feedback form)
+  }
+});`}
+                </pre>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Web Search Preview Dialog */}
         <Dialog open={previewDialogOpen} onOpenChange={(open) => {

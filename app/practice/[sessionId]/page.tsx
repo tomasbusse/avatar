@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -15,7 +15,11 @@ import Link from "next/link";
 export default function PracticeRoomPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const sessionId = params.sessionId as string;
+
+  // Check if we're in embed mode
+  const isEmbed = searchParams.get("embed") === "true";
 
   // Check if user is authenticated
   const { isLoaded: authLoaded, isSignedIn } = useAuth();
@@ -87,6 +91,13 @@ export default function PracticeRoomPage() {
   const targetDurationMinutes = practice?.behaviorConfig?.targetDurationMinutes;
 
   const handleSessionEnd = async () => {
+    if (isEmbed) {
+      // In embed mode, notify parent window and don't navigate
+      if (typeof window !== "undefined" && window.parent !== window) {
+        window.parent.postMessage({ type: "practice-session-ended", sessionId }, "*");
+      }
+      return;
+    }
     // Guests go back to home, authenticated users go to dashboard
     router.push(isSignedIn ? "/dashboard" : "/");
   };
@@ -247,6 +258,7 @@ export default function PracticeRoomPage() {
         avatar={avatar}
         onSessionEnd={handleSessionEnd}
         isGuest={!isSignedIn}
+        isEmbed={isEmbed}
       />
     </div>
   );

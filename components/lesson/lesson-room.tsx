@@ -30,6 +30,8 @@ interface LessonRoomProps {
   isGuest?: boolean;
   /** Duration in minutes for the session (default: 15) */
   durationMinutes?: number;
+  /** Whether the room is embedded in an iframe */
+  isEmbed?: boolean;
 }
 
 /**
@@ -65,6 +67,7 @@ export function LessonRoom({
   onSessionEnd,
   isGuest = false,
   durationMinutes = 15,
+  isEmbed = false,
 }: LessonRoomProps) {
   const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -131,12 +134,14 @@ export function LessonRoom({
   if (error) {
     return (
       <div className="fixed inset-0 bg-[#4F5338] flex flex-col items-center justify-center p-4">
-        {/* Logo */}
-        <img
-          src="/sls-logo-green.jpg"
-          alt="SLS"
-          className="absolute top-6 left-1/2 -translate-x-1/2 h-10 md:h-12 object-contain"
-        />
+        {/* Logo - hidden in embed mode */}
+        {!isEmbed && (
+          <img
+            src="/sls-logo-green.jpg"
+            alt="SLS"
+            className="absolute top-6 left-1/2 -translate-x-1/2 h-10 md:h-12 object-contain"
+          />
+        )}
         <div className="text-center text-white">
           <p className="text-red-400 mb-4">{error}</p>
           <Button
@@ -155,12 +160,14 @@ export function LessonRoom({
   if (isConnecting || !token) {
     return (
       <div className="fixed inset-0 bg-[#4F5338] flex flex-col items-center justify-center p-4">
-        {/* Logo */}
-        <img
-          src="/sls-logo-green.jpg"
-          alt="SLS"
-          className="absolute top-6 left-1/2 -translate-x-1/2 h-10 md:h-12 object-contain"
-        />
+        {/* Logo - hidden in embed mode */}
+        {!isEmbed && (
+          <img
+            src="/sls-logo-green.jpg"
+            alt="SLS"
+            className="absolute top-6 left-1/2 -translate-x-1/2 h-10 md:h-12 object-contain"
+          />
+        )}
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-white/60" />
           <p className="text-white/60">Connecting...</p>
@@ -187,6 +194,7 @@ export function LessonRoom({
         durationMinutes={durationMinutes}
         onEnd={onSessionEnd}
         avatarProp={avatar}
+        isEmbed={isEmbed}
       />
       <RoomAudioRenderer />
     </LiveKitRoom>
@@ -199,12 +207,14 @@ function RoomContent({
   durationMinutes,
   onEnd,
   avatarProp,
+  isEmbed = false,
 }: {
   sessionId: string;
   roomName: string;
   durationMinutes: number;
   onEnd?: () => void;
   avatarProp?: any;
+  isEmbed?: boolean;
 }) {
   const router = useRouter();
   const room = useRoomContext();
@@ -337,12 +347,18 @@ function RoomContent({
       }
       await room.disconnect();
       onEnd?.();
-      router.push("/dashboard");
+
+      // In embed mode, don't navigate - parent handles navigation
+      if (!isEmbed) {
+        router.push("/dashboard");
+      }
     } catch (error) {
       console.error("Error ending lesson:", error);
-      router.push("/dashboard");
+      if (!isEmbed) {
+        router.push("/dashboard");
+      }
     }
-  }, [room, onEnd, router, localParticipant, endSessionByRoom, roomName, isEnding]);
+  }, [room, onEnd, router, localParticipant, endSessionByRoom, roomName, isEnding, isEmbed]);
 
   // Restart session
   const restartSession = useCallback(async () => {
@@ -390,12 +406,14 @@ function RoomContent({
   if (showComplete) {
     return (
       <div className="fixed inset-0 bg-[#4F5338] flex flex-col items-center justify-center p-4 animate-in fade-in duration-500">
-        {/* Logo */}
-        <img
-          src="/sls-logo-green.jpg"
-          alt="SLS"
-          className="absolute top-6 left-1/2 -translate-x-1/2 h-10 md:h-12 object-contain"
-        />
+        {/* Logo - hidden in embed mode */}
+        {!isEmbed && (
+          <img
+            src="/sls-logo-green.jpg"
+            alt="SLS"
+            className="absolute top-6 left-1/2 -translate-x-1/2 h-10 md:h-12 object-contain"
+          />
+        )}
         <div className="text-center text-white">
           <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-6">
             <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -434,14 +452,16 @@ function RoomContent({
 
       {/* ===== PORTRAIT MODE (Mobile) ===== */}
       <div className="flex flex-col h-full landscape:hidden">
-        {/* Header with Logo */}
-        <div className="flex-none pt-4 pb-2 px-4">
-          <img
-            src="/sls-logo-green.jpg"
-            alt="SLS"
-            className="h-10 mx-auto object-contain"
-          />
-        </div>
+        {/* Header with Logo - hidden in embed mode */}
+        {!isEmbed && (
+          <div className="flex-none pt-4 pb-2 px-4">
+            <img
+              src="/sls-logo-green.jpg"
+              alt="SLS"
+              className="h-10 mx-auto object-contain"
+            />
+          </div>
+        )}
 
         {/* Timer */}
         <div className="flex-none flex justify-center pb-3">

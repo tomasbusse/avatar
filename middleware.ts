@@ -71,8 +71,23 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   }
 
   // Public practice routes - skip auth check for guest access
+  // Also allow embedding in iframes when ?embed=true
   if (isPublicPracticeRoute(req)) {
-    return NextResponse.next();
+    const response = NextResponse.next();
+
+    // Check if this is an embed request
+    const isEmbed = req.nextUrl.searchParams.get("embed") === "true";
+
+    if (isEmbed) {
+      // Allow embedding in any origin (for iframe use)
+      response.headers.delete("X-Frame-Options");
+      response.headers.set(
+        "Content-Security-Policy",
+        "frame-ancestors *"
+      );
+    }
+
+    return response;
   }
 
   // Protected routes - require authentication

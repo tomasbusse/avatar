@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { StartButton, WaitingScreen, GuestEntryForm } from "@/components/practice";
@@ -22,9 +22,13 @@ interface GuestFormData {
 
 export default function PracticeJoinPage() {
   const params = useParams<{ token: string }>();
+  const searchParams = useSearchParams();
   const token = params.token;
   const router = useRouter();
   const { user, isLoaded: isUserLoaded } = useUser();
+
+  // Check if we're in embed mode
+  const isEmbed = searchParams.get("embed") === "true";
 
   const [state, setState] = useState<EntryState>("loading");
   const [guestData, setGuestData] = useState<GuestFormData | null>(null);
@@ -135,8 +139,9 @@ export default function PracticeJoinPage() {
         webSearchResults,
       });
 
-      // Navigate to the practice room
-      router.push(`/practice/${session.sessionId}`);
+      // Navigate to the practice room (preserve embed mode)
+      const embedParam = isEmbed ? "?embed=true" : "";
+      router.push(`/practice/${session.sessionId}${embedParam}`);
     } catch (err) {
       console.error("Failed to create session:", err);
       setError(err instanceof Error ? err.message : "Failed to start practice session");
@@ -167,12 +172,14 @@ export default function PracticeJoinPage() {
           <p className="text-[#4F5338] mb-6">
             This practice link may have expired or been removed.
           </p>
-          <Link href="/">
-            <Button variant="outline" className="gap-2">
-              <ArrowLeft className="w-4 h-4" />
-              Go Home
-            </Button>
-          </Link>
+          {!isEmbed && (
+            <Link href="/">
+              <Button variant="outline" className="gap-2">
+                <ArrowLeft className="w-4 h-4" />
+                Go Home
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
     );
@@ -259,20 +266,22 @@ export default function PracticeJoinPage() {
 
     return (
       <div className="min-h-screen bg-[#FFE8CD]">
-        {/* Header */}
-        <header className="p-4 flex items-center justify-between">
-          <Link href="/" className="text-[#003F37] hover:text-[#004a40] transition-colors">
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          {user && (
-            <span className="text-sm text-[#4F5338]">
-              Signed in as {user.firstName || user.emailAddresses[0]?.emailAddress}
-            </span>
-          )}
-        </header>
+        {/* Header - hidden in embed mode */}
+        {!isEmbed && (
+          <header className="p-4 flex items-center justify-between">
+            <Link href="/" className="text-[#003F37] hover:text-[#004a40] transition-colors">
+              <ArrowLeft className="w-5 h-5" />
+            </Link>
+            {user && (
+              <span className="text-sm text-[#4F5338]">
+                Signed in as {user.firstName || user.emailAddresses[0]?.emailAddress}
+              </span>
+            )}
+          </header>
+        )}
 
         {/* Main content */}
-        <main className="flex flex-col items-center justify-center px-6 py-12 min-h-[calc(100vh-80px)]">
+        <main className={`flex flex-col items-center justify-center px-6 py-12 ${isEmbed ? "min-h-screen" : "min-h-[calc(100vh-80px)]"}`}>
           {/* Avatar preview */}
           {avatar && (
             <div className="mb-8">
