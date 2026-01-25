@@ -3150,7 +3150,8 @@ export default defineSchema({
     ),
 
     // Content Source
-    sourceUrl: v.optional(v.string()),           // For url_scrape mode
+    sourceUrl: v.optional(v.string()),           // For url_scrape mode (single URL, legacy)
+    sourceUrls: v.optional(v.array(v.string())), // For url_scrape mode (multiple URLs)
     scriptContent: v.optional(v.string()),       // For text_input mode
     templateId: v.optional(v.string()),          // For template_based mode
 
@@ -3160,7 +3161,8 @@ export default defineSchema({
       content: v.string(),
       summary: v.optional(v.string()),
       keyPoints: v.optional(v.array(v.string())),
-      source: v.optional(v.string()),
+      source: v.optional(v.string()),            // Single source (legacy)
+      sources: v.optional(v.array(v.string())),  // Multiple sources
       fetchedAt: v.number(),
     })),
 

@@ -229,6 +229,7 @@ export const create = mutation({
     ),
     avatarId: v.id("avatars"),
     sourceUrl: v.optional(v.string()),
+    sourceUrls: v.optional(v.array(v.string())),
     scriptContent: v.optional(v.string()),
     templateId: v.optional(v.string()),
     // Avatar provider overrides
@@ -304,6 +305,7 @@ export const create = mutation({
       description: args.description,
       mode: args.mode,
       sourceUrl: args.sourceUrl,
+      sourceUrls: args.sourceUrls,
       scriptContent: args.scriptContent,
       templateId: args.templateId,
       avatarId: args.avatarId,
@@ -335,6 +337,7 @@ export const update = mutation({
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     sourceUrl: v.optional(v.string()),
+    sourceUrls: v.optional(v.array(v.string())),
     scriptContent: v.optional(v.string()),
     avatarId: v.optional(v.id("avatars")),
     // Avatar provider overrides
@@ -373,6 +376,7 @@ export const update = mutation({
     if (args.title !== undefined) updates.title = args.title;
     if (args.description !== undefined) updates.description = args.description;
     if (args.sourceUrl !== undefined) updates.sourceUrl = args.sourceUrl;
+    if (args.sourceUrls !== undefined) updates.sourceUrls = args.sourceUrls;
     if (args.scriptContent !== undefined) updates.scriptContent = args.scriptContent;
     if (args.avatarId !== undefined) {
       const avatar = await ctx.db.get(args.avatarId);
@@ -426,6 +430,7 @@ export const storeProcessedContent = mutation({
       summary: v.optional(v.string()),
       keyPoints: v.optional(v.array(v.string())),
       source: v.optional(v.string()),
+      sources: v.optional(v.array(v.string())),
       fetchedAt: v.number(),
     }),
   },

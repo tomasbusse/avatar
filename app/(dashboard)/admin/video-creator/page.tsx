@@ -84,8 +84,10 @@ export default function AdminVideoCreatorPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [mode, setMode] = useState<ContentMode>("text_input");
-  const [sourceUrl, setSourceUrl] = useState("");
+  const [sourceUrls, setSourceUrls] = useState<string[]>([""]);
   const [scriptContent, setScriptContent] = useState("");
+  const [rewriteWithOpus, setRewriteWithOpus] = useState(true);
+  const [isRewriting, setIsRewriting] = useState(false);
   const [avatarId, setAvatarId] = useState<string>("");
   const [videoStyle, setVideoStyle] = useState<VideoStyle>("simple");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("16:9");
@@ -118,8 +120,9 @@ export default function AdminVideoCreatorPage() {
     setTitle("");
     setDescription("");
     setMode("text_input");
-    setSourceUrl("");
+    setSourceUrls([""]);
     setScriptContent("");
+    setRewriteWithOpus(true);
     setAvatarId("");
     setVideoStyle("simple");
     setAspectRatio("16:9");
@@ -137,28 +140,53 @@ export default function AdminVideoCreatorPage() {
     setCartesiaVoiceId("");
   };
 
-  // Scrape URL for content
+  // Add a new URL input field
+  const addUrlField = () => {
+    setSourceUrls([...sourceUrls, ""]);
+  };
+
+  // Remove a URL input field
+  const removeUrlField = (index: number) => {
+    if (sourceUrls.length > 1) {
+      setSourceUrls(sourceUrls.filter((_, i) => i !== index));
+    }
+  };
+
+  // Update a specific URL
+  const updateUrl = (index: number, value: string) => {
+    const updated = [...sourceUrls];
+    updated[index] = value;
+    setSourceUrls(updated);
+  };
+
+  // Scrape URLs for content
   const handleScrapeUrl = async () => {
-    if (!sourceUrl.trim()) {
-      toast.error("Please enter a URL");
+    const validUrls = sourceUrls.filter((u) => u.trim());
+    if (validUrls.length === 0) {
+      toast.error("Please enter at least one URL");
       return;
     }
 
     setIsScraping(true);
+    if (rewriteWithOpus) {
+      setIsRewriting(true);
+    }
     try {
       const response = await fetch("/api/video/scrape-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          url: sourceUrl.trim(),
+          urls: validUrls,
           generateScript: true,
+          rewriteWithOpus: rewriteWithOpus,
+          videoStyle: videoStyle,
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to scrape URL");
+        throw new Error(data.error || "Failed to scrape URL(s)");
       }
 
       if (data.processedContent) {
@@ -166,12 +194,17 @@ export default function AdminVideoCreatorPage() {
         if (data.processedContent.title && !title) {
           setTitle(data.processedContent.title);
         }
-        toast.success("Content extracted and script generated!");
+        const sourceCount = data.sourceCount || 1;
+        const rewriteNote = rewriteWithOpus ? " and rewritten with Opus 4.5" : "";
+        toast.success(
+          `Content extracted from ${sourceCount} source${sourceCount > 1 ? "s" : ""}${rewriteNote}!`
+        );
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to scrape URL");
+      toast.error(error instanceof Error ? error.message : "Failed to scrape URL(s)");
     } finally {
       setIsScraping(false);
+      setIsRewriting(false);
     }
   };
 
@@ -212,11 +245,13 @@ export default function AdminVideoCreatorPage() {
           }
         : undefined;
 
+      const validUrls = sourceUrls.filter((u) => u.trim());
       const result = await createVideo({
         title: title.trim(),
         description: description.trim() || undefined,
         mode,
-        sourceUrl: mode === "url_scrape" ? sourceUrl.trim() : undefined,
+        sourceUrl: mode === "url_scrape" && validUrls.length > 0 ? validUrls[0] : undefined,
+        sourceUrls: mode === "url_scrape" && validUrls.length > 0 ? validUrls : undefined,
         scriptContent: scriptContent.trim(),
         avatarId: avatarId as Id<"avatars">,
         avatarProviderConfig,
@@ -416,32 +451,86 @@ export default function AdminVideoCreatorPage() {
 
                     <TabsContent value="url_scrape" className="space-y-4 mt-4">
                       <div>
-                        <Label htmlFor="url">URL to Scrape</Label>
-                        <div className="flex gap-2">
-                          <Input
-                            id="url"
-                            value={sourceUrl}
-                            onChange={(e) => setSourceUrl(e.target.value)}
-                            placeholder="https://example.com/article"
-                            className="flex-1"
-                          />
+                        <div className="flex items-center justify-between mb-2">
+                          <Label>URLs to Scrape</Label>
                           <Button
                             type="button"
-                            onClick={handleScrapeUrl}
-                            disabled={isScraping || !sourceUrl.trim()}
+                            variant="outline"
+                            size="sm"
+                            onClick={addUrlField}
+                            className="h-7 text-xs"
                           >
-                            {isScraping ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Wand2 className="w-4 h-4" />
-                            )}
-                            <span className="ml-2">Generate</span>
+                            <Plus className="w-3 h-3 mr-1" />
+                            Add URL
                           </Button>
                         </div>
+                        <div className="space-y-2">
+                          {sourceUrls.map((url, index) => (
+                            <div key={index} className="flex gap-2">
+                              <Input
+                                value={url}
+                                onChange={(e) => updateUrl(index, e.target.value)}
+                                placeholder={`https://example.com/article${sourceUrls.length > 1 ? `-${index + 1}` : ""}`}
+                                className="flex-1"
+                              />
+                              {sourceUrls.length > 1 && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => removeUrlField(index)}
+                                  className="h-10 w-10 text-muted-foreground hover:text-destructive"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                         <p className="text-xs text-muted-foreground mt-1">
-                          We&apos;ll extract the content and generate a video script
+                          Add multiple URLs to combine content from different sources
                         </p>
                       </div>
+
+                      {/* Opus Rewrite Option */}
+                      <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30 rounded-lg border border-purple-200 dark:border-purple-800">
+                        <Checkbox
+                          id="rewriteWithOpus"
+                          checked={rewriteWithOpus}
+                          onCheckedChange={(c) => setRewriteWithOpus(c === true)}
+                        />
+                        <div className="flex-1">
+                          <Label htmlFor="rewriteWithOpus" className="text-sm font-medium cursor-pointer">
+                            Rewrite with Opus 4.5
+                          </Label>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Completely rewrite content for originality & broadcast quality
+                          </p>
+                        </div>
+                        <Badge variant="secondary" className="text-xs">
+                          Recommended
+                        </Badge>
+                      </div>
+
+                      {/* Generate Button */}
+                      <Button
+                        type="button"
+                        onClick={handleScrapeUrl}
+                        disabled={isScraping || sourceUrls.every((u) => !u.trim())}
+                        className="w-full"
+                      >
+                        {isScraping ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                            {isRewriting ? "Rewriting with Opus 4.5..." : "Scraping & Processing..."}
+                          </>
+                        ) : (
+                          <>
+                            <Wand2 className="w-4 h-4 mr-2" />
+                            Generate Script from {sourceUrls.filter((u) => u.trim()).length || 1} URL{sourceUrls.filter((u) => u.trim()).length > 1 ? "s" : ""}
+                          </>
+                        )}
+                      </Button>
 
                       {scriptContent && (
                         <div>
