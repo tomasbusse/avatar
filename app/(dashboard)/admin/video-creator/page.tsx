@@ -100,6 +100,14 @@ export default function AdminVideoCreatorPage() {
     status: string;
   }>>({});
 
+  // Remotion render state
+  const [renderingVideos, setRenderingVideos] = useState<Record<string, {
+    renderId: string;
+    bucketName: string;
+    progress: number;
+    status: string;
+  }>>({});
+
   // Form state
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -138,6 +146,73 @@ export default function AdminVideoCreatorPage() {
   const storeProcessedContent = useMutation(api.videoCreation.storeProcessedContent);
   const regenerateToken = useMutation(api.videoCreation.regenerateShareToken);
   const resetToPending = useMutation(api.videoCreation.resetToPending);
+
+  // Poll for Remotion render status
+  const pollRenderStatus = useCallback(async (videoId: string, renderId: string, bucketName: string) => {
+    try {
+      const response = await fetch(`/api/video/render/${renderId}?videoCreationId=${videoId}&bucketName=${bucketName}`);
+      const data = await response.json();
+
+      if (data.status === "complete") {
+        // Render complete, remove from tracking
+        setRenderingVideos((prev) => {
+          const updated = { ...prev };
+          delete updated[videoId];
+          return updated;
+        });
+        toast.success("Video rendered successfully!", {
+          description: "Your final video with slides is ready to download.",
+        });
+        return true; // Stop polling
+      } else if (data.status === "failed" || data.status === "error") {
+        setRenderingVideos((prev) => {
+          const updated = { ...prev };
+          delete updated[videoId];
+          return updated;
+        });
+        toast.error("Render failed", {
+          description: data.error || "Unknown error occurred",
+        });
+        return true; // Stop polling
+      } else {
+        // Update progress
+        setRenderingVideos((prev) => ({
+          ...prev,
+          [videoId]: {
+            renderId,
+            bucketName,
+            progress: data.progress || 0,
+            status: data.status,
+          },
+        }));
+        return false; // Continue polling
+      }
+    } catch (error) {
+      console.error("Render poll error:", error);
+      return false; // Continue polling on network errors
+    }
+  }, []);
+
+  // Poll for Remotion render progress
+  useEffect(() => {
+    const intervals: Record<string, NodeJS.Timeout> = {};
+
+    Object.entries(renderingVideos).forEach(([videoId, { renderId, bucketName }]) => {
+      if (renderId && !intervals[videoId]) {
+        intervals[videoId] = setInterval(async () => {
+          const shouldStop = await pollRenderStatus(videoId, renderId, bucketName);
+          if (shouldStop) {
+            clearInterval(intervals[videoId]);
+            delete intervals[videoId];
+          }
+        }, 3000); // Poll every 3 seconds for Remotion
+      }
+    });
+
+    return () => {
+      Object.values(intervals).forEach(clearInterval);
+    };
+  }, [renderingVideos, pollRenderStatus]);
 
   // Poll for batch generation status
   const pollGenerationStatus = useCallback(async (videoId: string, jobId: string) => {
@@ -1659,6 +1734,21 @@ export default function AdminVideoCreatorPage() {
                                   Final Video
                                 </Button>
                               </a>
+                            ) : renderingVideos[video._id] ? (
+                              <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2 text-sm">
+                                  <Loader2 className="w-4 h-4 animate-spin text-purple-500" />
+                                  <span className="text-muted-foreground">
+                                    Rendering: {renderingVideos[video._id].progress}%
+                                  </span>
+                                </div>
+                                <div className="w-32 bg-gray-200 rounded-full h-2">
+                                  <div
+                                    className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all duration-500"
+                                    style={{ width: `${renderingVideos[video._id].progress}%` }}
+                                  />
+                                </div>
+                              </div>
                             ) : (
                               <Button
                                 size="sm"
@@ -1675,8 +1765,18 @@ export default function AdminVideoCreatorPage() {
                                     });
                                     const data = await response.json();
                                     if (data.success) {
+                                      // Start tracking the render
+                                      setRenderingVideos((prev) => ({
+                                        ...prev,
+                                        [video._id]: {
+                                          renderId: data.renderId,
+                                          bucketName: data.bucketName,
+                                          progress: 0,
+                                          status: "rendering",
+                                        },
+                                      }));
                                       toast.success("Render started!", {
-                                        description: "This may take a few minutes...",
+                                        description: "Tracking progress...",
                                       });
                                     } else if (!data.configured) {
                                       toast.error("Remotion not configured", {
