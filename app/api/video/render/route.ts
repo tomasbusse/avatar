@@ -145,6 +145,9 @@ export async function POST(request: NextRequest) {
             type: "download",
             fileName: `video-${videoCreationId}.mp4`,
           },
+          // Use fewer concurrent lambdas to avoid rate limits on new AWS accounts
+          maxRetries: 3,
+          framesPerLambda: 120, // Fewer chunks = fewer concurrent lambdas
         });
 
         return NextResponse.json({
