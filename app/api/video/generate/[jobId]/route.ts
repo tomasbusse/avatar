@@ -13,8 +13,17 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { uploadFromUrl, generateVideoKey, getSignedDownloadUrl } from "@/lib/r2";
 
-// Convex client for mutations
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+// Force Node.js runtime (needed for Buffer in R2 upload)
+export const runtime = "nodejs";
+
+// Lazy-init Convex client to avoid build-time env var issues
+let convex: ConvexHttpClient | null = null;
+function getConvexClient(): ConvexHttpClient {
+  if (!convex) {
+    convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+  }
+  return convex;
+}
 
 // Hedra API
 const HEDRA_API_BASE = "https://api.hedra.com/web-app/public";
@@ -120,7 +129,7 @@ export async function GET(
     // Update Convex with progress if we have a videoCreationId
     if (videoCreationId && hedraStatus.status === "processing") {
       try {
-        await convex.mutation(api.videoCreation.updateBatchGenerationProgress, {
+        await getConvexClient().mutation(api.videoCreation.updateBatchGenerationProgress, {
           videoCreationId: videoCreationId as Id<"videoCreation">,
           progress,
         });
@@ -134,7 +143,7 @@ export async function GET(
       const errorMessage = hedraStatus.error || "Hedra generation failed";
 
       if (videoCreationId) {
-        await convex.mutation(api.videoCreation.markFailed, {
+        await getConvexClient().mutation(api.videoCreation.markFailed, {
           videoCreationId: videoCreationId as Id<"videoCreation">,
           errorMessage,
         });
@@ -160,7 +169,7 @@ export async function GET(
     if (videoCreationId) {
       try {
         // Update progress to show uploading
-        await convex.mutation(api.videoCreation.updateBatchGenerationProgress, {
+        await getConvexClient().mutation(api.videoCreation.updateBatchGenerationProgress, {
           videoCreationId: videoCreationId as Id<"videoCreation">,
           progress: 90,
           hedraVideoUrl: videoUrl,
@@ -173,7 +182,7 @@ export async function GET(
 
         // Complete the batch generation in Convex
         const duration = estimateDuration(fileSize);
-        await convex.mutation(api.videoCreation.completeBatchGeneration, {
+        await getConvexClient().mutation(api.videoCreation.completeBatchGeneration, {
           videoCreationId: videoCreationId as Id<"videoCreation">,
           finalOutput: {
             r2Key,
@@ -196,7 +205,7 @@ export async function GET(
         console.error("R2 upload error:", uploadError);
 
         // Mark as failed but include the Hedra URL for manual recovery
-        await convex.mutation(api.videoCreation.markFailed, {
+        await getConvexClient().mutation(api.videoCreation.markFailed, {
           videoCreationId: videoCreationId as Id<"videoCreation">,
           errorMessage: `R2 upload failed: ${uploadError instanceof Error ? uploadError.message : "Unknown error"}. Hedra URL: ${videoUrl}`,
         });

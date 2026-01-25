@@ -15,8 +15,17 @@ import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 
-// Convex client for mutations
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+// Force Node.js runtime (needed for Buffer)
+export const runtime = "nodejs";
+
+// Lazy-init Convex client to avoid build-time env var issues
+let convex: ConvexHttpClient | null = null;
+function getConvexClient(): ConvexHttpClient {
+  if (!convex) {
+    convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+  }
+  return convex;
+}
 
 // Cartesia API
 const CARTESIA_API_URL = "https://api.cartesia.ai/tts/bytes";
@@ -280,7 +289,7 @@ export async function POST(request: NextRequest) {
 
     // Update Convex status if we have a videoCreationId
     if (videoCreationId) {
-      await convex.mutation(api.videoCreation.startBatchGeneration, {
+      await getConvexClient().mutation(api.videoCreation.startBatchGeneration, {
         videoCreationId: videoCreationId as Id<"videoCreation">,
       });
     }
@@ -319,7 +328,7 @@ export async function POST(request: NextRequest) {
 
     // Update Convex with job info
     if (videoCreationId) {
-      await convex.mutation(api.videoCreation.updateBatchGenerationJob, {
+      await getConvexClient().mutation(api.videoCreation.updateBatchGenerationJob, {
         videoCreationId: videoCreationId as Id<"videoCreation">,
         hedraJobId,
         audioAssetId,
@@ -345,7 +354,7 @@ export async function POST(request: NextRequest) {
     // Update Convex with error if we have a videoCreationId
     if (videoCreationId) {
       try {
-        await convex.mutation(api.videoCreation.markFailed, {
+        await getConvexClient().mutation(api.videoCreation.markFailed, {
           videoCreationId: videoCreationId as Id<"videoCreation">,
           errorMessage: error instanceof Error ? error.message : "Unknown error",
         });
