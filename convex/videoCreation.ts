@@ -688,6 +688,33 @@ export const adminResetToPending = mutation({
   },
 });
 
+/**
+ * Admin: Reset a failed video back to completed status
+ * Used when Remotion render fails but raw video is still valid
+ */
+export const adminResetToCompleted = mutation({
+  args: { videoCreationId: v.id("videoCreation") },
+  handler: async (ctx, args) => {
+    const video = await ctx.db.get(args.videoCreationId);
+    if (!video) {
+      throw new Error("Video not found");
+    }
+
+    // Only allow reset if finalOutput exists (raw video is ready)
+    if (!video.finalOutput) {
+      throw new Error("Cannot reset to completed - no final output exists");
+    }
+
+    await ctx.db.patch(args.videoCreationId, {
+      recordingStatus: "completed",
+      errorMessage: undefined,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
 // ============================================
 // BATCH GENERATION MUTATIONS (Simple Flow)
 // ============================================
