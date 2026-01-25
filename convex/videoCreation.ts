@@ -236,6 +236,7 @@ export const create = mutation({
     avatarProviderConfig: v.optional(
       v.object({
         hedraAvatarId: v.optional(v.string()),
+        hedraAvatarImageUrl: v.optional(v.string()),
         hedraBaseCreativeId: v.optional(v.string()),
         beyAvatarId: v.optional(v.string()),
       })
@@ -344,6 +345,7 @@ export const update = mutation({
     avatarProviderConfig: v.optional(
       v.object({
         hedraAvatarId: v.optional(v.string()),
+        hedraAvatarImageUrl: v.optional(v.string()),
         hedraBaseCreativeId: v.optional(v.string()),
         beyAvatarId: v.optional(v.string()),
       })

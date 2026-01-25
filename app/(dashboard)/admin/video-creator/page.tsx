@@ -122,6 +122,7 @@ export default function AdminVideoCreatorPage() {
 
   // Provider overrides
   const [hedraAvatarId, setHedraAvatarId] = useState("");
+  const [hedraAvatarImageUrl, setHedraAvatarImageUrl] = useState("");
   const [hedraBaseCreativeId, setHedraBaseCreativeId] = useState("");
   const [beyAvatarId, setBeyAvatarId] = useState("");
   const [cartesiaVoiceId, setCartesiaVoiceId] = useState("");
@@ -1595,10 +1596,37 @@ export default function AdminVideoCreatorPage() {
                           video.recordingStatus === "generating_video" ||
                           video.recordingStatus === "uploading") &&
                           !generatingVideos[video._id] && (
-                            <Button size="sm" disabled className="gap-2">
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              Processing...
-                            </Button>
+                            <>
+                              {/* If we have a hedraJobId, allow resuming polling */}
+                              {video.batchGeneration?.hedraJobId ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="gap-2"
+                                  onClick={() => {
+                                    setGeneratingVideos((prev) => ({
+                                      ...prev,
+                                      [video._id]: {
+                                        jobId: video.batchGeneration!.hedraJobId!,
+                                        progress: video.batchGeneration?.progress || 0,
+                                        status: video.recordingStatus,
+                                      },
+                                    }));
+                                    toast.info("Polling resumed", {
+                                      description: "Checking video generation status...",
+                                    });
+                                  }}
+                                >
+                                  <RefreshCw className="w-4 h-4" />
+                                  Resume Polling
+                                </Button>
+                              ) : (
+                                <Button size="sm" disabled className="gap-2">
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                  Processing...
+                                </Button>
+                              )}
+                            </>
                           )}
 
                         {video.recordingStatus === "recorded" && (

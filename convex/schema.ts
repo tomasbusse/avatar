@@ -3172,7 +3172,8 @@ export default defineSchema({
     // Avatar Provider Overrides (optional - falls back to avatar defaults)
     avatarProviderConfig: v.optional(v.object({
       // Hedra configuration
-      hedraAvatarId: v.optional(v.string()),       // Hedra avatar ID
+      hedraAvatarId: v.optional(v.string()),       // Hedra avatar ID (existing character)
+      hedraAvatarImageUrl: v.optional(v.string()), // Image URL to create Hedra avatar on-the-fly
       hedraBaseCreativeId: v.optional(v.string()), // Hedra base creative ID
       // Beyond Presence configuration
       beyAvatarId: v.optional(v.string()),         // Beyond Presence avatar ID
