@@ -3132,4 +3132,129 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_company", ["companyId"])
     .index("by_status", ["status"]),
+
+  // ============================================
+  // VIDEO CREATION SYSTEM
+  // ============================================
+
+  videoCreation: defineTable({
+    // Basic Info
+    title: v.string(),
+    description: v.optional(v.string()),
+
+    // Content Mode
+    mode: v.union(
+      v.literal("url_scrape"),      // Scrape URL for content
+      v.literal("text_input"),      // Direct text/script input
+      v.literal("template_based")   // Use predefined template
+    ),
+
+    // Content Source
+    sourceUrl: v.optional(v.string()),           // For url_scrape mode
+    scriptContent: v.optional(v.string()),       // For text_input mode
+    templateId: v.optional(v.string()),          // For template_based mode
+
+    // Scraped/Processed Content
+    processedContent: v.optional(v.object({
+      title: v.string(),
+      content: v.string(),
+      summary: v.optional(v.string()),
+      keyPoints: v.optional(v.array(v.string())),
+      source: v.optional(v.string()),
+      fetchedAt: v.number(),
+    })),
+
+    // Avatar Configuration
+    avatarId: v.id("avatars"),
+
+    // Video Configuration
+    videoConfig: v.object({
+      style: v.union(
+        v.literal("news_broadcast"),  // Full graphics: lower third, ticker, logo
+        v.literal("simple")           // Minimal: just avatar with optional logo
+      ),
+      duration: v.optional(v.number()),  // Target duration in seconds
+      aspectRatio: v.union(
+        v.literal("16:9"),    // Landscape (YouTube, TV)
+        v.literal("9:16")     // Portrait (TikTok, Reels, Shorts)
+      ),
+      includeIntro: v.boolean(),
+      includeOutro: v.boolean(),
+      includeLowerThird: v.boolean(),
+      includeTicker: v.boolean(),
+      brandingPreset: v.optional(v.string()),
+      // Lower third customization
+      lowerThirdConfig: v.optional(v.object({
+        name: v.optional(v.string()),
+        title: v.optional(v.string()),
+        style: v.optional(v.union(
+          v.literal("minimal"),
+          v.literal("news"),
+          v.literal("corporate")
+        )),
+      })),
+      // Ticker customization
+      tickerConfig: v.optional(v.object({
+        text: v.optional(v.string()),
+        speed: v.optional(v.number()),
+      })),
+    }),
+
+    // Recording State
+    recordingStatus: v.union(
+      v.literal("pending"),
+      v.literal("recording"),
+      v.literal("recorded"),
+      v.literal("processing"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+
+    // LiveKit Room for recording
+    roomName: v.optional(v.string()),
+
+    // Raw Recording (from LiveKit)
+    rawRecording: v.optional(v.object({
+      r2Key: v.string(),
+      r2Url: v.string(),
+      duration: v.number(),
+      fileSize: v.number(),
+      recordedAt: v.number(),
+      egressId: v.string(),
+    })),
+
+    // Final Output (from Remotion)
+    finalOutput: v.optional(v.object({
+      r2Key: v.string(),
+      r2Url: v.string(),
+      duration: v.number(),
+      fileSize: v.number(),
+      renderedAt: v.number(),
+      thumbnailUrl: v.optional(v.string()),
+      thumbnailKey: v.optional(v.string()),
+    })),
+
+    // Sharing (same pattern as conversationPractice)
+    shareToken: v.string(),
+    accessMode: v.union(
+      v.literal("private"),
+      v.literal("unlisted"),
+      v.literal("public")
+    ),
+
+    // Ownership & Stats
+    createdBy: v.id("users"),
+    totalViews: v.number(),
+
+    // Error tracking
+    errorMessage: v.optional(v.string()),
+
+    // Timestamps
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_share_token", ["shareToken"])
+    .index("by_creator", ["createdBy"])
+    .index("by_status", ["recordingStatus"])
+    .index("by_created", ["createdAt"]),
 });

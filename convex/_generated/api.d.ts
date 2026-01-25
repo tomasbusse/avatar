@@ -42,6 +42,7 @@ import type * as structuredLessons from "../structuredLessons.js";
 import type * as students from "../students.js";
 import type * as teachers from "../teachers.js";
 import type * as users from "../users.js";
+import type * as videoCreation from "../videoCreation.js";
 import type * as vocabularyProgress from "../vocabularyProgress.js";
 import type * as wordGames from "../wordGames.js";
 
@@ -86,6 +87,7 @@ declare const fullApi: ApiFromModules<{
   students: typeof students;
   teachers: typeof teachers;
   users: typeof users;
+  videoCreation: typeof videoCreation;
   vocabularyProgress: typeof vocabularyProgress;
   wordGames: typeof wordGames;
 }>;
