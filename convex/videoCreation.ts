@@ -662,3 +662,26 @@ export const resetToPending = mutation({
     return { success: true };
   },
 });
+
+/**
+ * Admin reset to pending (no auth required, for fixing stuck recordings)
+ */
+export const adminResetToPending = mutation({
+  args: { videoCreationId: v.id("videoCreation") },
+  handler: async (ctx, args) => {
+    const video = await ctx.db.get(args.videoCreationId);
+    if (!video) {
+      throw new Error("Video not found");
+    }
+
+    await ctx.db.patch(args.videoCreationId, {
+      recordingStatus: "pending",
+      roomName: undefined,
+      rawRecording: undefined,
+      errorMessage: undefined,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});

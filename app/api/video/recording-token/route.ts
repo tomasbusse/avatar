@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { AccessToken, VideoGrant } from "livekit-server-sdk";
+import { AccessToken, VideoGrant, RoomServiceClient, AgentDispatchClient } from "livekit-server-sdk";
 import { currentUser } from "@clerk/nextjs/server";
 
 const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY;
 const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET;
+const LIVEKIT_WS_URL = process.env.LIVEKIT_URL || process.env.NEXT_PUBLIC_LIVEKIT_URL;
 
 /**
  * Generate a LiveKit token for video recording session
@@ -67,6 +68,58 @@ export async function POST(request: NextRequest) {
 
     // Token expires in 2 hours (plenty of time for recording)
     const token = await at.toJwt();
+
+    // Dispatch agent to the recording room
+    if (LIVEKIT_API_KEY && LIVEKIT_API_SECRET && LIVEKIT_WS_URL) {
+      const livekitUrl = LIVEKIT_WS_URL.replace('wss://', 'https://').replace('ws://', 'http://');
+
+      try {
+        const roomService = new RoomServiceClient(livekitUrl, LIVEKIT_API_KEY, LIVEKIT_API_SECRET);
+
+        // Create room with metadata for video recording
+        const roomMetadata = JSON.stringify({
+          videoCreationId,
+          isRecordingSession: true,
+          mode: "video_recording",
+        });
+
+        try {
+          await roomService.createRoom({
+            name: roomName,
+            metadata: roomMetadata,
+            emptyTimeout: 60 * 30, // 30 minutes for recording
+            maxParticipants: 2, // Admin viewer + avatar agent
+          });
+          console.log("🎬 [RECORDING] Created recording room:", roomName);
+        } catch (roomError: any) {
+          if (roomError?.message?.includes("already exists")) {
+            console.log("🎬 [RECORDING] Room already exists:", roomName);
+            await roomService.updateRoomMetadata(roomName, roomMetadata);
+          } else {
+            throw roomError;
+          }
+        }
+
+        // Dispatch the beethoven-teacher agent to the recording room
+        const agentDispatch = new AgentDispatchClient(livekitUrl, LIVEKIT_API_KEY, LIVEKIT_API_SECRET);
+
+        try {
+          await agentDispatch.createDispatch(roomName, "beethoven-teacher", {
+            metadata: roomMetadata,
+          });
+          console.log("🤖 [RECORDING] Dispatched beethoven-teacher to room:", roomName);
+        } catch (dispatchError: any) {
+          if (dispatchError?.message?.includes("already exists") || dispatchError?.code === 409) {
+            console.log("🤖 [RECORDING] Agent dispatch already exists for room:", roomName);
+          } else {
+            console.error("🤖 [RECORDING] Agent dispatch error:", dispatchError?.message);
+          }
+        }
+      } catch (error: any) {
+        console.error("🎬 [RECORDING] Room/dispatch setup error:", error?.message);
+        // Don't fail the token generation, just log the error
+      }
+    }
 
     return NextResponse.json({
       success: true,
