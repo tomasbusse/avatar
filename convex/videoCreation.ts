@@ -846,3 +846,33 @@ export const getBatchGenerationStatus = query({
     };
   },
 });
+
+/**
+ * Complete Remotion render - final polished video has been uploaded to R2
+ */
+export const completeRemotionRender = mutation({
+  args: {
+    videoCreationId: v.id("videoCreation"),
+    renderedOutput: v.object({
+      r2Key: v.string(),
+      r2Url: v.string(),
+      duration: v.number(),
+      fileSize: v.number(),
+      renderedAt: v.number(),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const video = await ctx.db.get(args.videoCreationId);
+    if (!video) {
+      throw new Error("Video not found");
+    }
+
+    await ctx.db.patch(args.videoCreationId, {
+      recordingStatus: "completed",
+      renderedOutput: args.renderedOutput,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});

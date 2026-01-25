@@ -1645,9 +1645,56 @@ export default function AdminVideoCreatorPage() {
                             >
                               <Button size="sm" variant="outline" className="gap-2">
                                 <Download className="w-4 h-4" />
-                                Download
+                                Raw Video
                               </Button>
                             </a>
+                            {video.renderedOutput ? (
+                              <a
+                                href={video.renderedOutput.r2Url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                <Button size="sm" className="gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600">
+                                  <Download className="w-4 h-4" />
+                                  Final Video
+                                </Button>
+                              </a>
+                            ) : (
+                              <Button
+                                size="sm"
+                                className="gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+                                onClick={async () => {
+                                  toast.info("Starting Remotion render...");
+                                  try {
+                                    const response = await fetch("/api/video/render", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({
+                                        videoCreationId: video._id,
+                                      }),
+                                    });
+                                    const data = await response.json();
+                                    if (data.success) {
+                                      toast.success("Render started!", {
+                                        description: "This may take a few minutes...",
+                                      });
+                                    } else if (!data.configured) {
+                                      toast.error("Remotion not configured", {
+                                        description: data.setupSteps?.[0] || "Please set up AWS credentials",
+                                        duration: 10000,
+                                      });
+                                    } else {
+                                      toast.error(data.error || "Render failed");
+                                    }
+                                  } catch (error) {
+                                    toast.error("Failed to start render");
+                                  }
+                                }}
+                              >
+                                <Sparkles className="w-4 h-4" />
+                                Render with Slides
+                              </Button>
+                            )}
                             <Button
                               size="sm"
                               variant="ghost"

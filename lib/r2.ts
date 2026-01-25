@@ -257,11 +257,11 @@ export async function listFiles(
  */
 export function generateVideoKey(
   videoCreationId: string,
-  type: "raw" | "final" | "thumbnail",
+  type: "raw" | "final" | "thumbnail" | "rendered",
   extension = "mp4"
 ): string {
   const timestamp = Date.now();
-  const folder = type === "raw" ? "recordings" : type === "final" ? "processed" : "thumbnails";
+  const folder = type === "raw" ? "recordings" : type === "final" ? "processed" : type === "rendered" ? "rendered" : "thumbnails";
   return `videos/${folder}/${videoCreationId}/${timestamp}.${extension}`;
 }
 

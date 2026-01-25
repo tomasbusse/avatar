@@ -3247,7 +3247,7 @@ export default defineSchema({
       egressId: v.string(),
     })),
 
-    // Final Output (from Remotion or batch generation)
+    // Final Output (raw avatar video from Hedra/batch generation)
     finalOutput: v.optional(v.object({
       r2Key: v.string(),
       r2Url: v.string(),
@@ -3256,6 +3256,15 @@ export default defineSchema({
       renderedAt: v.number(),
       thumbnailUrl: v.optional(v.string()),
       thumbnailKey: v.optional(v.string()),
+    })),
+
+    // Rendered Output (polished video from Remotion with overlays)
+    renderedOutput: v.optional(v.object({
+      r2Key: v.string(),
+      r2Url: v.string(),
+      duration: v.number(),
+      fileSize: v.number(),
+      renderedAt: v.number(),
     })),
 
     // Batch Generation (new simplified flow - bypasses LiveKit)
