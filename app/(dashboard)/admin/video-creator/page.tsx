@@ -1733,82 +1733,22 @@ export default function AdminVideoCreatorPage() {
                               target="_blank"
                               rel="noopener noreferrer"
                             >
-                              <Button size="sm" variant="outline" className="gap-2">
+                              <Button size="sm" className="gap-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600">
                                 <Download className="w-4 h-4" />
-                                Raw Video
+                                Download Video
                               </Button>
                             </a>
-                            {video.renderedOutput ? (
+                            {video.renderedOutput && (
                               <a
                                 href={video.renderedOutput.r2Url}
                                 target="_blank"
                                 rel="noopener noreferrer"
                               >
-                                <Button size="sm" className="gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600">
+                                <Button size="sm" variant="outline" className="gap-2">
                                   <Download className="w-4 h-4" />
-                                  Final Video
+                                  With Overlays
                                 </Button>
                               </a>
-                            ) : renderingVideos[video._id] ? (
-                              <div className="flex items-center gap-3">
-                                <div className="flex items-center gap-2 text-sm">
-                                  <Loader2 className="w-4 h-4 animate-spin text-purple-500" />
-                                  <span className="text-muted-foreground">
-                                    Rendering: {renderingVideos[video._id].progress}%
-                                  </span>
-                                </div>
-                                <div className="w-32 bg-gray-200 rounded-full h-2">
-                                  <div
-                                    className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all duration-500"
-                                    style={{ width: `${renderingVideos[video._id].progress}%` }}
-                                  />
-                                </div>
-                              </div>
-                            ) : (
-                              <Button
-                                size="sm"
-                                className="gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-                                onClick={async () => {
-                                  toast.info("Starting Remotion render...");
-                                  try {
-                                    const response = await fetch("/api/video/render", {
-                                      method: "POST",
-                                      headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({
-                                        videoCreationId: video._id,
-                                      }),
-                                    });
-                                    const data = await response.json();
-                                    if (data.success) {
-                                      // Start tracking the render
-                                      setRenderingVideos((prev) => ({
-                                        ...prev,
-                                        [video._id]: {
-                                          renderId: data.renderId,
-                                          bucketName: data.bucketName,
-                                          progress: 0,
-                                          status: "rendering",
-                                        },
-                                      }));
-                                      toast.success("Render started!", {
-                                        description: "Tracking progress...",
-                                      });
-                                    } else if (!data.configured) {
-                                      toast.error("Remotion not configured", {
-                                        description: data.setupSteps?.[0] || "Please set up AWS credentials",
-                                        duration: 10000,
-                                      });
-                                    } else {
-                                      toast.error(data.error || "Render failed");
-                                    }
-                                  } catch (error) {
-                                    toast.error("Failed to start render");
-                                  }
-                                }}
-                              >
-                                <Sparkles className="w-4 h-4" />
-                                Render with Slides
-                              </Button>
                             )}
                             <Button
                               size="sm"
