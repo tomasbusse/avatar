@@ -685,3 +685,162 @@ export const adminResetToPending = mutation({
     return { success: true };
   },
 });
+
+// ============================================
+// BATCH GENERATION MUTATIONS (Simple Flow)
+// ============================================
+
+/**
+ * Start batch generation - called when TTS audio is being generated
+ */
+export const startBatchGeneration = mutation({
+  args: { videoCreationId: v.id("videoCreation") },
+  handler: async (ctx, args) => {
+    const video = await ctx.db.get(args.videoCreationId);
+    if (!video) {
+      throw new Error("Video not found");
+    }
+
+    if (video.recordingStatus !== "pending" && video.recordingStatus !== "failed") {
+      throw new Error(`Cannot start batch generation from status: ${video.recordingStatus}`);
+    }
+
+    await ctx.db.patch(args.videoCreationId, {
+      recordingStatus: "generating_audio",
+      batchGeneration: {
+        startedAt: Date.now(),
+        progress: 0,
+      },
+      errorMessage: undefined,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Update batch generation with Hedra job info
+ */
+export const updateBatchGenerationJob = mutation({
+  args: {
+    videoCreationId: v.id("videoCreation"),
+    hedraJobId: v.string(),
+    audioAssetId: v.optional(v.string()),
+    audioDuration: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const video = await ctx.db.get(args.videoCreationId);
+    if (!video) {
+      throw new Error("Video not found");
+    }
+
+    await ctx.db.patch(args.videoCreationId, {
+      recordingStatus: "generating_video",
+      batchGeneration: {
+        ...video.batchGeneration,
+        hedraJobId: args.hedraJobId,
+        audioAssetId: args.audioAssetId,
+        audioDuration: args.audioDuration,
+        progress: 10,
+      },
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Update batch generation progress
+ */
+export const updateBatchGenerationProgress = mutation({
+  args: {
+    videoCreationId: v.id("videoCreation"),
+    progress: v.number(),
+    hedraVideoUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const video = await ctx.db.get(args.videoCreationId);
+    if (!video) {
+      throw new Error("Video not found");
+    }
+
+    const updates: Record<string, unknown> = {
+      batchGeneration: {
+        ...video.batchGeneration,
+        progress: args.progress,
+        hedraVideoUrl: args.hedraVideoUrl || video.batchGeneration?.hedraVideoUrl,
+      },
+      updatedAt: Date.now(),
+    };
+
+    // If we have a video URL, we're ready to upload
+    if (args.hedraVideoUrl) {
+      updates.recordingStatus = "uploading";
+    }
+
+    await ctx.db.patch(args.videoCreationId, updates);
+
+    return { success: true };
+  },
+});
+
+/**
+ * Complete batch generation - video has been uploaded to R2
+ */
+export const completeBatchGeneration = mutation({
+  args: {
+    videoCreationId: v.id("videoCreation"),
+    finalOutput: v.object({
+      r2Key: v.string(),
+      r2Url: v.string(),
+      duration: v.number(),
+      fileSize: v.number(),
+      renderedAt: v.number(),
+      thumbnailUrl: v.optional(v.string()),
+      thumbnailKey: v.optional(v.string()),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const video = await ctx.db.get(args.videoCreationId);
+    if (!video) {
+      throw new Error("Video not found");
+    }
+
+    await ctx.db.patch(args.videoCreationId, {
+      recordingStatus: "completed",
+      finalOutput: args.finalOutput,
+      batchGeneration: {
+        ...video.batchGeneration,
+        progress: 100,
+        completedAt: Date.now(),
+      },
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Get batch generation status (for polling)
+ */
+export const getBatchGenerationStatus = query({
+  args: { videoCreationId: v.id("videoCreation") },
+  handler: async (ctx, args) => {
+    const video = await ctx.db.get(args.videoCreationId);
+    if (!video) {
+      return null;
+    }
+
+    return {
+      status: video.recordingStatus,
+      progress: video.batchGeneration?.progress || 0,
+      hedraJobId: video.batchGeneration?.hedraJobId,
+      hedraVideoUrl: video.batchGeneration?.hedraVideoUrl,
+      finalOutput: video.finalOutput,
+      errorMessage: video.errorMessage,
+    };
+  },
+});

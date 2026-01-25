@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -47,6 +47,7 @@ import {
   Settings,
   Clapperboard,
   Wand2,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -55,7 +56,7 @@ type ContentMode = "url_scrape" | "text_input" | "template_based";
 type VideoStyle = "news_broadcast" | "simple";
 type AspectRatio = "16:9" | "9:16";
 type AccessMode = "private" | "unlisted" | "public";
-type RecordingStatus = "pending" | "recording" | "recorded" | "processing" | "completed" | "failed";
+type RecordingStatus = "pending" | "recording" | "recorded" | "processing" | "completed" | "failed" | "generating_audio" | "generating_video" | "uploading";
 
 const STATUS_COLORS: Record<RecordingStatus, string> = {
   pending: "bg-gray-500",
@@ -64,6 +65,9 @@ const STATUS_COLORS: Record<RecordingStatus, string> = {
   processing: "bg-blue-500 animate-pulse",
   completed: "bg-green-500",
   failed: "bg-red-600",
+  generating_audio: "bg-purple-500 animate-pulse",
+  generating_video: "bg-indigo-500 animate-pulse",
+  uploading: "bg-cyan-500 animate-pulse",
 };
 
 const STATUS_LABELS: Record<RecordingStatus, string> = {
@@ -73,12 +77,22 @@ const STATUS_LABELS: Record<RecordingStatus, string> = {
   processing: "Processing",
   completed: "Completed",
   failed: "Failed",
+  generating_audio: "Generating Audio",
+  generating_video: "Generating Video",
+  uploading: "Uploading",
 };
 
 export default function AdminVideoCreatorPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isScraping, setIsScraping] = useState(false);
+
+  // Batch generation state
+  const [generatingVideos, setGeneratingVideos] = useState<Record<string, {
+    jobId: string;
+    progress: number;
+    status: string;
+  }>>({});
 
   // Form state
   const [title, setTitle] = useState("");
@@ -116,6 +130,166 @@ export default function AdminVideoCreatorPage() {
   const storeProcessedContent = useMutation(api.videoCreation.storeProcessedContent);
   const regenerateToken = useMutation(api.videoCreation.regenerateShareToken);
   const resetToPending = useMutation(api.videoCreation.resetToPending);
+
+  // Poll for batch generation status
+  const pollGenerationStatus = useCallback(async (videoId: string, jobId: string) => {
+    try {
+      const response = await fetch(`/api/video/generate/${jobId}?videoCreationId=${videoId}`);
+      const data = await response.json();
+
+      if (data.status === "complete") {
+        // Generation complete, remove from tracking
+        setGeneratingVideos((prev) => {
+          const updated = { ...prev };
+          delete updated[videoId];
+          return updated;
+        });
+        toast.success("Video generated successfully!", {
+          description: "Your video is ready to download.",
+        });
+        return true; // Stop polling
+      } else if (data.status === "failed" || data.status === "error") {
+        setGeneratingVideos((prev) => {
+          const updated = { ...prev };
+          delete updated[videoId];
+          return updated;
+        });
+        toast.error("Video generation failed", {
+          description: data.error || "Unknown error occurred",
+        });
+        return true; // Stop polling
+      } else {
+        // Update progress
+        setGeneratingVideos((prev) => ({
+          ...prev,
+          [videoId]: {
+            jobId,
+            progress: data.progress || 0,
+            status: data.status,
+          },
+        }));
+        return false; // Continue polling
+      }
+    } catch (error) {
+      console.error("Poll error:", error);
+      return false; // Continue polling on network errors
+    }
+  }, []);
+
+  // Start polling effect
+  useEffect(() => {
+    const intervals: Record<string, NodeJS.Timeout> = {};
+
+    Object.entries(generatingVideos).forEach(([videoId, { jobId }]) => {
+      if (!intervals[videoId]) {
+        intervals[videoId] = setInterval(async () => {
+          const shouldStop = await pollGenerationStatus(videoId, jobId);
+          if (shouldStop) {
+            clearInterval(intervals[videoId]);
+            delete intervals[videoId];
+          }
+        }, 5000); // Poll every 5 seconds
+      }
+    });
+
+    return () => {
+      Object.values(intervals).forEach(clearInterval);
+    };
+  }, [generatingVideos, pollGenerationStatus]);
+
+  // Start batch video generation
+  const handleGenerateVideo = async (video: {
+    _id: Id<"videoCreation">;
+    scriptContent?: string;
+    avatarId: Id<"avatars">;
+    avatarProviderConfig?: {
+      hedraAvatarId?: string;
+      hedraBaseCreativeId?: string;
+    };
+    voiceProviderConfig?: {
+      cartesiaVoiceId?: string;
+    };
+    videoConfig: {
+      aspectRatio: string;
+    };
+    avatar?: {
+      _id: Id<"avatars">;
+      name: string;
+    } | null;
+  }) => {
+    if (!video.scriptContent?.trim()) {
+      toast.error("No script content", {
+        description: "Please add script content before generating video.",
+      });
+      return;
+    }
+
+    // Get avatar details for Hedra character ID
+    const avatar = avatars?.find((a) => a._id === video.avatarId);
+    if (!avatar) {
+      toast.error("Avatar not found");
+      return;
+    }
+
+    // Determine Hedra character ID
+    let characterId = video.avatarProviderConfig?.hedraAvatarId;
+    if (!characterId && avatar.avatarProvider.type === "hedra") {
+      characterId = avatar.avatarProvider.avatarId;
+    }
+
+    if (!characterId) {
+      toast.error("No Hedra character ID", {
+        description: "This avatar doesn't have a Hedra character configured. Please set a Hedra Avatar ID in the provider overrides.",
+      });
+      return;
+    }
+
+    // Determine voice ID
+    const voiceId = video.voiceProviderConfig?.cartesiaVoiceId || avatar.voiceProvider.voiceId;
+
+    try {
+      setGeneratingVideos((prev) => ({
+        ...prev,
+        [video._id]: { jobId: "", progress: 0, status: "starting" },
+      }));
+
+      const response = await fetch("/api/video/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: video.scriptContent,
+          voiceId,
+          characterId,
+          aspectRatio: video.videoConfig.aspectRatio,
+          videoCreationId: video._id,
+          textPrompt: `${avatar.name} speaking clearly to camera`,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to start video generation");
+      }
+
+      // Update tracking with job ID
+      setGeneratingVideos((prev) => ({
+        ...prev,
+        [video._id]: { jobId: data.jobId, progress: 5, status: "generating_audio" },
+      }));
+
+      toast.success("Video generation started", {
+        description: `Estimated duration: ~${data.estimatedVideoDuration || 30} seconds`,
+      });
+    } catch (error) {
+      setGeneratingVideos((prev) => {
+        const updated = { ...prev };
+        delete updated[video._id];
+        return updated;
+      });
+      toast.error(error instanceof Error ? error.message : "Failed to start generation");
+    }
+  };
 
   const resetForm = () => {
     setTitle("");
@@ -341,6 +515,12 @@ export default function AdminVideoCreatorPage() {
         return <CheckCircle className="w-4 h-4 text-green-500" />;
       case "failed":
         return <AlertCircle className="w-4 h-4 text-red-500" />;
+      case "generating_audio":
+        return <Sparkles className="w-4 h-4 text-purple-500 animate-pulse" />;
+      case "generating_video":
+        return <Wand2 className="w-4 h-4 text-indigo-500 animate-pulse" />;
+      case "uploading":
+        return <Loader2 className="w-4 h-4 text-cyan-500 animate-spin" />;
     }
   };
 
@@ -901,16 +1081,63 @@ export default function AdminVideoCreatorPage() {
                         </div>
                       )}
 
+                      {/* Generation Progress */}
+                      {generatingVideos[video._id] && (
+                        <div className="mt-3 space-y-2">
+                          <div className="flex items-center gap-2 text-sm">
+                            <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
+                            <span className="text-muted-foreground">
+                              {generatingVideos[video._id].status === "generating_audio"
+                                ? "Generating audio..."
+                                : generatingVideos[video._id].status === "generating_video"
+                                ? "Generating video..."
+                                : generatingVideos[video._id].status === "uploading"
+                                ? "Uploading to storage..."
+                                : "Processing..."}
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div
+                              className="bg-indigo-500 h-2 rounded-full transition-all duration-500"
+                              style={{ width: `${generatingVideos[video._id].progress}%` }}
+                            />
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {generatingVideos[video._id].progress}% complete
+                          </p>
+                        </div>
+                      )}
+
                       {/* Actions based on status */}
-                      <div className="mt-4 flex items-center gap-2">
-                        {video.recordingStatus === "pending" && (
-                          <Link href={`/video/record/${video._id}`}>
-                            <Button size="sm" className="gap-2">
-                              <Play className="w-4 h-4" />
-                              Start Recording
+                      <div className="mt-4 flex items-center gap-2 flex-wrap">
+                        {video.recordingStatus === "pending" && !generatingVideos[video._id] && (
+                          <>
+                            <Button
+                              size="sm"
+                              className="gap-2 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600"
+                              onClick={() => handleGenerateVideo(video)}
+                            >
+                              <Wand2 className="w-4 h-4" />
+                              Generate Video
                             </Button>
-                          </Link>
+                            <Link href={`/video/record/${video._id}`}>
+                              <Button size="sm" variant="outline" className="gap-2">
+                                <Play className="w-4 h-4" />
+                                LiveKit Recording
+                              </Button>
+                            </Link>
+                          </>
                         )}
+
+                        {(video.recordingStatus === "generating_audio" ||
+                          video.recordingStatus === "generating_video" ||
+                          video.recordingStatus === "uploading") &&
+                          !generatingVideos[video._id] && (
+                            <Button size="sm" disabled className="gap-2">
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Processing...
+                            </Button>
+                          )}
 
                         {video.recordingStatus === "recorded" && (
                           <Button size="sm" className="gap-2" disabled>

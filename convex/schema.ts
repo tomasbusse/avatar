@@ -3226,13 +3226,17 @@ export default defineSchema({
       v.literal("recorded"),
       v.literal("processing"),
       v.literal("completed"),
-      v.literal("failed")
+      v.literal("failed"),
+      // New batch generation statuses
+      v.literal("generating_audio"),
+      v.literal("generating_video"),
+      v.literal("uploading")
     ),
 
-    // LiveKit Room for recording
+    // LiveKit Room for recording (legacy - for LiveKit flow)
     roomName: v.optional(v.string()),
 
-    // Raw Recording (from LiveKit)
+    // Raw Recording (from LiveKit - legacy)
     rawRecording: v.optional(v.object({
       r2Key: v.string(),
       r2Url: v.string(),
@@ -3242,7 +3246,7 @@ export default defineSchema({
       egressId: v.string(),
     })),
 
-    // Final Output (from Remotion)
+    // Final Output (from Remotion or batch generation)
     finalOutput: v.optional(v.object({
       r2Key: v.string(),
       r2Url: v.string(),
@@ -3251,6 +3255,21 @@ export default defineSchema({
       renderedAt: v.number(),
       thumbnailUrl: v.optional(v.string()),
       thumbnailKey: v.optional(v.string()),
+    })),
+
+    // Batch Generation (new simplified flow - bypasses LiveKit)
+    batchGeneration: v.optional(v.object({
+      // Hedra job ID for polling
+      hedraJobId: v.optional(v.string()),
+      // Hedra video URL (temporary, before R2 upload)
+      hedraVideoUrl: v.optional(v.string()),
+      // Audio generation details
+      audioAssetId: v.optional(v.string()),
+      audioDuration: v.optional(v.number()),
+      // Progress tracking
+      progress: v.optional(v.number()),
+      startedAt: v.optional(v.number()),
+      completedAt: v.optional(v.number()),
     })),
 
     // Sharing (same pattern as conversationPractice)
