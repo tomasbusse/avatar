@@ -48,6 +48,7 @@ import {
   Clapperboard,
   Wand2,
   Sparkles,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -86,6 +87,11 @@ export default function AdminVideoCreatorPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isScraping, setIsScraping] = useState(false);
+
+  // Edit state
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingVideoId, setEditingVideoId] = useState<Id<"videoCreation"> | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   // Batch generation state
   const [generatingVideos, setGeneratingVideos] = useState<Record<string, {
@@ -126,6 +132,7 @@ export default function AdminVideoCreatorPage() {
 
   // Mutations
   const createVideo = useMutation(api.videoCreation.create);
+  const updateVideo = useMutation(api.videoCreation.update);
   const deleteVideo = useMutation(api.videoCreation.remove);
   const storeProcessedContent = useMutation(api.videoCreation.storeProcessedContent);
   const regenerateToken = useMutation(api.videoCreation.regenerateShareToken);
@@ -232,14 +239,19 @@ export default function AdminVideoCreatorPage() {
     }
 
     // Determine Hedra character ID
+    // Priority: 1) Video-level override, 2) Avatar's native Hedra ID (if type is hedra)
     let characterId = video.avatarProviderConfig?.hedraAvatarId;
     if (!characterId && avatar.avatarProvider.type === "hedra") {
       characterId = avatar.avatarProvider.avatarId;
     }
 
     if (!characterId) {
-      toast.error("No Hedra character ID", {
-        description: "This avatar doesn't have a Hedra character configured. Please set a Hedra Avatar ID in the provider overrides.",
+      const hedraAvatars = avatars?.filter((a) => a.avatarProvider.type === "hedra").map((a) => a.name);
+      toast.error("Hedra character required", {
+        description: avatar.avatarProvider.type === "beyond_presence"
+          ? `"${avatar.name}" uses Beyond Presence. Either use a Hedra avatar (${hedraAvatars?.join(", ") || "none available"}) or edit this video and add a Hedra Avatar ID in Provider Overrides.`
+          : "Please set a Hedra Avatar ID in the video's Provider Overrides section.",
+        duration: 8000,
       });
       return;
     }
@@ -314,6 +326,131 @@ export default function AdminVideoCreatorPage() {
     setHedraBaseCreativeId("");
     setBeyAvatarId("");
     setCartesiaVoiceId("");
+    // Reset edit state
+    setEditingVideoId(null);
+  };
+
+  // Open edit dialog with existing video data
+  const openEditDialog = (video: {
+    _id: Id<"videoCreation">;
+    title: string;
+    description?: string;
+    mode: ContentMode;
+    sourceUrl?: string;
+    sourceUrls?: string[];
+    scriptContent?: string;
+    avatarId: Id<"avatars">;
+    avatarProviderConfig?: {
+      hedraAvatarId?: string;
+      hedraBaseCreativeId?: string;
+      beyAvatarId?: string;
+    };
+    voiceProviderConfig?: {
+      cartesiaVoiceId?: string;
+    };
+    videoConfig: {
+      style: VideoStyle;
+      aspectRatio: AspectRatio;
+      includeIntro: boolean;
+      includeOutro: boolean;
+      includeLowerThird: boolean;
+      includeTicker: boolean;
+      lowerThirdConfig?: {
+        name?: string;
+        title?: string;
+      };
+    };
+    accessMode: AccessMode;
+  }) => {
+    setEditingVideoId(video._id);
+    setTitle(video.title);
+    setDescription(video.description || "");
+    setMode(video.mode);
+    setSourceUrls(video.sourceUrls?.length ? video.sourceUrls : video.sourceUrl ? [video.sourceUrl] : [""]);
+    setScriptContent(video.scriptContent || "");
+    setAvatarId(video.avatarId);
+    setVideoStyle(video.videoConfig.style);
+    setAspectRatio(video.videoConfig.aspectRatio);
+    setIncludeIntro(video.videoConfig.includeIntro);
+    setIncludeOutro(video.videoConfig.includeOutro);
+    setIncludeLowerThird(video.videoConfig.includeLowerThird);
+    setIncludeTicker(video.videoConfig.includeTicker);
+    setLowerThirdName(video.videoConfig.lowerThirdConfig?.name || "");
+    setLowerThirdTitle(video.videoConfig.lowerThirdConfig?.title || "");
+    setAccessMode(video.accessMode);
+    // Provider overrides
+    setHedraAvatarId(video.avatarProviderConfig?.hedraAvatarId || "");
+    setHedraBaseCreativeId(video.avatarProviderConfig?.hedraBaseCreativeId || "");
+    setBeyAvatarId(video.avatarProviderConfig?.beyAvatarId || "");
+    setCartesiaVoiceId(video.voiceProviderConfig?.cartesiaVoiceId || "");
+    setIsEditDialogOpen(true);
+  };
+
+  // Handle update
+  const handleUpdate = async () => {
+    if (!editingVideoId) return;
+
+    if (!title.trim()) {
+      toast.error("Please enter a title");
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      // Build provider config objects only if values are provided
+      const avatarProviderConfig =
+        hedraAvatarId || hedraBaseCreativeId || beyAvatarId
+          ? {
+              hedraAvatarId: hedraAvatarId || undefined,
+              hedraBaseCreativeId: hedraBaseCreativeId || undefined,
+              beyAvatarId: beyAvatarId || undefined,
+            }
+          : undefined;
+
+      const voiceProviderConfig = cartesiaVoiceId
+        ? {
+            cartesiaVoiceId: cartesiaVoiceId || undefined,
+          }
+        : undefined;
+
+      const validUrls = sourceUrls.filter((u) => u.trim());
+      await updateVideo({
+        videoCreationId: editingVideoId,
+        title: title.trim(),
+        description: description.trim() || undefined,
+        sourceUrl: mode === "url_scrape" && validUrls.length > 0 ? validUrls[0] : undefined,
+        sourceUrls: mode === "url_scrape" && validUrls.length > 0 ? validUrls : undefined,
+        scriptContent: scriptContent.trim() || undefined,
+        avatarId: avatarId as Id<"avatars">,
+        avatarProviderConfig,
+        voiceProviderConfig,
+        videoConfig: {
+          style: videoStyle,
+          aspectRatio,
+          includeIntro,
+          includeOutro,
+          includeLowerThird,
+          includeTicker,
+          lowerThirdConfig:
+            includeLowerThird && (lowerThirdName || lowerThirdTitle)
+              ? {
+                  name: lowerThirdName || undefined,
+                  title: lowerThirdTitle || undefined,
+                  style: "news" as const,
+                }
+              : undefined,
+        },
+        accessMode,
+      });
+
+      toast.success("Video project updated!");
+      resetForm();
+      setIsEditDialogOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update video");
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   // Add a new URL input field
@@ -1004,6 +1141,330 @@ export default function AdminVideoCreatorPage() {
               </div>
             </DialogContent>
           </Dialog>
+
+          {/* Edit Dialog */}
+          <Dialog
+            open={isEditDialogOpen}
+            onOpenChange={(open) => {
+              setIsEditDialogOpen(open);
+              if (!open) resetForm();
+            }}
+          >
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Edit Video Project</DialogTitle>
+              </DialogHeader>
+
+              <div className="space-y-6 py-4">
+                {/* Basic Info */}
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="edit-title">Title *</Label>
+                    <Input
+                      id="edit-title"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="e.g., Weekly News Update"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="edit-description">Description</Label>
+                    <Textarea
+                      id="edit-description"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Brief description of this video"
+                      rows={2}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="edit-avatar">Avatar *</Label>
+                    <Select value={avatarId} onValueChange={setAvatarId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select an avatar" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {avatars?.map((avatar) => (
+                          <SelectItem key={avatar._id} value={avatar._id}>
+                            {avatar.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Script Content */}
+                <div className="border-t pt-4">
+                  <h3 className="font-medium mb-4">Script Content</h3>
+                  <div>
+                    <Label htmlFor="edit-script">Script</Label>
+                    <Textarea
+                      id="edit-script"
+                      value={scriptContent}
+                      onChange={(e) => setScriptContent(e.target.value)}
+                      placeholder="Enter the script that the avatar will read..."
+                      rows={8}
+                      className="font-mono text-sm"
+                    />
+                    {scriptContent && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {scriptContent.split(/\s+/).filter(Boolean).length} words
+                        {" "}(~{Math.round(scriptContent.split(/\s+/).filter(Boolean).length / 150)} min)
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Video Settings */}
+                <div className="border-t pt-4 space-y-4">
+                  <h3 className="font-medium">Video Settings</h3>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="edit-style">Style</Label>
+                      <Select
+                        value={videoStyle}
+                        onValueChange={(v) => setVideoStyle(v as VideoStyle)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="simple">Simple (Avatar Only)</SelectItem>
+                          <SelectItem value="news_broadcast">News Broadcast</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="edit-aspect">Aspect Ratio</Label>
+                      <Select
+                        value={aspectRatio}
+                        onValueChange={(v) => setAspectRatio(v as AspectRatio)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="16:9">16:9 (Landscape)</SelectItem>
+                          <SelectItem value="9:16">9:16 (Portrait/Shorts)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="edit-includeIntro"
+                        checked={includeIntro}
+                        onCheckedChange={(c) => setIncludeIntro(c === true)}
+                      />
+                      <Label htmlFor="edit-includeIntro" className="text-sm font-normal">
+                        Include intro animation
+                      </Label>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="edit-includeOutro"
+                        checked={includeOutro}
+                        onCheckedChange={(c) => setIncludeOutro(c === true)}
+                      />
+                      <Label htmlFor="edit-includeOutro" className="text-sm font-normal">
+                        Include outro with CTA
+                      </Label>
+                    </div>
+
+                    {videoStyle === "news_broadcast" && (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="edit-includeLowerThird"
+                            checked={includeLowerThird}
+                            onCheckedChange={(c) => setIncludeLowerThird(c === true)}
+                          />
+                          <Label htmlFor="edit-includeLowerThird" className="text-sm font-normal">
+                            Include lower third (name bar)
+                          </Label>
+                        </div>
+
+                        {includeLowerThird && (
+                          <div className="ml-6 space-y-2 p-3 bg-muted/50 rounded-lg">
+                            <div>
+                              <Label htmlFor="edit-lowerThirdName" className="text-xs">
+                                Name
+                              </Label>
+                              <Input
+                                id="edit-lowerThirdName"
+                                value={lowerThirdName}
+                                onChange={(e) => setLowerThirdName(e.target.value)}
+                                placeholder="e.g., Emma Smith"
+                                className="h-8"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="edit-lowerThirdTitle" className="text-xs">
+                                Title
+                              </Label>
+                              <Input
+                                id="edit-lowerThirdTitle"
+                                value={lowerThirdTitle}
+                                onChange={(e) => setLowerThirdTitle(e.target.value)}
+                                placeholder="e.g., News Anchor"
+                                className="h-8"
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="edit-includeTicker"
+                            checked={includeTicker}
+                            onCheckedChange={(c) => setIncludeTicker(c === true)}
+                          />
+                          <Label htmlFor="edit-includeTicker" className="text-sm font-normal">
+                            Include news ticker
+                          </Label>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Provider Overrides (Advanced) */}
+                <div className="border-t pt-4 space-y-4">
+                  <details className="group">
+                    <summary className="font-medium cursor-pointer list-none flex items-center gap-2">
+                      <Settings className="w-4 h-4" />
+                      Provider Overrides (Advanced)
+                      <span className="text-xs text-muted-foreground ml-2">
+                        Optional - overrides avatar defaults
+                      </span>
+                    </summary>
+                    <div className="mt-4 space-y-4 pl-6">
+                      <p className="text-xs text-muted-foreground">
+                        Leave blank to use the selected avatar&apos;s default provider settings.
+                      </p>
+
+                      {/* Hedra Settings */}
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-medium text-muted-foreground">Hedra</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label htmlFor="edit-hedraAvatarId" className="text-xs">
+                              Hedra Avatar ID
+                            </Label>
+                            <Input
+                              id="edit-hedraAvatarId"
+                              value={hedraAvatarId}
+                              onChange={(e) => setHedraAvatarId(e.target.value)}
+                              placeholder="e.g., avatar_abc123"
+                              className="h-8 text-sm"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="edit-hedraBaseCreativeId" className="text-xs">
+                              Base Creative ID
+                            </Label>
+                            <Input
+                              id="edit-hedraBaseCreativeId"
+                              value={hedraBaseCreativeId}
+                              onChange={(e) => setHedraBaseCreativeId(e.target.value)}
+                              placeholder="e.g., creative_xyz789"
+                              className="h-8 text-sm"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Beyond Presence Settings */}
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-medium text-muted-foreground">Beyond Presence</h4>
+                        <div>
+                          <Label htmlFor="edit-beyAvatarId" className="text-xs">
+                            Beyond Presence Avatar ID
+                          </Label>
+                          <Input
+                            id="edit-beyAvatarId"
+                            value={beyAvatarId}
+                            onChange={(e) => setBeyAvatarId(e.target.value)}
+                            placeholder="e.g., b9be11b8-89fb-4227-8f86-..."
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Cartesia Settings */}
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-medium text-muted-foreground">Cartesia (Voice)</h4>
+                        <div>
+                          <Label htmlFor="edit-cartesiaVoiceId" className="text-xs">
+                            Cartesia Voice ID
+                          </Label>
+                          <Input
+                            id="edit-cartesiaVoiceId"
+                            value={cartesiaVoiceId}
+                            onChange={(e) => setCartesiaVoiceId(e.target.value)}
+                            placeholder="e.g., voice_abc123"
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </details>
+                </div>
+
+                {/* Access Settings */}
+                <div className="border-t pt-4 space-y-4">
+                  <h3 className="font-medium">Access</h3>
+                  <Select
+                    value={accessMode}
+                    onValueChange={(v) => setAccessMode(v as AccessMode)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="private">Private (Only you)</SelectItem>
+                      <SelectItem value="unlisted">Unlisted (Anyone with link)</SelectItem>
+                      <SelectItem value="public">Public</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Actions */}
+                <div className="flex justify-end gap-2 pt-4 border-t">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsEditDialogOpen(false);
+                      resetForm();
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button onClick={handleUpdate} disabled={isUpdating}>
+                    {isUpdating ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Save Changes
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Videos List */}
@@ -1222,6 +1683,14 @@ export default function AdminVideoCreatorPage() {
                     </div>
 
                     <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openEditDialog(video)}
+                        title="Edit Video"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
