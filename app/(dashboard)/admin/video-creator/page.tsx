@@ -106,6 +106,7 @@ export default function AdminVideoCreatorPage() {
     bucketName: string;
     progress: number;
     status: string;
+    rateLimitRetries?: number;
   }>>({});
 
   // Form state
@@ -186,8 +187,31 @@ export default function AdminVideoCreatorPage() {
         });
         return true; // Stop polling
       } else if (data.status === "rate_limited") {
-        // Rate limited - continue polling but don't update progress
-        console.log("Rate limited, will retry...");
+        // Rate limited - track retries and stop after too many
+        const currentState = renderingVideos[videoId];
+        const retries = (currentState?.rateLimitRetries || 0) + 1;
+
+        if (retries >= 10) {
+          // Too many rate limits, stop polling
+          setRenderingVideos((prev) => {
+            const updated = { ...prev };
+            delete updated[videoId];
+            return updated;
+          });
+          toast.error("Rate limit exceeded", {
+            description: "Too many rate limit errors. Please try again later.",
+          });
+          return true; // Stop polling
+        }
+
+        setRenderingVideos((prev) => ({
+          ...prev,
+          [videoId]: {
+            ...prev[videoId],
+            rateLimitRetries: retries,
+          },
+        }));
+        console.log(`Rate limited, retry ${retries}/10...`);
         return false; // Continue polling (will retry after interval)
       } else {
         // Update progress
