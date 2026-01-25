@@ -97,6 +97,12 @@ export default function AdminVideoCreatorPage() {
   const [lowerThirdTitle, setLowerThirdTitle] = useState("");
   const [accessMode, setAccessMode] = useState<AccessMode>("private");
 
+  // Provider overrides
+  const [hedraAvatarId, setHedraAvatarId] = useState("");
+  const [hedraBaseCreativeId, setHedraBaseCreativeId] = useState("");
+  const [beyAvatarId, setBeyAvatarId] = useState("");
+  const [cartesiaVoiceId, setCartesiaVoiceId] = useState("");
+
   // Queries
   const videos = useQuery(api.videoCreation.list, {});
   const avatars = useQuery(api.avatars.listActiveAvatars);
@@ -124,6 +130,11 @@ export default function AdminVideoCreatorPage() {
     setLowerThirdName("");
     setLowerThirdTitle("");
     setAccessMode("private");
+    // Provider overrides
+    setHedraAvatarId("");
+    setHedraBaseCreativeId("");
+    setBeyAvatarId("");
+    setCartesiaVoiceId("");
   };
 
   // Scrape URL for content
@@ -185,6 +196,22 @@ export default function AdminVideoCreatorPage() {
 
     setIsCreating(true);
     try {
+      // Build provider config objects only if values are provided
+      const avatarProviderConfig =
+        hedraAvatarId || hedraBaseCreativeId || beyAvatarId
+          ? {
+              hedraAvatarId: hedraAvatarId || undefined,
+              hedraBaseCreativeId: hedraBaseCreativeId || undefined,
+              beyAvatarId: beyAvatarId || undefined,
+            }
+          : undefined;
+
+      const voiceProviderConfig = cartesiaVoiceId
+        ? {
+            cartesiaVoiceId: cartesiaVoiceId || undefined,
+          }
+        : undefined;
+
       const result = await createVideo({
         title: title.trim(),
         description: description.trim() || undefined,
@@ -192,6 +219,8 @@ export default function AdminVideoCreatorPage() {
         sourceUrl: mode === "url_scrape" ? sourceUrl.trim() : undefined,
         scriptContent: scriptContent.trim(),
         avatarId: avatarId as Id<"avatars">,
+        avatarProviderConfig,
+        voiceProviderConfig,
         videoConfig: {
           style: videoStyle,
           aspectRatio,
@@ -549,6 +578,89 @@ export default function AdminVideoCreatorPage() {
                       </>
                     )}
                   </div>
+                </div>
+
+                {/* Provider Overrides (Advanced) */}
+                <div className="border-t pt-4 space-y-4">
+                  <details className="group">
+                    <summary className="font-medium cursor-pointer list-none flex items-center gap-2">
+                      <Settings className="w-4 h-4" />
+                      Provider Overrides (Advanced)
+                      <span className="text-xs text-muted-foreground ml-2">
+                        Optional - overrides avatar defaults
+                      </span>
+                    </summary>
+                    <div className="mt-4 space-y-4 pl-6">
+                      <p className="text-xs text-muted-foreground">
+                        Leave blank to use the selected avatar&apos;s default provider settings.
+                      </p>
+
+                      {/* Hedra Settings */}
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-medium text-muted-foreground">Hedra</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label htmlFor="hedraAvatarId" className="text-xs">
+                              Hedra Avatar ID
+                            </Label>
+                            <Input
+                              id="hedraAvatarId"
+                              value={hedraAvatarId}
+                              onChange={(e) => setHedraAvatarId(e.target.value)}
+                              placeholder="e.g., avatar_abc123"
+                              className="h-8 text-sm"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="hedraBaseCreativeId" className="text-xs">
+                              Base Creative ID
+                            </Label>
+                            <Input
+                              id="hedraBaseCreativeId"
+                              value={hedraBaseCreativeId}
+                              onChange={(e) => setHedraBaseCreativeId(e.target.value)}
+                              placeholder="e.g., creative_xyz789"
+                              className="h-8 text-sm"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Beyond Presence Settings */}
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-medium text-muted-foreground">Beyond Presence</h4>
+                        <div>
+                          <Label htmlFor="beyAvatarId" className="text-xs">
+                            Beyond Presence Avatar ID
+                          </Label>
+                          <Input
+                            id="beyAvatarId"
+                            value={beyAvatarId}
+                            onChange={(e) => setBeyAvatarId(e.target.value)}
+                            placeholder="e.g., b9be11b8-89fb-4227-8f86-..."
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Cartesia Settings */}
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-medium text-muted-foreground">Cartesia (Voice)</h4>
+                        <div>
+                          <Label htmlFor="cartesiaVoiceId" className="text-xs">
+                            Cartesia Voice ID
+                          </Label>
+                          <Input
+                            id="cartesiaVoiceId"
+                            value={cartesiaVoiceId}
+                            onChange={(e) => setCartesiaVoiceId(e.target.value)}
+                            placeholder="e.g., voice_abc123"
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </details>
                 </div>
 
                 {/* Access Settings */}

@@ -3167,6 +3167,23 @@ export default defineSchema({
     // Avatar Configuration
     avatarId: v.id("avatars"),
 
+    // Avatar Provider Overrides (optional - falls back to avatar defaults)
+    avatarProviderConfig: v.optional(v.object({
+      // Hedra configuration
+      hedraAvatarId: v.optional(v.string()),       // Hedra avatar ID
+      hedraBaseCreativeId: v.optional(v.string()), // Hedra base creative ID
+      // Beyond Presence configuration
+      beyAvatarId: v.optional(v.string()),         // Beyond Presence avatar ID
+    })),
+
+    // Voice Provider Overrides (optional - falls back to avatar defaults)
+    voiceProviderConfig: v.optional(v.object({
+      // Cartesia configuration
+      cartesiaVoiceId: v.optional(v.string()),     // Cartesia voice ID
+      // ElevenLabs configuration
+      elevenLabsVoiceId: v.optional(v.string()),   // ElevenLabs voice ID
+    })),
+
     // Video Configuration
     videoConfig: v.object({
       style: v.union(

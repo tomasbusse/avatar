@@ -202,6 +202,9 @@ export const getForRecording = query({
         processedContent: video.processedContent,
         videoConfig: video.videoConfig,
         recordingStatus: video.recordingStatus,
+        // Provider overrides for recording
+        avatarProviderConfig: video.avatarProviderConfig,
+        voiceProviderConfig: video.voiceProviderConfig,
       },
       avatar,
     };
@@ -228,6 +231,21 @@ export const create = mutation({
     sourceUrl: v.optional(v.string()),
     scriptContent: v.optional(v.string()),
     templateId: v.optional(v.string()),
+    // Avatar provider overrides
+    avatarProviderConfig: v.optional(
+      v.object({
+        hedraAvatarId: v.optional(v.string()),
+        hedraBaseCreativeId: v.optional(v.string()),
+        beyAvatarId: v.optional(v.string()),
+      })
+    ),
+    // Voice provider overrides
+    voiceProviderConfig: v.optional(
+      v.object({
+        cartesiaVoiceId: v.optional(v.string()),
+        elevenLabsVoiceId: v.optional(v.string()),
+      })
+    ),
     videoConfig: v.object({
       style: v.union(v.literal("news_broadcast"), v.literal("simple")),
       duration: v.optional(v.number()),
@@ -289,6 +307,8 @@ export const create = mutation({
       scriptContent: args.scriptContent,
       templateId: args.templateId,
       avatarId: args.avatarId,
+      avatarProviderConfig: args.avatarProviderConfig,
+      voiceProviderConfig: args.voiceProviderConfig,
       videoConfig: args.videoConfig,
       recordingStatus: "pending",
       shareToken,
@@ -317,6 +337,21 @@ export const update = mutation({
     sourceUrl: v.optional(v.string()),
     scriptContent: v.optional(v.string()),
     avatarId: v.optional(v.id("avatars")),
+    // Avatar provider overrides
+    avatarProviderConfig: v.optional(
+      v.object({
+        hedraAvatarId: v.optional(v.string()),
+        hedraBaseCreativeId: v.optional(v.string()),
+        beyAvatarId: v.optional(v.string()),
+      })
+    ),
+    // Voice provider overrides
+    voiceProviderConfig: v.optional(
+      v.object({
+        cartesiaVoiceId: v.optional(v.string()),
+        elevenLabsVoiceId: v.optional(v.string()),
+      })
+    ),
     videoConfig: v.optional(v.any()),
     accessMode: v.optional(
       v.union(v.literal("private"), v.literal("unlisted"), v.literal("public"))
@@ -346,6 +381,10 @@ export const update = mutation({
       }
       updates.avatarId = args.avatarId;
     }
+    if (args.avatarProviderConfig !== undefined)
+      updates.avatarProviderConfig = args.avatarProviderConfig;
+    if (args.voiceProviderConfig !== undefined)
+      updates.voiceProviderConfig = args.voiceProviderConfig;
     if (args.videoConfig !== undefined) updates.videoConfig = args.videoConfig;
     if (args.accessMode !== undefined) updates.accessMode = args.accessMode;
 
