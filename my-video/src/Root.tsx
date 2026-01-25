@@ -1,14 +1,25 @@
 import "./index.css";
-import { Composition, Folder } from "remotion";
+import { Composition, Folder, CalculateMetadataFunction } from "remotion";
 import { NewsBroadcast } from "./compositions/NewsBroadcast";
 import type { NewsVideoProps } from "./types";
 
-// Calculate total duration based on props
+// Calculate total duration based on props - used for dynamic duration
 const calculateDuration = (props: NewsVideoProps, fps: number): number => {
   const introDuration = props.config.includeIntro ? 3 * fps : 0;
   const outroDuration = props.config.includeOutro ? 3 * fps : 0;
-  const mainDuration = props.avatarVideoDuration * fps;
+  const mainDuration = Math.ceil(props.avatarVideoDuration * fps);
   return introDuration + mainDuration + outroDuration;
+};
+
+// Dynamic metadata calculation - this makes duration work with inputProps
+const calculateMetadata: CalculateMetadataFunction<NewsVideoProps> = async ({
+  props,
+}) => {
+  const fps = 30;
+  return {
+    durationInFrames: calculateDuration(props, fps),
+    fps,
+  };
 };
 
 // Default props for preview in Remotion Studio
@@ -63,8 +74,7 @@ export const RemotionRoot: React.FC = () => {
         <Composition
           id="NewsBroadcast"
           component={NewsBroadcast}
-          durationInFrames={calculateDuration(defaultNewsVideoProps, fps)}
-          fps={fps}
+          calculateMetadata={calculateMetadata}
           width={1920}
           height={1080}
           defaultProps={defaultNewsVideoProps}
@@ -74,8 +84,7 @@ export const RemotionRoot: React.FC = () => {
         <Composition
           id="NewsBroadcast-Vertical"
           component={NewsBroadcast}
-          durationInFrames={calculateDuration(defaultNewsVideoProps, fps)}
-          fps={fps}
+          calculateMetadata={calculateMetadata}
           width={1080}
           height={1920}
           defaultProps={{
