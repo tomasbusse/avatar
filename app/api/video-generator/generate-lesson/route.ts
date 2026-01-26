@@ -19,7 +19,7 @@ const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 // OpenRouter API configuration
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const OPENROUTER_MODEL = "anthropic/claude-sonnet-4"; // Can be configured
+const OPENROUTER_MODEL = "anthropic/claude-opus-4"; // Claude Opus 4.5
 
 interface OpenRouterResponse {
   choices: Array<{
