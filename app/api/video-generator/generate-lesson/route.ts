@@ -1,13 +1,11 @@
 /**
  * Educational Video Generator - Lesson Content Generation API
  *
- * Uses Anthropic Claude directly (like the working practice page) with OpenRouter fallback.
- * Supports grammar lessons (PPP method), news broadcasts, vocabulary, and conversation.
+ * Uses OpenRouter with Claude Opus 4.5 for AI-powered lesson content generation.
  * Includes Tavily web search for enriching lesson content.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -28,6 +26,10 @@ function getConvexClient(): ConvexHttpClient {
   }
   return convex;
 }
+
+// OpenRouter configuration - Claude Opus 4.5
+const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
+const MODEL = "anthropic/claude-opus-4.5";
 
 // Tavily API for web search
 const TAVILY_API_URL = "https://api.tavily.com/search";
@@ -55,6 +57,8 @@ async function searchWithTavily(query: string, maxResults: number = 5): Promise<
   }
 
   try {
+    console.log(`[Tavily] Searching: "${query}"`);
+
     const response = await fetch(TAVILY_API_URL, {
       method: "POST",
       headers: {
@@ -71,7 +75,7 @@ async function searchWithTavily(query: string, maxResults: number = 5): Promise<
     });
 
     if (!response.ok) {
-      console.error("Tavily API error:", response.status);
+      console.error("[Tavily] API error:", response.status);
       return "";
     }
 
@@ -88,78 +92,41 @@ async function searchWithTavily(query: string, maxResults: number = 5): Promise<
       for (const result of data.results.slice(0, maxResults)) {
         searchContent += `- ${result.title}\n  ${result.content.slice(0, 500)}\n  Source: ${result.url}\n\n`;
       }
+      console.log(`[Tavily] Found ${data.results.length} results`);
     }
 
     return searchContent;
   } catch (error) {
-    console.error("Tavily search error:", error);
+    console.error("[Tavily] Search error:", error);
     return "";
   }
 }
 
 /**
- * Call Anthropic API directly (like the working practice page)
+ * Call OpenRouter API with Claude Opus 4.5
  */
-async function callAnthropicDirect(
+async function callOpenRouter(
   systemPrompt: string,
   userPrompt: string
-): Promise<{ content: string; model: string } | { error: string }> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return { error: "ANTHROPIC_API_KEY not configured" };
-  }
-
-  console.log("Calling Anthropic Claude directly...");
-
-  try {
-    const anthropic = new Anthropic({ apiKey });
-
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 8000,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }],
-    });
-
-    const content = response.content[0];
-    if (content.type === "text") {
-      console.log(`Anthropic response: ${content.text.length} chars`);
-      return { content: content.text, model: "claude-sonnet-4" };
-    }
-
-    return { error: "Unexpected response format from Claude" };
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : "Unknown error";
-    console.error("Anthropic API error:", errorMsg);
-    return { error: errorMsg };
-  }
-}
-
-/**
- * Call OpenRouter API as fallback
- */
-async function callOpenRouterFallback(
-  systemPrompt: string,
-  userPrompt: string
-): Promise<{ content: string; model: string } | { error: string }> {
+): Promise<{ content: string } | { error: string }> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     return { error: "OPENROUTER_API_KEY not configured" };
   }
 
-  console.log("Calling OpenRouter fallback (GPT-4o)...");
+  console.log(`[OpenRouter] Calling ${MODEL}...`);
 
   try {
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const response = await fetch(OPENROUTER_API_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${apiKey}`,
-        "HTTP-Referer": "https://avatar-vert-phi.vercel.app",
+        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "https://avatar-vert-phi.vercel.app",
         "X-Title": "Sweet Language School Video Generator",
       },
       body: JSON.stringify({
-        model: "openai/gpt-4o",
+        model: MODEL,
         max_tokens: 8000,
         temperature: 0.7,
         messages: [
@@ -169,55 +136,32 @@ async function callOpenRouterFallback(
       }),
     });
 
-    const responseText = await response.text();
-
     if (!response.ok) {
-      console.error(`OpenRouter error (${response.status}):`, responseText);
-      return { error: `API error ${response.status}: ${responseText}` };
+      const errorText = await response.text();
+      console.error(`[OpenRouter] API error ${response.status}:`, errorText);
+      return { error: `OpenRouter API error ${response.status}: ${errorText}` };
     }
 
-    const data = JSON.parse(responseText);
+    const data = await response.json();
 
     if (data.error) {
-      return { error: data.error.message };
+      console.error("[OpenRouter] Response error:", data.error);
+      return { error: data.error.message || JSON.stringify(data.error) };
     }
 
     const content = data.choices?.[0]?.message?.content;
     if (!content) {
+      console.error("[OpenRouter] Empty response:", JSON.stringify(data));
       return { error: "Empty response from OpenRouter" };
     }
 
-    console.log(`OpenRouter response: ${content.length} chars`);
-    return { content, model: "gpt-4o" };
+    console.log(`[OpenRouter] Success: ${content.length} chars`);
+    return { content };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : "Unknown error";
-    console.error("OpenRouter error:", errorMsg);
+    console.error("[OpenRouter] Fetch error:", errorMsg);
     return { error: errorMsg };
   }
-}
-
-/**
- * Generate lesson content - tries Anthropic first, then OpenRouter fallback
- */
-async function generateLessonContent(
-  systemPrompt: string,
-  userPrompt: string
-): Promise<{ content: string; model: string } | { error: string }> {
-  // Try Anthropic first (like the working practice page)
-  if (process.env.ANTHROPIC_API_KEY) {
-    const result = await callAnthropicDirect(systemPrompt, userPrompt);
-    if (!("error" in result)) {
-      return result;
-    }
-    console.log("Anthropic failed, trying OpenRouter fallback...");
-  }
-
-  // Fallback to OpenRouter
-  if (process.env.OPENROUTER_API_KEY) {
-    return callOpenRouterFallback(systemPrompt, userPrompt);
-  }
-
-  return { error: "No AI provider configured (need ANTHROPIC_API_KEY or OPENROUTER_API_KEY)" };
 }
 
 export async function POST(request: NextRequest) {
@@ -248,7 +192,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`Generating lesson: ${topic} (${level}) - ${templateType}`);
+    console.log(`[Generate] Starting: "${topic}" (${level}) - ${templateType}`);
 
     // Update status to generating
     await getConvexClient().mutation(api.educationalVideos.updateStatus, {
@@ -259,13 +203,7 @@ export async function POST(request: NextRequest) {
     // Search for relevant content using Tavily
     let searchContent = "";
     const searchQuery = `${topic} ${level} English lesson teaching ESL`;
-
-    console.log("Searching web for content...");
     searchContent = await searchWithTavily(searchQuery, 5);
-
-    if (searchContent) {
-      console.log("Web search found relevant content");
-    }
 
     // Also scrape provided URLs if any
     let scrapedContent = "";
@@ -293,7 +231,7 @@ export async function POST(request: NextRequest) {
         );
         scrapedContent = scrapedParts.filter(Boolean).join("\n---\n");
       } catch (error) {
-        console.error("Error scraping URLs:", error);
+        console.error("[Scrape] Error:", error);
       }
     }
 
@@ -314,13 +252,11 @@ export async function POST(request: NextRequest) {
     // Get the appropriate prompt
     const prompt = getLessonPrompt(templateType, promptInput);
 
-    console.log("Calling AI to generate lesson content...");
-
-    // Generate content
-    const result = await generateLessonContent(LESSON_SYSTEM_MESSAGE, prompt);
+    // Call OpenRouter with Claude Opus 4.5
+    const result = await callOpenRouter(LESSON_SYSTEM_MESSAGE, prompt);
 
     if ("error" in result) {
-      console.error("AI generation failed:", result.error);
+      console.error("[Generate] AI failed:", result.error);
 
       await getConvexClient().mutation(api.educationalVideos.updateStatus, {
         videoId: videoId as Id<"educationalVideos">,
@@ -335,12 +271,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`AI response received (model: ${result.model})`);
+    console.log("[Generate] Parsing AI response...");
 
     // Parse the JSON response
     let lessonContent;
     try {
-      // Try to extract JSON from the response
       const jsonMatch = result.content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         lessonContent = JSON.parse(jsonMatch[0]);
@@ -348,8 +283,8 @@ export async function POST(request: NextRequest) {
         throw new Error("No JSON found in response");
       }
     } catch (parseError) {
-      console.error("Error parsing lesson content:", parseError);
-      console.error("Raw response (first 500 chars):", result.content.slice(0, 500));
+      console.error("[Generate] Parse error:", parseError);
+      console.error("[Generate] Raw (first 500):", result.content.slice(0, 500));
 
       await getConvexClient().mutation(api.educationalVideos.updateStatus, {
         videoId: videoId as Id<"educationalVideos">,
@@ -422,18 +357,17 @@ export async function POST(request: NextRequest) {
       lessonContent: normalizedContent,
     });
 
-    console.log("Lesson content generated and stored successfully");
+    console.log("[Generate] Success! Content stored.");
 
     return NextResponse.json({
       success: true,
       lessonContent: normalizedContent,
-      model: result.model,
+      model: MODEL,
       message: "Lesson content generated successfully",
     });
   } catch (error) {
-    console.error("Error generating lesson:", error);
+    console.error("[Generate] Error:", error);
 
-    // Update status to failed if we have a videoId
     if (videoId) {
       try {
         await getConvexClient().mutation(api.educationalVideos.updateStatus, {
@@ -443,7 +377,7 @@ export async function POST(request: NextRequest) {
           errorStep: "content_generation",
         });
       } catch {
-        // Ignore errors in error handling
+        // Ignore
       }
     }
 
