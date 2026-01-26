@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { uploadFile, getSignedDownloadUrl } from "@/lib/r2";
 
 export const runtime = "nodejs";
 export const maxDuration = 300; // 5 minutes for avatar generation
@@ -22,19 +22,6 @@ function getConvexClient(): ConvexHttpClient {
   }
   return convex;
 }
-
-// R2 client setup
-const r2Client = new S3Client({
-  region: "auto",
-  endpoint: process.env.R2_ENDPOINT!,
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-  },
-});
-
-const R2_BUCKET = process.env.R2_BUCKET_NAME || "beethoven-videos";
-const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL;
 
 // Hedra API
 const HEDRA_API_BASE = "https://api.hedra.com/web-app/public";
@@ -212,7 +199,8 @@ async function pollHedraStatus(jobId: string): Promise<{
     throw new Error("HEDRA_API_KEY not configured");
   }
 
-  const response = await fetch(`${HEDRA_API_BASE}/generations/${jobId}`, {
+  // Note: Hedra API uses /generations/{id}/status endpoint
+  const response = await fetch(`${HEDRA_API_BASE}/generations/${jobId}/status`, {
     headers: {
       "X-API-Key": apiKey,
     },
@@ -228,12 +216,12 @@ async function pollHedraStatus(jobId: string): Promise<{
   if (data.status === "completed" || data.status === "complete") {
     return {
       status: "completed",
-      videoUrl: data.url || data.video_url,
+      videoUrl: data.download_url || data.url || data.video_url,
     };
   } else if (data.status === "failed" || data.status === "error") {
     return {
       status: "failed",
-      error: data.error || data.message || "Generation failed",
+      error: data.error_message || data.error || data.message || "Generation failed",
     };
   }
 
@@ -283,23 +271,19 @@ async function downloadAndUploadToR2(
 
   const videoBuffer = Buffer.from(await response.arrayBuffer());
 
-  // Upload to R2
+  // Upload to R2 using shared utilities
   const timestamp = Date.now();
   const r2Key = `educational-videos/${videoId}/avatar-${timestamp}.mp4`;
 
-  await r2Client.send(
-    new PutObjectCommand({
-      Bucket: R2_BUCKET,
-      Key: r2Key,
-      Body: videoBuffer,
-      ContentType: "video/mp4",
-    })
-  );
+  await uploadFile(r2Key, videoBuffer, {
+    contentType: "video/mp4",
+  });
+
+  // Get a longer-lived signed URL (7 days)
+  const r2Url = await getSignedDownloadUrl(r2Key, 86400 * 7);
 
   // Estimate duration from file size (~1MB per 10 seconds at 720p)
   const estimatedDuration = Math.round(videoBuffer.length / 100000);
-
-  const r2Url = `${R2_PUBLIC_URL}/${r2Key}`;
 
   return { r2Key, r2Url, duration: estimatedDuration };
 }
