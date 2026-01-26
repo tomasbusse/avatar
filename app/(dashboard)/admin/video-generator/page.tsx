@@ -390,9 +390,9 @@ export default function AdminVideoGeneratorPage() {
     }
   };
 
-  // Render final video
+  // Render final video (using Render.com self-hosted Remotion server)
   const handleRender = async (videoId: string) => {
-    // Prevent concurrent processing to avoid rate limits
+    // Prevent concurrent processing
     if (isAnyProcessing) {
       toast.error("Please wait", { description: "Another video is being processed. Wait for it to complete." });
       return;
@@ -400,7 +400,8 @@ export default function AdminVideoGeneratorPage() {
 
     setProcessingVideos(prev => ({ ...prev, [videoId]: "render" }));
     try {
-      const response = await fetch("/api/video-generator/render", {
+      // Use the new Render.com endpoint instead of AWS Lambda
+      const response = await fetch("/api/video-generator/render-simple", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ videoId }),
@@ -409,8 +410,8 @@ export default function AdminVideoGeneratorPage() {
       const data = await response.json();
       if (!response.ok) {
         if (!data.configured) {
-          toast.error("Remotion Lambda not configured", {
-            description: "Please set up AWS credentials for Remotion.",
+          toast.error("Remotion Render Server not configured", {
+            description: "Deploy to Render.com and set REMOTION_RENDER_SERVER_URL.",
             duration: 10000,
           });
           setProcessingVideos(prev => {
@@ -425,18 +426,19 @@ export default function AdminVideoGeneratorPage() {
       }
 
       toast.success("Render started!", {
-        description: "This may take a few minutes. Check back soon.",
+        description: "Processing on Render.com server...",
       });
 
-      // Start polling for render status with exponential backoff
+      // Start polling for render status
       let pollCount = 0;
-      const maxPolls = 60; // ~10 minutes total
+      const maxPolls = 120; // ~20 minutes total (Render.com may be slower than Lambda)
 
       const pollRender = async () => {
         pollCount++;
         try {
+          // Poll the new Render.com status endpoint
           const statusResponse = await fetch(
-            `/api/video-generator/render/${data.renderId}?videoId=${videoId}&bucketName=${data.bucketName}`
+            `/api/video-generator/render-simple/${data.jobId}?videoId=${videoId}`
           );
           const statusData = await statusResponse.json();
 
@@ -454,14 +456,18 @@ export default function AdminVideoGeneratorPage() {
               delete updated[videoId];
               return updated;
             });
-          } else if (statusData.status === "rate_limited") {
-            // Wait longer on rate limit
-            console.log("[Render Poll] Rate limited, waiting 10s...");
-            setTimeout(pollRender, 10000);
+          } else if (statusData.status === "not_found") {
+            toast.error("Render job not found", { description: "The render server may have restarted." });
+            setProcessingVideos(prev => {
+              const updated = { ...prev };
+              delete updated[videoId];
+              return updated;
+            });
           } else if (pollCount < maxPolls) {
-            // Continue polling with exponential backoff (5s to 15s)
-            const delay = Math.min(5000 + pollCount * 500, 15000);
-            setTimeout(pollRender, delay);
+            // Continue polling every 10 seconds
+            const progress = statusData.progress || 0;
+            console.log(`[Render Poll] Progress: ${progress}% (poll ${pollCount}/${maxPolls})`);
+            setTimeout(pollRender, 10000);
           } else {
             toast.error("Render timed out", { description: "Check back later or retry." });
             setProcessingVideos(prev => {
@@ -474,7 +480,7 @@ export default function AdminVideoGeneratorPage() {
           console.error("[Render Poll] Error:", pollError);
           if (pollCount < maxPolls) {
             // Retry with longer delay on error
-            setTimeout(pollRender, 10000);
+            setTimeout(pollRender, 15000);
           } else {
             setProcessingVideos(prev => {
               const updated = { ...prev };
@@ -485,7 +491,8 @@ export default function AdminVideoGeneratorPage() {
         }
       };
 
-      setTimeout(pollRender, 5000);
+      // Start polling after 10 seconds (Render.com needs time to start)
+      setTimeout(pollRender, 10000);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "Render failed";
       toast.error("Render failed", { description: errorMsg.slice(0, 200) });
