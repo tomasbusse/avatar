@@ -3305,4 +3305,298 @@ export default defineSchema({
     .index("by_creator", ["createdBy"])
     .index("by_status", ["recordingStatus"])
     .index("by_created", ["createdAt"]),
+
+  // ============================================
+  // EDUCATIONAL VIDEO GENERATOR (Standalone)
+  // ============================================
+
+  /**
+   * Video Templates - Reusable template configurations
+   * Types: news_broadcast, grammar_lesson, vocabulary_lesson, conversation_practice
+   */
+  videoTemplates: defineTable({
+    name: v.string(),                    // "News Broadcast Lesson"
+    slug: v.string(),                    // "news_broadcast"
+    description: v.optional(v.string()),
+    type: v.union(
+      v.literal("news_broadcast"),
+      v.literal("grammar_lesson"),
+      v.literal("vocabulary_lesson"),
+      v.literal("conversation_practice")
+    ),
+
+    // Default structure settings
+    defaultStructure: v.object({
+      includeIntro: v.boolean(),
+      includeOutro: v.boolean(),
+      includeLowerThird: v.boolean(),
+      includeProgressBar: v.boolean(),
+      includeVocabularyHighlights: v.boolean(),
+      includeComprehensionQuestions: v.boolean(),
+    }),
+
+    // Brand configuration (SLS defaults - NO BLUE)
+    brandConfig: v.object({
+      primaryColor: v.string(),      // #003F37 - Dark teal/green
+      secondaryColor: v.string(),    // #4F5338 - Olive green
+      accentColor: v.string(),       // #B25627 - Burnt orange
+      lightColor: v.string(),        // #E3C6AB - Warm beige
+      lightestColor: v.string(),     // #FFE8CD - Cream
+      fontFamily: v.string(),        // "Blinker"
+    }),
+
+    // Template-specific settings
+    templateConfig: v.optional(v.object({
+      // For grammar lessons (PPP method percentages)
+      presentationPercent: v.optional(v.number()),
+      practicePercent: v.optional(v.number()),
+      productionPercent: v.optional(v.number()),
+      // For news lessons
+      includeNewsTicker: v.optional(v.boolean()),
+      includeDiscussionPrompts: v.optional(v.boolean()),
+    })),
+
+    isActive: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_type", ["type"])
+    .index("by_active", ["isActive"]),
+
+  /**
+   * Educational Videos - Main table for standalone educational videos
+   * Completely separate from videoCreation table (which uses avatars table)
+   */
+  educationalVideos: defineTable({
+    title: v.string(),
+    description: v.optional(v.string()),
+    templateId: v.optional(v.id("videoTemplates")),
+    templateType: v.union(
+      v.literal("news_broadcast"),
+      v.literal("grammar_lesson"),
+      v.literal("vocabulary_lesson"),
+      v.literal("conversation_practice")
+    ),
+
+    // Content source configuration
+    sourceConfig: v.object({
+      mode: v.union(
+        v.literal("url_scrape"),    // Scrape URLs for content
+        v.literal("topic_input"),   // Generate from topic
+        v.literal("manual")         // Manual content entry
+      ),
+      urls: v.optional(v.array(v.string())),
+      topic: v.optional(v.string()),
+      targetLevel: v.string(),      // A1, A2, B1, B2, C1, C2
+      targetDuration: v.optional(v.number()), // Target duration in minutes
+      nativeLanguage: v.optional(v.string()), // Default: German
+    }),
+
+    // AI-generated lesson content (structured)
+    lessonContent: v.optional(v.object({
+      objective: v.string(),        // Single clear learning goal
+      vocabulary: v.array(v.object({
+        word: v.string(),
+        phonetic: v.optional(v.string()),
+        definition: v.string(),
+        germanTranslation: v.string(),
+        exampleSentence: v.string(),
+        audioUrl: v.optional(v.string()),
+      })),
+      slides: v.array(v.object({
+        id: v.string(),
+        type: v.union(
+          v.literal("title"),
+          v.literal("summary"),
+          v.literal("key_concept"),
+          v.literal("bullet_points"),
+          v.literal("vocabulary"),
+          v.literal("grammar_rule"),
+          v.literal("comparison"),
+          v.literal("question"),
+          v.literal("practice"),
+          v.literal("discussion")
+        ),
+        title: v.optional(v.string()),
+        content: v.optional(v.string()),
+        items: v.optional(v.array(v.string())),
+        narration: v.string(),      // TTS script for this slide
+        durationSeconds: v.optional(v.number()),
+      })),
+      questions: v.array(v.object({
+        question: v.string(),
+        type: v.optional(v.union(
+          v.literal("multiple_choice"),
+          v.literal("true_false"),
+          v.literal("fill_blank"),
+          v.literal("open_ended")
+        )),
+        options: v.optional(v.array(v.string())),
+        correctAnswer: v.optional(v.string()),
+        explanation: v.optional(v.string()),
+      })),
+      keyTakeaways: v.array(v.string()),
+      fullScript: v.string(),       // Complete TTS-optimized script
+      estimatedDuration: v.optional(v.number()), // Calculated duration in seconds
+    })),
+
+    // Voice configuration (standalone - NOT from avatars table)
+    voiceConfig: v.object({
+      provider: v.union(v.literal("cartesia"), v.literal("elevenlabs")),
+      voiceId: v.string(),
+      voiceName: v.optional(v.string()),
+      language: v.optional(v.string()),
+      settings: v.optional(v.object({
+        speed: v.optional(v.number()),
+        emotion: v.optional(v.string()),
+      })),
+    }),
+
+    // Avatar configuration (standalone - NOT from avatars table)
+    avatarConfig: v.object({
+      provider: v.union(v.literal("hedra"), v.literal("beyond_presence")),
+      characterId: v.string(),
+      characterName: v.optional(v.string()),
+      characterImageUrl: v.optional(v.string()),
+    }),
+
+    // Video settings
+    videoSettings: v.object({
+      aspectRatio: v.union(v.literal("16:9"), v.literal("9:16")),
+      resolution: v.union(v.literal("1080p"), v.literal("720p"), v.literal("4K")),
+      includeIntro: v.boolean(),
+      includeOutro: v.boolean(),
+      includeLowerThird: v.boolean(),
+      includeProgressBar: v.optional(v.boolean()),
+      lowerThird: v.optional(v.object({
+        name: v.string(),
+        title: v.string(),
+      })),
+      brandOverrides: v.optional(v.object({
+        primaryColor: v.optional(v.string()),
+        secondaryColor: v.optional(v.string()),
+        accentColor: v.optional(v.string()),
+      })),
+    }),
+
+    // Pipeline status tracking
+    status: v.union(
+      v.literal("draft"),
+      v.literal("content_generating"),
+      v.literal("content_ready"),
+      v.literal("audio_generating"),
+      v.literal("audio_ready"),
+      v.literal("avatar_generating"),
+      v.literal("avatar_ready"),
+      v.literal("rendering"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+
+    // Pipeline outputs
+    audioOutput: v.optional(v.object({
+      r2Key: v.string(),
+      r2Url: v.string(),
+      duration: v.number(),
+      fileSize: v.optional(v.number()),
+    })),
+    avatarOutput: v.optional(v.object({
+      r2Key: v.string(),
+      r2Url: v.string(),
+      duration: v.number(),
+      hedraJobId: v.optional(v.string()),
+    })),
+    finalOutput: v.optional(v.object({
+      r2Key: v.string(),
+      r2Url: v.string(),
+      duration: v.number(),
+      fileSize: v.optional(v.number()),
+      renderedAt: v.number(),
+      thumbnailUrl: v.optional(v.string()),
+    })),
+
+    // Error tracking
+    errorMessage: v.optional(v.string()),
+    errorStep: v.optional(v.string()),
+
+    // Sharing
+    shareToken: v.optional(v.string()),
+    accessMode: v.union(
+      v.literal("private"),
+      v.literal("unlisted"),
+      v.literal("public")
+    ),
+    totalViews: v.optional(v.number()),
+
+    // Ownership
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_creator", ["createdBy"])
+    .index("by_status", ["status"])
+    .index("by_template", ["templateId"])
+    .index("by_share_token", ["shareToken"])
+    .index("by_created", ["createdAt"]),
+
+  /**
+   * Voice Library - Standalone voice configurations
+   * Not tied to avatars table, used for video generator
+   */
+  voiceLibrary: defineTable({
+    name: v.string(),               // "Emma - English Teacher"
+    provider: v.union(v.literal("cartesia"), v.literal("elevenlabs")),
+    voiceId: v.string(),            // Provider's voice ID
+    language: v.string(),           // "en", "de", "en-GB"
+    gender: v.optional(v.union(v.literal("male"), v.literal("female"), v.literal("neutral"))),
+    description: v.optional(v.string()),
+    previewUrl: v.optional(v.string()),
+    defaultSettings: v.optional(v.object({
+      speed: v.optional(v.number()),
+      pitch: v.optional(v.number()),
+      emotion: v.optional(v.string()),
+    })),
+    tags: v.optional(v.array(v.string())), // ["professional", "warm", "educational"]
+    isActive: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_provider", ["provider"])
+    .index("by_language", ["language"])
+    .index("by_active", ["isActive"]),
+
+  /**
+   * Character Library - Standalone avatar/character configurations
+   * Not tied to avatars table, used for video generator
+   */
+  characterLibrary: defineTable({
+    name: v.string(),               // "Emma"
+    provider: v.union(v.literal("hedra"), v.literal("beyond_presence"), v.literal("tavus")),
+    characterId: v.string(),        // Provider's character/avatar ID
+    imageUrl: v.optional(v.string()), // Preview image
+    description: v.optional(v.string()),
+    style: v.optional(v.union(
+      v.literal("professional"),
+      v.literal("casual"),
+      v.literal("news_anchor"),
+      v.literal("teacher")
+    )),
+    // Provider-specific config
+    providerConfig: v.optional(v.object({
+      // Hedra
+      hedraBaseCreativeId: v.optional(v.string()),
+      // Beyond Presence
+      beyAvatarId: v.optional(v.string()),
+      // Tavus
+      tavusPersonaId: v.optional(v.string()),
+    })),
+    tags: v.optional(v.array(v.string())),
+    isActive: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_provider", ["provider"])
+    .index("by_style", ["style"])
+    .index("by_active", ["isActive"]),
 });

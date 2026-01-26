@@ -11,12 +11,14 @@
 import type * as agentControl from "../agentControl.js";
 import type * as avatars from "../avatars.js";
 import type * as blogCategories from "../blogCategories.js";
+import type * as characterLibrary from "../characterLibrary.js";
 import type * as cityPages from "../cityPages.js";
 import type * as companies from "../companies.js";
 import type * as conversationPractice from "../conversationPractice.js";
 import type * as crons from "../crons.js";
 import type * as dashboard from "../dashboard.js";
 import type * as debug from "../debug.js";
+import type * as educationalVideos from "../educationalVideos.js";
 import type * as entryTestGenerationJobs from "../entryTestGenerationJobs.js";
 import type * as entryTestQuestionBank from "../entryTestQuestionBank.js";
 import type * as entryTestSessions from "../entryTestSessions.js";
@@ -43,7 +45,9 @@ import type * as students from "../students.js";
 import type * as teachers from "../teachers.js";
 import type * as users from "../users.js";
 import type * as videoCreation from "../videoCreation.js";
+import type * as videoTemplates from "../videoTemplates.js";
 import type * as vocabularyProgress from "../vocabularyProgress.js";
+import type * as voiceLibrary from "../voiceLibrary.js";
 import type * as wordGames from "../wordGames.js";
 
 import type {
@@ -56,12 +60,14 @@ declare const fullApi: ApiFromModules<{
   agentControl: typeof agentControl;
   avatars: typeof avatars;
   blogCategories: typeof blogCategories;
+  characterLibrary: typeof characterLibrary;
   cityPages: typeof cityPages;
   companies: typeof companies;
   conversationPractice: typeof conversationPractice;
   crons: typeof crons;
   dashboard: typeof dashboard;
   debug: typeof debug;
+  educationalVideos: typeof educationalVideos;
   entryTestGenerationJobs: typeof entryTestGenerationJobs;
   entryTestQuestionBank: typeof entryTestQuestionBank;
   entryTestSessions: typeof entryTestSessions;
@@ -88,7 +94,9 @@ declare const fullApi: ApiFromModules<{
   teachers: typeof teachers;
   users: typeof users;
   videoCreation: typeof videoCreation;
+  videoTemplates: typeof videoTemplates;
   vocabularyProgress: typeof vocabularyProgress;
+  voiceLibrary: typeof voiceLibrary;
   wordGames: typeof wordGames;
 }>;
 
