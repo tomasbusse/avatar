@@ -431,7 +431,7 @@ function CreateTeacherDialog({
                     No available users found
                   </div>
                 ) : (
-                  availableUsers.map((user) => {
+                  availableUsers.map((user: NonNullable<typeof availableUsers>[number]) => {
                     const userName = `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email;
                     const isSelected = selectedUserId === user._id;
                     return (
