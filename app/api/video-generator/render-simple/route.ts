@@ -73,11 +73,18 @@ export async function POST(request: NextRequest) {
     const compositionId =
       video.templateType === "grammar_lesson" ? "GrammarLesson" : "NewsLesson";
 
-    // Generate fresh signed URL for avatar video (stored URLs may expire)
+    // Use public R2 URL if available (much faster than signed URLs)
     let avatarVideoUrl = video.avatarOutput.r2Url;
-    if (video.avatarOutput.r2Key) {
+    const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL;
+
+    if (R2_PUBLIC_URL && video.avatarOutput.r2Key) {
+      // Use public URL for faster access (no signing overhead, CDN-backed)
+      avatarVideoUrl = `${R2_PUBLIC_URL}/${video.avatarOutput.r2Key}`;
+      console.log(`[RenderSimple] Using public R2 URL: ${avatarVideoUrl}`);
+    } else if (video.avatarOutput.r2Key) {
+      // Fall back to signed URL
       try {
-        avatarVideoUrl = await getSignedDownloadUrl(video.avatarOutput.r2Key, 86400); // 24 hour expiry
+        avatarVideoUrl = await getSignedDownloadUrl(video.avatarOutput.r2Key, 86400);
         console.log(`[RenderSimple] Generated fresh signed URL for avatar video`);
       } catch (err) {
         console.warn(`[RenderSimple] Could not refresh signed URL, using stored URL:`, err);
