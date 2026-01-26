@@ -11,8 +11,11 @@
     "@remotion/cloudrun": "^4.0.409",
     "@remotion/lambda": "^4.0.409",
     "@remotion/media": "^4.0.409",
+    "@remotion/renderer": "^4.0.409",
     "@remotion/tailwind": "^4.0.409",
     "@remotion/tailwind-v4": "4.0.409",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "remotion": "4.0.409",
@@ -30,7 +33,9 @@
     "dev": "remotion studio",
     "build": "remotion bundle",
     "upgrade": "remotion upgrade",
-    "lint": "eslint src && tsc"
+    "lint": "eslint src && tsc",
+    "server": "node server.js",
+    "start": "node server.js"
   },
   "sideEffects": [
     "*.css"

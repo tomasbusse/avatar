@@ -3530,6 +3530,9 @@ export default defineSchema({
     })),
     // Pending Hedra job for async polling
     pendingHedraJobId: v.optional(v.string()),
+    // Pending render job for Render.com async polling
+    pendingRenderJobId: v.optional(v.string()),
+    renderServer: v.optional(v.string()),
     finalOutput: v.optional(v.object({
       r2Key: v.string(),
       r2Url: v.string(),

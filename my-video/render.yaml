@@ -1,0 +1,16 @@
+# Render.com Blueprint for Remotion Render Server
+# https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: remotion-render-server
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: standard  # 2GB RAM minimum recommended for video rendering
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: OUTPUT_DIR
+        value: /tmp/renders

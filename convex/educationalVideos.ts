@@ -510,6 +510,31 @@ export const storeHedraJobId = mutation({
 });
 
 /**
+ * Store render job ID for Render.com async polling
+ */
+export const storeRenderJobId = mutation({
+  args: {
+    videoId: v.id("educationalVideos"),
+    renderJobId: v.string(),
+    renderServer: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const video = await ctx.db.get(args.videoId);
+    if (!video) {
+      throw new Error("Video not found");
+    }
+
+    await ctx.db.patch(args.videoId, {
+      pendingRenderJobId: args.renderJobId,
+      renderServer: args.renderServer,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
  * Store final rendered output
  */
 export const storeFinalOutput = mutation({
