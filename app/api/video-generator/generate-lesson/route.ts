@@ -3,6 +3,7 @@
  *
  * Uses OpenRouter to generate AI-powered lesson content based on template type.
  * Supports grammar lessons (PPP method), news broadcasts, vocabulary, and conversation.
+ * Includes Tavily web search for enriching lesson content.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -15,29 +16,200 @@ import {
   LessonPromptInput,
 } from "@/lib/video-generator/prompts";
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+export const runtime = "nodejs";
+export const maxDuration = 120; // 2 minutes for AI generation
+
+// Lazy init Convex client
+let convex: ConvexHttpClient | null = null;
+function getConvexClient(): ConvexHttpClient {
+  if (!convex) {
+    convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+  }
+  return convex;
+}
 
 // OpenRouter API configuration
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const OPENROUTER_MODEL = "anthropic/claude-opus-4.5";
+const PRIMARY_MODEL = "anthropic/claude-sonnet-4"; // More reliable, faster
+const FALLBACK_MODEL = "openai/gpt-4o"; // Fallback if primary fails
+
+// Tavily API for web search
+const TAVILY_API_URL = "https://api.tavily.com/search";
 
 interface OpenRouterResponse {
-  choices: Array<{
-    message: {
-      content: string;
+  choices?: Array<{
+    message?: {
+      content?: string;
     };
   }>;
   error?: {
     message: string;
+    code?: string;
   };
 }
 
+interface TavilyResult {
+  title: string;
+  url: string;
+  content: string;
+  score: number;
+}
+
+interface TavilyResponse {
+  results: TavilyResult[];
+  answer?: string;
+}
+
+/**
+ * Search the web using Tavily API
+ */
+async function searchWithTavily(query: string, maxResults: number = 5): Promise<string> {
+  const apiKey = process.env.TAVILY_API_KEY;
+  if (!apiKey) {
+    console.log("Tavily API key not configured, skipping web search");
+    return "";
+  }
+
+  try {
+    const response = await fetch(TAVILY_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        api_key: apiKey,
+        query: query,
+        search_depth: "basic",
+        max_results: maxResults,
+        include_answer: true,
+        include_raw_content: false,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("Tavily API error:", response.status);
+      return "";
+    }
+
+    const data: TavilyResponse = await response.json();
+
+    // Format results for the AI
+    let searchContent = "";
+    if (data.answer) {
+      searchContent += `Summary: ${data.answer}\n\n`;
+    }
+
+    if (data.results && data.results.length > 0) {
+      searchContent += "Sources:\n";
+      for (const result of data.results.slice(0, maxResults)) {
+        searchContent += `- ${result.title}\n  ${result.content.slice(0, 500)}\n  Source: ${result.url}\n\n`;
+      }
+    }
+
+    return searchContent;
+  } catch (error) {
+    console.error("Tavily search error:", error);
+    return "";
+  }
+}
+
+/**
+ * Call OpenRouter API with retry and fallback
+ */
+async function callOpenRouter(
+  systemPrompt: string,
+  userPrompt: string,
+  model: string = PRIMARY_MODEL
+): Promise<{ content: string; model: string } | { error: string }> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) {
+    return { error: "OPENROUTER_API_KEY not configured" };
+  }
+
+  console.log(`Calling OpenRouter with model: ${model}`);
+
+  try {
+    const response = await fetch(OPENROUTER_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+        "HTTP-Referer": "https://avatar-vert-phi.vercel.app",
+        "X-Title": "Sweet Language School Video Generator",
+      },
+      body: JSON.stringify({
+        model: model,
+        max_tokens: 8000,
+        temperature: 0.7,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+      }),
+    });
+
+    const responseText = await response.text();
+    console.log(`OpenRouter response status: ${response.status}`);
+
+    if (!response.ok) {
+      console.error(`OpenRouter error (${response.status}):`, responseText);
+
+      // Try fallback model if primary fails
+      if (model === PRIMARY_MODEL) {
+        console.log("Trying fallback model...");
+        return callOpenRouter(systemPrompt, userPrompt, FALLBACK_MODEL);
+      }
+
+      return { error: `API error ${response.status}: ${responseText}` };
+    }
+
+    let data: OpenRouterResponse;
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      return { error: `Invalid JSON response: ${responseText.slice(0, 200)}` };
+    }
+
+    if (data.error) {
+      console.error("OpenRouter API error:", data.error);
+
+      // Try fallback on error
+      if (model === PRIMARY_MODEL) {
+        console.log("Trying fallback model due to API error...");
+        return callOpenRouter(systemPrompt, userPrompt, FALLBACK_MODEL);
+      }
+
+      return { error: data.error.message };
+    }
+
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) {
+      return { error: "Empty response from AI" };
+    }
+
+    return { content, model };
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : "Unknown error";
+    console.error("OpenRouter fetch error:", errorMsg);
+
+    // Try fallback on network error
+    if (model === PRIMARY_MODEL) {
+      console.log("Trying fallback model due to network error...");
+      return callOpenRouter(systemPrompt, userPrompt, FALLBACK_MODEL);
+    }
+
+    return { error: errorMsg };
+  }
+}
+
 export async function POST(request: NextRequest) {
+  let videoId: string | undefined;
+
   try {
     const body = await request.json();
 
+    videoId = body.videoId;
     const {
-      videoId,
       templateType,
       topic,
       level,
@@ -51,44 +223,50 @@ export async function POST(request: NextRequest) {
     if (!videoId || !templateType || !topic || !level) {
       return NextResponse.json(
         {
-          error: "Missing required fields: videoId, templateType, topic, level",
+          error: "Missing required fields",
+          details: { videoId: !!videoId, templateType: !!templateType, topic: !!topic, level: !!level },
         },
         { status: 400 }
       );
     }
 
-    // Check for OpenRouter API key
-    if (!process.env.OPENROUTER_API_KEY) {
-      return NextResponse.json(
-        { error: "OPENROUTER_API_KEY not configured" },
-        { status: 500 }
-      );
-    }
+    console.log(`Generating lesson: ${topic} (${level}) - ${templateType}`);
 
     // Update status to generating
-    await convex.mutation(api.educationalVideos.updateStatus, {
+    await getConvexClient().mutation(api.educationalVideos.updateStatus, {
       videoId: videoId as Id<"educationalVideos">,
       status: "content_generating",
     });
 
-    // Scrape content if URLs provided
+    // Search for relevant content using Tavily
+    let searchContent = "";
+    const searchQuery = `${topic} ${level} English lesson teaching ESL`;
+
+    console.log("Searching web for content...");
+    searchContent = await searchWithTavily(searchQuery, 5);
+
+    if (searchContent) {
+      console.log("Web search found relevant content");
+    }
+
+    // Also scrape provided URLs if any
     let scrapedContent = "";
-    if (urls && urls.length > 0 && templateType === "news_broadcast") {
+    if (urls && urls.length > 0) {
       try {
-        // Use a simple fetch for now - can be enhanced with Tavily later
         const scrapedParts = await Promise.all(
           urls.slice(0, 3).map(async (url: string) => {
             try {
-              const response = await fetch(url);
+              const response = await fetch(url, {
+                headers: { "User-Agent": "Mozilla/5.0 (compatible; SLS-Bot/1.0)" }
+              });
               const html = await response.text();
-              // Extract text content (basic - can be enhanced)
               const textContent = html
                 .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
                 .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
                 .replace(/<[^>]+>/g, " ")
                 .replace(/\s+/g, " ")
                 .trim()
-                .slice(0, 5000);
+                .slice(0, 3000);
               return `Source: ${url}\n${textContent}\n`;
             } catch {
               return "";
@@ -101,6 +279,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Combine all research content
+    const combinedResearch = [searchContent, scrapedContent].filter(Boolean).join("\n\n---\n\n");
+
     // Build prompt input
     const promptInput: LessonPromptInput = {
       topic,
@@ -109,93 +290,40 @@ export async function POST(request: NextRequest) {
       nativeLanguage,
       additionalContext,
       urls,
-      scrapedContent: scrapedContent || undefined,
+      scrapedContent: combinedResearch || undefined,
     };
 
     // Get the appropriate prompt
     const prompt = getLessonPrompt(templateType, promptInput);
 
-    // Call OpenRouter API
-    const openRouterResponse = await fetch(OPENROUTER_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "https://avatar-vert-phi.vercel.app",
-        "X-Title": "Sweet Language School Video Generator",
-      },
-      body: JSON.stringify({
-        model: OPENROUTER_MODEL,
-        max_tokens: 8000,
-        messages: [
-          {
-            role: "system",
-            content: LESSON_SYSTEM_MESSAGE,
-          },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-      }),
-    });
+    console.log("Calling AI to generate lesson content...");
 
-    if (!openRouterResponse.ok) {
-      const errorData = await openRouterResponse.text();
-      console.error("OpenRouter API error:", errorData);
+    // Call OpenRouter
+    const result = await callOpenRouter(LESSON_SYSTEM_MESSAGE, prompt);
 
-      await convex.mutation(api.educationalVideos.updateStatus, {
+    if ("error" in result) {
+      console.error("AI generation failed:", result.error);
+
+      await getConvexClient().mutation(api.educationalVideos.updateStatus, {
         videoId: videoId as Id<"educationalVideos">,
         status: "failed",
-        errorMessage: `OpenRouter API error: ${openRouterResponse.status}`,
+        errorMessage: result.error,
         errorStep: "content_generation",
       });
 
       return NextResponse.json(
-        { error: "OpenRouter API request failed", details: errorData },
+        { error: "AI generation failed", details: result.error },
         { status: 500 }
       );
     }
 
-    const responseData: OpenRouterResponse = await openRouterResponse.json();
-
-    // Check for API error in response
-    if (responseData.error) {
-      await convex.mutation(api.educationalVideos.updateStatus, {
-        videoId: videoId as Id<"educationalVideos">,
-        status: "failed",
-        errorMessage: responseData.error.message,
-        errorStep: "content_generation",
-      });
-
-      return NextResponse.json(
-        { error: "OpenRouter API error", details: responseData.error.message },
-        { status: 500 }
-      );
-    }
-
-    // Extract the text from OpenRouter response (OpenAI format)
-    const responseText = responseData.choices?.[0]?.message?.content || "";
-
-    if (!responseText) {
-      await convex.mutation(api.educationalVideos.updateStatus, {
-        videoId: videoId as Id<"educationalVideos">,
-        status: "failed",
-        errorMessage: "Empty response from AI",
-        errorStep: "content_generation",
-      });
-
-      return NextResponse.json(
-        { error: "Empty response from AI" },
-        { status: 500 }
-      );
-    }
+    console.log(`AI response received (model: ${result.model})`);
 
     // Parse the JSON response
     let lessonContent;
     try {
       // Try to extract JSON from the response
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      const jsonMatch = result.content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         lessonContent = JSON.parse(jsonMatch[0]);
       } else {
@@ -203,42 +331,42 @@ export async function POST(request: NextRequest) {
       }
     } catch (parseError) {
       console.error("Error parsing lesson content:", parseError);
-      console.error("Raw response:", responseText);
+      console.error("Raw response (first 500 chars):", result.content.slice(0, 500));
 
-      // Update status to failed
-      await convex.mutation(api.educationalVideos.updateStatus, {
+      await getConvexClient().mutation(api.educationalVideos.updateStatus, {
         videoId: videoId as Id<"educationalVideos">,
         status: "failed",
-        errorMessage: "Failed to parse AI-generated lesson content",
+        errorMessage: "Failed to parse AI response as JSON",
         errorStep: "content_generation",
       });
 
       return NextResponse.json(
-        { error: "Failed to parse lesson content", rawResponse: responseText },
+        { error: "Failed to parse lesson content", rawResponse: result.content.slice(0, 1000) },
         { status: 500 }
       );
     }
 
     // Validate lesson content structure
-    if (
-      !lessonContent.objective ||
-      !lessonContent.slides ||
-      !lessonContent.fullScript
-    ) {
-      await convex.mutation(api.educationalVideos.updateStatus, {
+    if (!lessonContent.objective || !lessonContent.slides || !lessonContent.fullScript) {
+      const missing = [];
+      if (!lessonContent.objective) missing.push("objective");
+      if (!lessonContent.slides) missing.push("slides");
+      if (!lessonContent.fullScript) missing.push("fullScript");
+
+      await getConvexClient().mutation(api.educationalVideos.updateStatus, {
         videoId: videoId as Id<"educationalVideos">,
         status: "failed",
-        errorMessage: "Invalid lesson content structure",
+        errorMessage: `Missing required fields: ${missing.join(", ")}`,
         errorStep: "content_validation",
       });
 
       return NextResponse.json(
-        { error: "Invalid lesson content structure" },
+        { error: "Invalid lesson content structure", missing },
         { status: 500 }
       );
     }
 
-    // Ensure required fields have defaults
+    // Normalize content with defaults
     const normalizedContent = {
       objective: lessonContent.objective,
       vocabulary: lessonContent.vocabulary || [],
@@ -271,18 +399,35 @@ export async function POST(request: NextRequest) {
     };
 
     // Store the generated content in Convex
-    await convex.mutation(api.educationalVideos.storeLessonContent, {
+    await getConvexClient().mutation(api.educationalVideos.storeLessonContent, {
       videoId: videoId as Id<"educationalVideos">,
       lessonContent: normalizedContent,
     });
 
+    console.log("Lesson content generated and stored successfully");
+
     return NextResponse.json({
       success: true,
       lessonContent: normalizedContent,
+      model: result.model,
       message: "Lesson content generated successfully",
     });
   } catch (error) {
     console.error("Error generating lesson:", error);
+
+    // Update status to failed if we have a videoId
+    if (videoId) {
+      try {
+        await getConvexClient().mutation(api.educationalVideos.updateStatus, {
+          videoId: videoId as Id<"educationalVideos">,
+          status: "failed",
+          errorMessage: error instanceof Error ? error.message : "Unknown error",
+          errorStep: "content_generation",
+        });
+      } catch {
+        // Ignore errors in error handling
+      }
+    }
 
     return NextResponse.json(
       {
