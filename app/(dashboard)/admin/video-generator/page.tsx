@@ -77,6 +77,102 @@ const STATUS_CONFIG: Record<VideoStatus, { color: string; label: string }> = {
   failed: { color: "bg-red-500", label: "Failed" },
 };
 
+// Pipeline steps for progress visualization
+const PIPELINE_STEPS = [
+  { id: "content", label: "Content", icon: BookOpen, statuses: ["content_generating", "content_ready"] },
+  { id: "audio", label: "Audio", icon: Play, statuses: ["audio_generating", "audio_ready"] },
+  { id: "avatar", label: "Avatar", icon: Video, statuses: ["avatar_generating", "avatar_ready"] },
+  { id: "render", label: "Final", icon: CheckCircle, statuses: ["rendering", "completed"] },
+];
+
+// Get step status based on video status
+function getStepStatus(stepIndex: number, videoStatus: VideoStatus): "pending" | "active" | "completed" {
+  const statusOrder = [
+    "draft",
+    "content_generating", "content_ready",
+    "audio_generating", "audio_ready",
+    "avatar_generating", "avatar_ready",
+    "rendering", "completed"
+  ];
+
+  const currentIndex = statusOrder.indexOf(videoStatus);
+  if (videoStatus === "failed") return "pending";
+
+  // Calculate which step the current status belongs to
+  const stepRanges = [
+    [0, 2], // content: draft, content_generating, content_ready
+    [3, 4], // audio: audio_generating, audio_ready
+    [5, 6], // avatar: avatar_generating, avatar_ready
+    [7, 8], // render: rendering, completed
+  ];
+
+  const [stepStart, stepEnd] = stepRanges[stepIndex];
+
+  if (currentIndex > stepEnd) return "completed";
+  if (currentIndex >= stepStart && currentIndex <= stepEnd) {
+    // Check if it's the "ready" state (completed for this step)
+    const isReady = videoStatus.endsWith("_ready") || videoStatus === "completed";
+    if (isReady && currentIndex === stepEnd) return "completed";
+    return "active";
+  }
+  return "pending";
+}
+
+// Progress Pipeline Component
+function PipelineProgress({ status, processingStep }: { status: VideoStatus; processingStep?: string }) {
+  return (
+    <div className="flex items-center gap-1 mt-3">
+      {PIPELINE_STEPS.map((step, index) => {
+        const stepStatus = getStepStatus(index, status);
+        const isProcessing = processingStep === step.id;
+        const Icon = step.icon;
+
+        return (
+          <div key={step.id} className="flex items-center">
+            {/* Step indicator */}
+            <div className="flex flex-col items-center">
+              <div
+                className={`
+                  w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all
+                  ${stepStatus === "completed"
+                    ? "bg-green-500 text-white"
+                    : stepStatus === "active"
+                      ? isProcessing
+                        ? "bg-blue-500 text-white animate-pulse ring-4 ring-blue-200"
+                        : "bg-blue-500 text-white"
+                      : "bg-gray-200 text-gray-500"
+                  }
+                `}
+              >
+                {stepStatus === "completed" ? (
+                  <CheckCircle className="w-4 h-4" />
+                ) : isProcessing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Icon className="w-4 h-4" />
+                )}
+              </div>
+              <span className={`text-[10px] mt-1 ${stepStatus === "pending" ? "text-gray-400" : "text-gray-600"}`}>
+                {step.label}
+              </span>
+            </div>
+
+            {/* Connector line */}
+            {index < PIPELINE_STEPS.length - 1 && (
+              <div
+                className={`
+                  w-8 h-0.5 mx-1 transition-all
+                  ${stepStatus === "completed" ? "bg-green-500" : "bg-gray-200"}
+                `}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // Default voice/character IDs (Cartesia + Hedra)
 const DEFAULT_VOICE_ID = "a0e99841-438c-4a64-b679-ae501e7d6091"; // Cartesia English female
 const DEFAULT_CHARACTER_ID = ""; // User must provide their Hedra character ID
@@ -676,48 +772,54 @@ export default function AdminVideoGeneratorPage() {
                   const status = video.status as VideoStatus;
                   const statusConfig = STATUS_CONFIG[status];
                   const Icon = TEMPLATE_INFO[video.templateType as TemplateType]?.icon || BookOpen;
+                  const processingStep = processingVideos[video._id];
 
                   return (
                     <div
                       key={video._id}
-                      className="flex items-center justify-between p-4 border rounded-lg"
+                      className="p-4 border rounded-lg"
                     >
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                          <Icon className="w-5 h-5 text-muted-foreground" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-medium">{video.title}</h3>
-                            <Badge className={`${statusConfig.color} text-white text-xs`}>
-                              {statusConfig.label}
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              {video.sourceConfig.targetLevel}
-                            </Badge>
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-4">
+                          <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                            <Icon className="w-5 h-5 text-muted-foreground" />
                           </div>
-                          <p className="text-sm text-muted-foreground">
-                            {video.sourceConfig.topic} • {video.templateType.replace(/_/g, " ")}
-                          </p>
-                          {video.errorMessage && (
-                            <p className="text-sm text-red-500 mt-1 flex items-center gap-1">
-                              <AlertCircle className="w-3 h-3" />
-                              {video.errorMessage}
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="font-medium">{video.title}</h3>
+                              <Badge className={`${statusConfig.color} text-white text-xs`}>
+                                {statusConfig.label}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs">
+                                {video.sourceConfig.targetLevel}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {video.sourceConfig.topic} • {video.templateType.replace(/_/g, " ")}
                             </p>
-                          )}
-                        </div>
-                      </div>
+                            {video.errorMessage && (
+                              <p className="text-sm text-red-500 mt-1 flex items-center gap-1">
+                                <AlertCircle className="w-3 h-3" />
+                                {video.errorMessage}
+                              </p>
+                            )}
 
-                      <div className="flex items-center gap-2">
-                        {getNextAction(video)}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => handleDelete(video._id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                            {/* Pipeline Progress Bar */}
+                            <PipelineProgress status={status} processingStep={processingStep} />
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                          {getNextAction(video)}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => handleDelete(video._id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   );
