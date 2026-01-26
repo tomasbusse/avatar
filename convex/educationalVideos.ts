@@ -487,6 +487,29 @@ export const storeAvatarOutput = mutation({
 });
 
 /**
+ * Store Hedra job ID for async polling
+ */
+export const storeHedraJobId = mutation({
+  args: {
+    videoId: v.id("educationalVideos"),
+    hedraJobId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const video = await ctx.db.get(args.videoId);
+    if (!video) {
+      throw new Error("Video not found");
+    }
+
+    await ctx.db.patch(args.videoId, {
+      pendingHedraJobId: args.hedraJobId,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
  * Store final rendered output
  */
 export const storeFinalOutput = mutation({

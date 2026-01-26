@@ -285,6 +285,28 @@ export default function AdminVideoGeneratorPage() {
     }
   };
 
+  // Poll for avatar status
+  const pollAvatarStatus = async (videoId: string, hedraJobId: string, maxAttempts = 60): Promise<boolean> => {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const response = await fetch(`/api/video-generator/avatar-status?videoId=${videoId}&hedraJobId=${hedraJobId}`);
+        const data = await response.json();
+
+        if (data.status === "completed") {
+          return true;
+        } else if (data.status === "failed") {
+          throw new Error(data.error || "Avatar generation failed");
+        }
+
+        // Still processing, wait 5 seconds before next poll
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      } catch (error) {
+        if (attempt === maxAttempts - 1) throw error;
+      }
+    }
+    throw new Error("Avatar generation timed out after 5 minutes");
+  };
+
   // Generate avatar video
   const handleGenerateAvatar = async (videoId: string, video: {
     audioOutput?: { r2Url: string };
@@ -305,6 +327,7 @@ export default function AdminVideoGeneratorPage() {
 
     setProcessingVideos(prev => ({ ...prev, [videoId]: "avatar" }));
     try {
+      // Step 1: Start the avatar generation job
       const response = await fetch("/api/video-generator/generate-avatar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -317,9 +340,16 @@ export default function AdminVideoGeneratorPage() {
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Failed to generate avatar");
+      if (!response.ok) throw new Error(data.error || "Failed to start avatar generation");
 
-      toast.success("Avatar video generated!", { description: "Ready to render final video." });
+      toast.info("Avatar generation started", { description: "This may take 2-5 minutes..." });
+
+      // Step 2: Poll for completion
+      const hedraJobId = data.hedraJobId;
+      if (hedraJobId) {
+        await pollAvatarStatus(videoId, hedraJobId);
+        toast.success("Avatar video generated!", { description: "Ready to render final video." });
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Avatar generation failed");
     } finally {

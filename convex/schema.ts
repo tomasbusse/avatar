@@ -3528,6 +3528,8 @@ export default defineSchema({
       duration: v.number(),
       hedraJobId: v.optional(v.string()),
     })),
+    // Pending Hedra job for async polling
+    pendingHedraJobId: v.optional(v.string()),
     finalOutput: v.optional(v.object({
       r2Key: v.string(),
       r2Url: v.string(),
