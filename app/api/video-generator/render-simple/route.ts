@@ -10,6 +10,7 @@ import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { SLS_BRAND } from "@/lib/video-generator/brand-config";
+import { getSignedDownloadUrl } from "@/lib/r2";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -72,9 +73,20 @@ export async function POST(request: NextRequest) {
     const compositionId =
       video.templateType === "grammar_lesson" ? "GrammarLesson" : "NewsLesson";
 
+    // Generate fresh signed URL for avatar video (stored URLs may expire)
+    let avatarVideoUrl = video.avatarOutput.r2Url;
+    if (video.avatarOutput.r2Key) {
+      try {
+        avatarVideoUrl = await getSignedDownloadUrl(video.avatarOutput.r2Key, 86400); // 24 hour expiry
+        console.log(`[RenderSimple] Generated fresh signed URL for avatar video`);
+      } catch (err) {
+        console.warn(`[RenderSimple] Could not refresh signed URL, using stored URL:`, err);
+      }
+    }
+
     // Build Remotion render props based on template type
     const baseProps = {
-      avatarVideoUrl: video.avatarOutput.r2Url,
+      avatarVideoUrl,
       avatarVideoDuration: video.avatarOutput.duration,
       level: video.sourceConfig.targetLevel,
       lessonTitle: video.title,
