@@ -167,7 +167,7 @@ export default function TeachersPage() {
                   </td>
                 </tr>
               ) : (
-                filteredTeachers?.map((teacher) => (
+                filteredTeachers?.map((teacher: NonNullable<typeof teachers>[number]) => (
                   <TeacherRow
                     key={teacher._id}
                     teacher={teacher}
