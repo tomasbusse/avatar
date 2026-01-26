@@ -1,5 +1,11 @@
+/**
+ * Educational Video Generator - Lesson Content Generation API
+ *
+ * Uses OpenRouter to generate AI-powered lesson content based on template type.
+ * Supports grammar lessons (PPP method), news broadcasts, vocabulary, and conversation.
+ */
+
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -11,10 +17,20 @@ import {
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
-// Initialize Anthropic client
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+// OpenRouter API configuration
+const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
+const OPENROUTER_MODEL = "anthropic/claude-sonnet-4"; // Can be configured
+
+interface OpenRouterResponse {
+  choices: Array<{
+    message: {
+      content: string;
+    };
+  }>;
+  error?: {
+    message: string;
+  };
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,6 +54,14 @@ export async function POST(request: NextRequest) {
           error: "Missing required fields: videoId, templateType, topic, level",
         },
         { status: 400 }
+      );
+    }
+
+    // Check for OpenRouter API key
+    if (!process.env.OPENROUTER_API_KEY) {
+      return NextResponse.json(
+        { error: "OPENROUTER_API_KEY not configured" },
+        { status: 500 }
       );
     }
 
@@ -91,22 +115,81 @@ export async function POST(request: NextRequest) {
     // Get the appropriate prompt
     const prompt = getLessonPrompt(templateType, promptInput);
 
-    // Call Claude to generate lesson content
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 8000,
-      system: LESSON_SYSTEM_MESSAGE,
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
+    // Call OpenRouter API
+    const openRouterResponse = await fetch(OPENROUTER_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "https://avatar-vert-phi.vercel.app",
+        "X-Title": "Sweet Language School Video Generator",
+      },
+      body: JSON.stringify({
+        model: OPENROUTER_MODEL,
+        max_tokens: 8000,
+        messages: [
+          {
+            role: "system",
+            content: LESSON_SYSTEM_MESSAGE,
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+      }),
     });
 
-    // Extract the JSON from the response
-    const responseText =
-      response.content[0].type === "text" ? response.content[0].text : "";
+    if (!openRouterResponse.ok) {
+      const errorData = await openRouterResponse.text();
+      console.error("OpenRouter API error:", errorData);
+
+      await convex.mutation(api.educationalVideos.updateStatus, {
+        videoId: videoId as Id<"educationalVideos">,
+        status: "failed",
+        errorMessage: `OpenRouter API error: ${openRouterResponse.status}`,
+        errorStep: "content_generation",
+      });
+
+      return NextResponse.json(
+        { error: "OpenRouter API request failed", details: errorData },
+        { status: 500 }
+      );
+    }
+
+    const responseData: OpenRouterResponse = await openRouterResponse.json();
+
+    // Check for API error in response
+    if (responseData.error) {
+      await convex.mutation(api.educationalVideos.updateStatus, {
+        videoId: videoId as Id<"educationalVideos">,
+        status: "failed",
+        errorMessage: responseData.error.message,
+        errorStep: "content_generation",
+      });
+
+      return NextResponse.json(
+        { error: "OpenRouter API error", details: responseData.error.message },
+        { status: 500 }
+      );
+    }
+
+    // Extract the text from OpenRouter response (OpenAI format)
+    const responseText = responseData.choices?.[0]?.message?.content || "";
+
+    if (!responseText) {
+      await convex.mutation(api.educationalVideos.updateStatus, {
+        videoId: videoId as Id<"educationalVideos">,
+        status: "failed",
+        errorMessage: "Empty response from AI",
+        errorStep: "content_generation",
+      });
+
+      return NextResponse.json(
+        { error: "Empty response from AI" },
+        { status: 500 }
+      );
+    }
 
     // Parse the JSON response
     let lessonContent;
