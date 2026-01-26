@@ -645,7 +645,7 @@ function AssignAvatarsDialog({
 
   // Initialize selected avatars when teacher data loads
   if (teacher && !initialized) {
-    setSelectedAvatarIds(new Set(teacher.avatarIds.map((id) => id.toString())));
+    setSelectedAvatarIds(new Set(teacher.avatarIds.map((id: Id<"avatars">) => id.toString())));
     setInitialized(true);
   }
 
