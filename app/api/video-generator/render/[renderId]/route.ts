@@ -1,6 +1,7 @@
 /**
  * Educational Video Generator - Render Status API
  * Polls Remotion Lambda render progress and handles completion.
+ * Features retry logic for AWS rate limits.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -8,8 +9,11 @@ import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { uploadFromUrl, getSignedDownloadUrl } from "@/lib/r2";
+import { withRetry, requestSpacer } from "@/lib/video-generator/rate-limiter";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 // Lazy-init Convex client
 let convex: ConvexHttpClient | null = null;
@@ -46,13 +50,28 @@ export async function GET(
 
     const region = (process.env.REMOTION_AWS_REGION || "eu-central-1") as "eu-central-1";
 
-    // Get render progress
-    const progress = await getRenderProgress({
-      renderId,
-      bucketName: bucketName || process.env.REMOTION_BUCKET_NAME!,
-      region,
-      functionName: process.env.REMOTION_FUNCTION_NAME!,
-    });
+    // Space requests to avoid burst rate limits
+    await requestSpacer.space("remotion-status", 3000);
+
+    // Get render progress with retry logic
+    const progress = await withRetry(
+      async () => {
+        return getRenderProgress({
+          renderId,
+          bucketName: bucketName || process.env.REMOTION_BUCKET_NAME!,
+          region,
+          functionName: process.env.REMOTION_FUNCTION_NAME?.replace('240sec', '900sec') || 'remotion-render-4-0-409-mem2048mb-disk2048mb-900sec',
+        });
+      },
+      {
+        maxRetries: 3,
+        baseDelayMs: 5000,
+        maxDelayMs: 30000,
+        onRetry: (attempt, delay, error) => {
+          console.log(`[RenderStatus] Retry ${attempt}/3, waiting ${delay}ms: ${error.message.slice(0, 100)}`);
+        },
+      }
+    );
 
     // Handle different states
     if (progress.fatalErrorEncountered) {
