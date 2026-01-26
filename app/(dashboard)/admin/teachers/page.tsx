@@ -709,7 +709,7 @@ function AssignAvatarsDialog({
               No avatars available
             </div>
           ) : (
-            allAvatars.map((avatar) => {
+            allAvatars.map((avatar: NonNullable<typeof allAvatars>[number]) => {
               const isSelected = selectedAvatarIds.has(avatar._id.toString());
               return (
                 <div
