@@ -295,7 +295,7 @@ function TeacherRow({
           {teacher.avatars.length === 0 ? (
             <span className="text-muted-foreground text-sm">No avatars</span>
           ) : (
-            teacher.avatars.slice(0, 3).map((avatar) => (
+            teacher.avatars.slice(0, 3).map((avatar: (typeof teacher.avatars)[number]) => (
               <span
                 key={avatar._id}
                 className="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800"
@@ -481,7 +481,7 @@ function CreateTeacherDialog({
                     Global (All Companies)
                   </div>
                 </SelectItem>
-                {companies?.companies?.map((company) => (
+                {companies?.companies?.map((company: NonNullable<NonNullable<typeof companies>["companies"]>[number]) => (
                   <SelectItem key={company._id} value={company._id}>
                     <div className="flex items-center gap-2">
                       <Building2 className="w-4 h-4 text-muted-foreground" />
