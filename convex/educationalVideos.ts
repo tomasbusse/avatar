@@ -368,6 +368,27 @@ export const storeLessonContent = mutation({
           items: v.optional(v.array(v.string())),
           narration: v.string(),
           durationSeconds: v.optional(v.number()),
+          // Grammar rule fields
+          formula: v.optional(v.string()),
+          // Comparison slide fields (correct vs incorrect examples)
+          correct: v.optional(v.object({
+            text: v.string(),
+            explanation: v.optional(v.string()),
+          })),
+          incorrect: v.optional(v.object({
+            text: v.string(),
+            explanation: v.optional(v.string()),
+          })),
+          // Question/practice slide fields
+          options: v.optional(v.array(v.string())),
+          correctAnswer: v.optional(v.string()),
+          // Vocabulary slide fields
+          vocabulary: v.optional(v.array(v.object({
+            word: v.string(),
+            definition: v.optional(v.string()),
+            germanTranslation: v.optional(v.string()),
+            example: v.optional(v.string()),
+          }))),
         })
       ),
       questions: v.array(
