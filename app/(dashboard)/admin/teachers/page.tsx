@@ -67,7 +67,7 @@ export default function TeachersPage() {
   const deleteTeacher = useMutation(api.teachers.deleteTeacher);
 
   // Filter by search query
-  const filteredTeachers = teachers?.filter((teacher) => {
+  const filteredTeachers = teachers?.filter((teacher: NonNullable<typeof teachers>[number]) => {
     const searchLower = searchQuery.toLowerCase();
     const userName = `${teacher.user?.firstName || ""} ${teacher.user?.lastName || ""}`.toLowerCase();
     const userEmail = teacher.user?.email?.toLowerCase() || "";
