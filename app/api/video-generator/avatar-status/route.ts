@@ -14,6 +14,7 @@ import { uploadFile, getSignedDownloadUrl } from "@/lib/r2";
 import { withRetry, requestSpacer } from "@/lib/video-generator/rate-limiter";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 export const maxDuration = 120; // 2 minutes max (increased for retries)
 
 // Lazy-init Convex client
