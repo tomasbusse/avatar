@@ -1,12 +1,13 @@
 /**
  * Educational Video Generator - Lesson Content Generation API
  *
- * Uses OpenRouter to generate AI-powered lesson content based on template type.
+ * Uses Anthropic Claude directly (like the working practice page) with OpenRouter fallback.
  * Supports grammar lessons (PPP method), news broadcasts, vocabulary, and conversation.
  * Includes Tavily web search for enriching lesson content.
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import Anthropic from "@anthropic-ai/sdk";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -28,25 +29,8 @@ function getConvexClient(): ConvexHttpClient {
   return convex;
 }
 
-// OpenRouter API configuration
-const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const PRIMARY_MODEL = "anthropic/claude-sonnet-4"; // More reliable, faster
-const FALLBACK_MODEL = "openai/gpt-4o"; // Fallback if primary fails
-
 // Tavily API for web search
 const TAVILY_API_URL = "https://api.tavily.com/search";
-
-interface OpenRouterResponse {
-  choices?: Array<{
-    message?: {
-      content?: string;
-    };
-  }>;
-  error?: {
-    message: string;
-    code?: string;
-  };
-}
 
 interface TavilyResult {
   title: string;
@@ -114,22 +98,59 @@ async function searchWithTavily(query: string, maxResults: number = 5): Promise<
 }
 
 /**
- * Call OpenRouter API with retry and fallback
+ * Call Anthropic API directly (like the working practice page)
  */
-async function callOpenRouter(
+async function callAnthropicDirect(
   systemPrompt: string,
-  userPrompt: string,
-  model: string = PRIMARY_MODEL
+  userPrompt: string
+): Promise<{ content: string; model: string } | { error: string }> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return { error: "ANTHROPIC_API_KEY not configured" };
+  }
+
+  console.log("Calling Anthropic Claude directly...");
+
+  try {
+    const anthropic = new Anthropic({ apiKey });
+
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 8000,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userPrompt }],
+    });
+
+    const content = response.content[0];
+    if (content.type === "text") {
+      console.log(`Anthropic response: ${content.text.length} chars`);
+      return { content: content.text, model: "claude-sonnet-4" };
+    }
+
+    return { error: "Unexpected response format from Claude" };
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : "Unknown error";
+    console.error("Anthropic API error:", errorMsg);
+    return { error: errorMsg };
+  }
+}
+
+/**
+ * Call OpenRouter API as fallback
+ */
+async function callOpenRouterFallback(
+  systemPrompt: string,
+  userPrompt: string
 ): Promise<{ content: string; model: string } | { error: string }> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     return { error: "OPENROUTER_API_KEY not configured" };
   }
 
-  console.log(`Calling OpenRouter with model: ${model}`);
+  console.log("Calling OpenRouter fallback (GPT-4o)...");
 
   try {
-    const response = await fetch(OPENROUTER_API_URL, {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -138,7 +159,7 @@ async function callOpenRouter(
         "X-Title": "Sweet Language School Video Generator",
       },
       body: JSON.stringify({
-        model: model,
+        model: "openai/gpt-4o",
         max_tokens: 8000,
         temperature: 0.7,
         messages: [
@@ -149,57 +170,54 @@ async function callOpenRouter(
     });
 
     const responseText = await response.text();
-    console.log(`OpenRouter response status: ${response.status}`);
 
     if (!response.ok) {
       console.error(`OpenRouter error (${response.status}):`, responseText);
-
-      // Try fallback model if primary fails
-      if (model === PRIMARY_MODEL) {
-        console.log("Trying fallback model...");
-        return callOpenRouter(systemPrompt, userPrompt, FALLBACK_MODEL);
-      }
-
       return { error: `API error ${response.status}: ${responseText}` };
     }
 
-    let data: OpenRouterResponse;
-    try {
-      data = JSON.parse(responseText);
-    } catch {
-      return { error: `Invalid JSON response: ${responseText.slice(0, 200)}` };
-    }
+    const data = JSON.parse(responseText);
 
     if (data.error) {
-      console.error("OpenRouter API error:", data.error);
-
-      // Try fallback on error
-      if (model === PRIMARY_MODEL) {
-        console.log("Trying fallback model due to API error...");
-        return callOpenRouter(systemPrompt, userPrompt, FALLBACK_MODEL);
-      }
-
       return { error: data.error.message };
     }
 
     const content = data.choices?.[0]?.message?.content;
     if (!content) {
-      return { error: "Empty response from AI" };
+      return { error: "Empty response from OpenRouter" };
     }
 
-    return { content, model };
+    console.log(`OpenRouter response: ${content.length} chars`);
+    return { content, model: "gpt-4o" };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : "Unknown error";
-    console.error("OpenRouter fetch error:", errorMsg);
-
-    // Try fallback on network error
-    if (model === PRIMARY_MODEL) {
-      console.log("Trying fallback model due to network error...");
-      return callOpenRouter(systemPrompt, userPrompt, FALLBACK_MODEL);
-    }
-
+    console.error("OpenRouter error:", errorMsg);
     return { error: errorMsg };
   }
+}
+
+/**
+ * Generate lesson content - tries Anthropic first, then OpenRouter fallback
+ */
+async function generateLessonContent(
+  systemPrompt: string,
+  userPrompt: string
+): Promise<{ content: string; model: string } | { error: string }> {
+  // Try Anthropic first (like the working practice page)
+  if (process.env.ANTHROPIC_API_KEY) {
+    const result = await callAnthropicDirect(systemPrompt, userPrompt);
+    if (!("error" in result)) {
+      return result;
+    }
+    console.log("Anthropic failed, trying OpenRouter fallback...");
+  }
+
+  // Fallback to OpenRouter
+  if (process.env.OPENROUTER_API_KEY) {
+    return callOpenRouterFallback(systemPrompt, userPrompt);
+  }
+
+  return { error: "No AI provider configured (need ANTHROPIC_API_KEY or OPENROUTER_API_KEY)" };
 }
 
 export async function POST(request: NextRequest) {
@@ -298,8 +316,8 @@ export async function POST(request: NextRequest) {
 
     console.log("Calling AI to generate lesson content...");
 
-    // Call OpenRouter
-    const result = await callOpenRouter(LESSON_SYSTEM_MESSAGE, prompt);
+    // Generate content
+    const result = await generateLessonContent(LESSON_SYSTEM_MESSAGE, prompt);
 
     if ("error" in result) {
       console.error("AI generation failed:", result.error);
