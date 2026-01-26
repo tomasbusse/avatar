@@ -2,22 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { uploadFile, getSignedDownloadUrl } from "@/lib/r2";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
-
-// R2 client setup
-const r2Client = new S3Client({
-  region: "auto",
-  endpoint: process.env.R2_ENDPOINT!,
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-  },
-});
-
-const R2_BUCKET = process.env.R2_BUCKET_NAME || "beethoven-videos";
-const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL;
 
 export async function POST(request: NextRequest) {
   try {
@@ -100,20 +87,16 @@ export async function POST(request: NextRequest) {
       throw new Error(`Unsupported voice provider: ${voiceProvider}`);
     }
 
-    // Upload to R2
+    // Upload to R2 using shared utilities
     const timestamp = Date.now();
     const r2Key = `educational-videos/${videoId}/audio-${timestamp}.mp3`;
 
-    await r2Client.send(
-      new PutObjectCommand({
-        Bucket: R2_BUCKET,
-        Key: r2Key,
-        Body: audioBuffer,
-        ContentType: "audio/mpeg",
-      })
-    );
+    const uploadResult = await uploadFile(r2Key, audioBuffer, {
+      contentType: "audio/mpeg",
+    });
 
-    const r2Url = `${R2_PUBLIC_URL}/${r2Key}`;
+    // Get a longer-lived signed URL (7 days)
+    const r2Url = await getSignedDownloadUrl(r2Key, 86400 * 7);
 
     // Store audio output in Convex
     await convex.mutation(api.educationalVideos.storeAudioOutput, {
