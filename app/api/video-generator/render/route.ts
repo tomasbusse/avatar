@@ -171,7 +171,7 @@ export async function POST(request: NextRequest) {
 
         const { renderId, bucketName } = await renderMediaOnLambda({
           region,
-          functionName: process.env.REMOTION_FUNCTION_NAME!,
+          functionName: process.env.REMOTION_FUNCTION_NAME?.replace('240sec', '900sec') || 'remotion-render-4-0-409-mem2048mb-disk2048mb-900sec',
           serveUrl: process.env.REMOTION_SERVE_URL!,
           composition,
           inputProps: renderProps,
