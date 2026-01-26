@@ -166,6 +166,8 @@ async function processRender(jobId, compositionId, inputProps, codec, outputPath
       codec,
       outputLocation: outputPath,
       inputProps,
+      // Increase timeout to 120 seconds to allow large video files to load from R2
+      timeoutInMilliseconds: 120000,
       onProgress: ({ progress }) => {
         const jobUpdate = renderJobs.get(jobId);
         if (jobUpdate) {
