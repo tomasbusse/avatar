@@ -4,6 +4,7 @@
  * Takes a completed avatar video and renders it with
  * Remotion overlays (intro, outro, slides, lower third, progress bar)
  * using the educational video compositions.
+ * Features improved retry logic for AWS rate limits.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -11,6 +12,7 @@ import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { SLS_BRAND } from "@/lib/video-generator/brand-config";
+import { requestSpacer } from "@/lib/video-generator/rate-limiter";
 
 export const runtime = "nodejs";
 export const maxDuration = 300; // 5 minutes max for long renders
@@ -152,20 +154,26 @@ export async function POST(request: NextRequest) {
     process.env.AWS_ACCESS_KEY_ID = process.env.REMOTION_AWS_ACCESS_KEY_ID;
     process.env.AWS_SECRET_ACCESS_KEY = process.env.REMOTION_AWS_SECRET_ACCESS_KEY;
 
+    // Space requests to avoid burst rate limits
+    await requestSpacer.space("remotion-lambda", 5000);
+
     // Trigger Remotion Lambda render
     const { renderMediaOnLambda } = await import("@remotion/lambda/client");
 
     const region = (process.env.REMOTION_AWS_REGION || "eu-central-1") as "eu-central-1";
 
-    // Retry logic for rate limit errors
-    const maxRetries = 3;
+    // Improved retry logic for rate limit errors
+    const maxRetries = 5; // Increased from 3
     let lastError: Error | null = null;
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
         if (attempt > 0) {
-          // Wait before retry with exponential backoff
-          const waitTime = Math.pow(2, attempt) * 1000;
+          // Wait before retry with exponential backoff + jitter
+          const baseWait = Math.pow(2, attempt) * 2000; // Start at 4s, then 8s, 16s, 32s
+          const jitter = Math.random() * 2000;
+          const waitTime = Math.min(baseWait + jitter, 60000); // Max 60s
+          console.log(`[Render] Retry ${attempt + 1}/${maxRetries}, waiting ${Math.round(waitTime)}ms...`);
           await new Promise((resolve) => setTimeout(resolve, waitTime));
         }
 
@@ -180,11 +188,13 @@ export async function POST(request: NextRequest) {
             type: "download",
             fileName: `educational-video-${videoId}.mp4`,
           },
-          maxRetries: 3,
-          framesPerLambda: 240, // More frames per lambda = fewer concurrent lambdas
+          maxRetries: 2, // Internal Remotion retries
+          framesPerLambda: 400, // Increased from 240 - fewer concurrent lambdas
           rendererFunctionName: null, // Use same function for rendering
           concurrencyPerLambda: 1, // Limit concurrency to avoid rate limits
         });
+
+        console.log(`[Render] Started successfully on attempt ${attempt + 1}: ${renderId}`);
 
         return NextResponse.json({
           success: true,
@@ -199,16 +209,22 @@ export async function POST(request: NextRequest) {
         lastError = error instanceof Error ? error : new Error(String(error));
         const errorMsg = lastError.message.toLowerCase();
 
-        // Only retry on rate limit errors
-        if (
-          !errorMsg.includes("rate") &&
-          !errorMsg.includes("throttl") &&
-          !errorMsg.includes("limit")
-        ) {
+        console.log(`[Render] Attempt ${attempt + 1} failed: ${lastError.message.slice(0, 200)}`);
+
+        // Check if error is retryable (rate limits, throttling, capacity issues)
+        const isRetryable =
+          errorMsg.includes("rate") ||
+          errorMsg.includes("throttl") ||
+          errorMsg.includes("limit") ||
+          errorMsg.includes("toomanyrequests") ||
+          errorMsg.includes("capacity") ||
+          errorMsg.includes("concurren") ||
+          errorMsg.includes("503") ||
+          errorMsg.includes("502");
+
+        if (!isRetryable || attempt === maxRetries - 1) {
           throw lastError;
         }
-
-        console.log(`Rate limit hit, attempt ${attempt + 1}/${maxRetries}, retrying...`);
       }
     }
 

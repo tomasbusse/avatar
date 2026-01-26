@@ -1,8 +1,9 @@
 /**
  * Educational Video Generator - Lesson Content Generation API
  *
- * Uses OpenRouter with Claude Opus 4.5 for AI-powered lesson content generation.
+ * Uses OpenRouter with Claude Sonnet 4 for AI-powered lesson content generation.
  * Includes Tavily web search for enriching lesson content.
+ * Features exponential backoff retry for rate limits.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -14,9 +15,10 @@ import {
   LESSON_SYSTEM_MESSAGE,
   LessonPromptInput,
 } from "@/lib/video-generator/prompts";
+import { withRetry, requestSpacer } from "@/lib/video-generator/rate-limiter";
 
 export const runtime = "nodejs";
-export const maxDuration = 120; // 2 minutes for AI generation
+export const maxDuration = 180; // 3 minutes for AI generation (increased for retries)
 
 // Lazy init Convex client
 let convex: ConvexHttpClient | null = null;
@@ -104,6 +106,7 @@ async function searchWithTavily(query: string, maxResults: number = 5): Promise<
 
 /**
  * Call OpenRouter API with Claude Opus 4.5
+ * Includes exponential backoff retry for rate limits
  */
 async function callOpenRouter(
   systemPrompt: string,
@@ -117,49 +120,75 @@ async function callOpenRouter(
   console.log(`[OpenRouter] Calling ${MODEL}...`);
 
   try {
-    const response = await fetch(OPENROUTER_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "https://avatar-vert-phi.vercel.app",
-        "X-Title": "Sweet Language School Video Generator",
+    // Space requests to avoid burst rate limits (minimum 2s between requests)
+    await requestSpacer.space("openrouter", 2000);
+
+    const result = await withRetry(
+      async () => {
+        const response = await fetch(OPENROUTER_API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`,
+            "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "https://avatar-vert-phi.vercel.app",
+            "X-Title": "Sweet Language School Video Generator",
+          },
+          body: JSON.stringify({
+            model: MODEL,
+            max_tokens: 8000,
+            temperature: 0.7,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+          }),
+        });
+
+        // Handle rate limits and server errors as retryable
+        if (response.status === 429 || response.status === 503 || response.status === 502) {
+          const errorText = await response.text();
+          throw new Error(`Rate limit (${response.status}): ${errorText.slice(0, 200)}`);
+        }
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          // Don't retry client errors (4xx except 429)
+          if (response.status >= 400 && response.status < 500) {
+            return { error: `OpenRouter API error ${response.status}: ${errorText}` };
+          }
+          throw new Error(`OpenRouter API error ${response.status}: ${errorText}`);
+        }
+
+        const data = await response.json();
+
+        if (data.error) {
+          console.error("[OpenRouter] Response error:", data.error);
+          return { error: data.error.message || JSON.stringify(data.error) };
+        }
+
+        const content = data.choices?.[0]?.message?.content;
+        if (!content) {
+          console.error("[OpenRouter] Empty response:", JSON.stringify(data));
+          return { error: "Empty response from OpenRouter" };
+        }
+
+        console.log(`[OpenRouter] Success: ${content.length} chars`);
+        return { content };
       },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 8000,
-        temperature: 0.7,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      }),
-    });
+      {
+        maxRetries: 4,
+        baseDelayMs: 3000, // Start with 3s delay for LLM rate limits
+        maxDelayMs: 60000,
+        onRetry: (attempt, delay, error) => {
+          console.log(`[OpenRouter] Retry ${attempt}/4, waiting ${delay}ms: ${error.message.slice(0, 100)}`);
+        },
+      }
+    );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[OpenRouter] API error ${response.status}:`, errorText);
-      return { error: `OpenRouter API error ${response.status}: ${errorText}` };
-    }
-
-    const data = await response.json();
-
-    if (data.error) {
-      console.error("[OpenRouter] Response error:", data.error);
-      return { error: data.error.message || JSON.stringify(data.error) };
-    }
-
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) {
-      console.error("[OpenRouter] Empty response:", JSON.stringify(data));
-      return { error: "Empty response from OpenRouter" };
-    }
-
-    console.log(`[OpenRouter] Success: ${content.length} chars`);
-    return { content };
+    return result;
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : "Unknown error";
-    console.error("[OpenRouter] Fetch error:", errorMsg);
+    console.error("[OpenRouter] Final error after retries:", errorMsg);
     return { error: errorMsg };
   }
 }

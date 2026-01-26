@@ -3,15 +3,17 @@
  *
  * Takes audio from R2 and generates an AI avatar video via Hedra.
  * Uses async pattern: starts job and returns immediately, frontend polls for status.
+ * Features exponential backoff retry for rate limits.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import { withRetry, requestSpacer } from "@/lib/video-generator/rate-limiter";
 
 export const runtime = "nodejs";
-export const maxDuration = 60; // 1 minute max for starting the job
+export const maxDuration = 120; // 2 minutes for starting the job (increased for retries)
 
 // Lazy-init Convex client
 let convex: ConvexHttpClient | null = null;
@@ -37,7 +39,7 @@ interface GenerateAvatarRequest {
 }
 
 /**
- * Create an asset in Hedra
+ * Create an asset in Hedra with retry logic
  */
 async function createHedraAsset(
   filename: string,
@@ -48,29 +50,50 @@ async function createHedraAsset(
     throw new Error("HEDRA_API_KEY not configured");
   }
 
-  const response = await fetch(`${HEDRA_API_BASE}/assets`, {
-    method: "POST",
-    headers: {
-      "X-API-Key": apiKey,
-      "Content-Type": "application/json",
+  // Space requests to Hedra (minimum 2s between requests)
+  await requestSpacer.space("hedra", 2000);
+
+  return withRetry(
+    async () => {
+      const response = await fetch(`${HEDRA_API_BASE}/assets`, {
+        method: "POST",
+        headers: {
+          "X-API-Key": apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: filename,
+          type: type,
+        }),
+      });
+
+      // Handle rate limits as retryable
+      if (response.status === 429 || response.status === 503) {
+        const error = await response.text();
+        throw new Error(`Hedra rate limit (${response.status}): ${error.slice(0, 200)}`);
+      }
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Hedra create asset failed: ${response.status} - ${error}`);
+      }
+
+      const data = await response.json();
+      return data.id;
     },
-    body: JSON.stringify({
-      name: filename,
-      type: type,
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Hedra create asset failed: ${response.status} - ${error}`);
-  }
-
-  const data = await response.json();
-  return data.id;
+    {
+      maxRetries: 3,
+      baseDelayMs: 3000,
+      maxDelayMs: 30000,
+      onRetry: (attempt, delay, error) => {
+        console.log(`[Hedra] Create asset retry ${attempt}/3, waiting ${delay}ms`);
+      },
+    }
+  );
 }
 
 /**
- * Upload file to Hedra asset
+ * Upload file to Hedra asset with retry logic
  */
 async function uploadHedraAsset(
   assetId: string,
@@ -82,26 +105,47 @@ async function uploadHedraAsset(
     throw new Error("HEDRA_API_KEY not configured");
   }
 
-  const formData = new FormData();
-  const arrayBuffer = buffer.buffer.slice(
-    buffer.byteOffset,
-    buffer.byteOffset + buffer.byteLength
-  ) as ArrayBuffer;
-  const blob = new Blob([arrayBuffer]);
-  formData.append("file", blob, filename);
+  // Space requests to Hedra
+  await requestSpacer.space("hedra", 2000);
 
-  const response = await fetch(`${HEDRA_API_BASE}/assets/${assetId}/upload`, {
-    method: "POST",
-    headers: {
-      "X-API-Key": apiKey,
+  return withRetry(
+    async () => {
+      const formData = new FormData();
+      const arrayBuffer = buffer.buffer.slice(
+        buffer.byteOffset,
+        buffer.byteOffset + buffer.byteLength
+      ) as ArrayBuffer;
+      const blob = new Blob([arrayBuffer]);
+      formData.append("file", blob, filename);
+
+      const response = await fetch(`${HEDRA_API_BASE}/assets/${assetId}/upload`, {
+        method: "POST",
+        headers: {
+          "X-API-Key": apiKey,
+        },
+        body: formData,
+      });
+
+      // Handle rate limits as retryable
+      if (response.status === 429 || response.status === 503) {
+        const error = await response.text();
+        throw new Error(`Hedra rate limit (${response.status}): ${error.slice(0, 200)}`);
+      }
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Hedra upload failed: ${response.status} - ${error}`);
+      }
     },
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Hedra upload failed: ${response.status} - ${error}`);
-  }
+    {
+      maxRetries: 3,
+      baseDelayMs: 3000,
+      maxDelayMs: 30000,
+      onRetry: (attempt, delay, error) => {
+        console.log(`[Hedra] Upload retry ${attempt}/3, waiting ${delay}ms`);
+      },
+    }
+  );
 }
 
 /**
@@ -139,7 +183,7 @@ async function uploadAudioFromUrl(audioUrl: string): Promise<string> {
 }
 
 /**
- * Start Hedra video generation
+ * Start Hedra video generation with retry logic
  */
 async function startHedraGeneration(
   audioId: string,
@@ -155,6 +199,9 @@ async function startHedraGeneration(
     throw new Error("HEDRA_API_KEY not configured");
   }
 
+  // Space requests to Hedra
+  await requestSpacer.space("hedra", 2000);
+
   const payload = {
     type: "video",
     ai_model_id: DEFAULT_HEDRA_MODEL,
@@ -167,22 +214,40 @@ async function startHedraGeneration(
     },
   };
 
-  const response = await fetch(`${HEDRA_API_BASE}/generations`, {
-    method: "POST",
-    headers: {
-      "X-API-Key": apiKey,
-      "Content-Type": "application/json",
+  return withRetry(
+    async () => {
+      const response = await fetch(`${HEDRA_API_BASE}/generations`, {
+        method: "POST",
+        headers: {
+          "X-API-Key": apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      // Handle rate limits as retryable
+      if (response.status === 429 || response.status === 503) {
+        const error = await response.text();
+        throw new Error(`Hedra rate limit (${response.status}): ${error.slice(0, 200)}`);
+      }
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Hedra generation start failed: ${response.status} - ${error}`);
+      }
+
+      const data = await response.json();
+      return data.id;
     },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Hedra generation start failed: ${response.status} - ${error}`);
-  }
-
-  const data = await response.json();
-  return data.id;
+    {
+      maxRetries: 3,
+      baseDelayMs: 5000, // Longer delay for generation starts
+      maxDelayMs: 60000,
+      onRetry: (attempt, delay, error) => {
+        console.log(`[Hedra] Generation start retry ${attempt}/3, waiting ${delay}ms`);
+      },
+    }
+  );
 }
 
 export async function POST(request: NextRequest) {

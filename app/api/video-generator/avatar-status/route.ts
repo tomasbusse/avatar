@@ -3,6 +3,7 @@
  *
  * Polls Hedra for generation status. When complete, downloads video
  * and uploads to R2, then updates Convex.
+ * Features retry logic for rate limits.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -10,9 +11,10 @@ import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { uploadFile, getSignedDownloadUrl } from "@/lib/r2";
+import { withRetry, requestSpacer } from "@/lib/video-generator/rate-limiter";
 
 export const runtime = "nodejs";
-export const maxDuration = 60; // 1 minute max
+export const maxDuration = 120; // 2 minutes max (increased for retries)
 
 // Lazy-init Convex client
 let convex: ConvexHttpClient | null = null;
@@ -27,7 +29,7 @@ function getConvexClient(): ConvexHttpClient {
 const HEDRA_API_BASE = "https://api.hedra.com/web-app/public";
 
 /**
- * Poll Hedra for generation status
+ * Poll Hedra for generation status with retry logic
  */
 async function pollHedraStatus(jobId: string): Promise<{
   status: string;
@@ -39,33 +41,54 @@ async function pollHedraStatus(jobId: string): Promise<{
     throw new Error("HEDRA_API_KEY not configured");
   }
 
-  const response = await fetch(`${HEDRA_API_BASE}/generations/${jobId}/status`, {
-    headers: {
-      "X-API-Key": apiKey,
+  // Space requests to Hedra
+  await requestSpacer.space("hedra-status", 2000);
+
+  return withRetry(
+    async () => {
+      const response = await fetch(`${HEDRA_API_BASE}/generations/${jobId}/status`, {
+        headers: {
+          "X-API-Key": apiKey,
+        },
+      });
+
+      // Handle rate limits as retryable
+      if (response.status === 429 || response.status === 503) {
+        const error = await response.text();
+        throw new Error(`Hedra rate limit (${response.status}): ${error.slice(0, 200)}`);
+      }
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Hedra status check failed: ${response.status} - ${error}`);
+      }
+
+      const data = await response.json();
+      console.log(`[AvatarStatus] Hedra response:`, JSON.stringify(data));
+
+      if (data.status === "completed" || data.status === "complete") {
+        return {
+          status: "completed",
+          videoUrl: data.download_url || data.url || data.video_url,
+        };
+      } else if (data.status === "failed" || data.status === "error") {
+        return {
+          status: "failed",
+          error: data.error_message || data.error || data.message || "Generation failed",
+        };
+      }
+
+      return { status: data.status };
     },
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Hedra status check failed: ${response.status} - ${error}`);
-  }
-
-  const data = await response.json();
-  console.log(`[AvatarStatus] Hedra response:`, JSON.stringify(data));
-
-  if (data.status === "completed" || data.status === "complete") {
-    return {
-      status: "completed",
-      videoUrl: data.download_url || data.url || data.video_url,
-    };
-  } else if (data.status === "failed" || data.status === "error") {
-    return {
-      status: "failed",
-      error: data.error_message || data.error || data.message || "Generation failed",
-    };
-  }
-
-  return { status: data.status };
+    {
+      maxRetries: 3,
+      baseDelayMs: 3000,
+      maxDelayMs: 30000,
+      onRetry: (attempt, delay, error) => {
+        console.log(`[AvatarStatus] Retry ${attempt}/3, waiting ${delay}ms: ${error.message.slice(0, 100)}`);
+      },
+    }
+  );
 }
 
 /**

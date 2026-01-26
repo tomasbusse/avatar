@@ -213,11 +213,20 @@ export default function AdminVideoGeneratorPage() {
     }
   }, []);
 
+  // Check if any video is currently being processed
+  const isAnyProcessing = Object.keys(processingVideos).length > 0;
+
   // Generate lesson content
   const handleGenerateContent = async (videoId: string, video: {
     sourceConfig: { topic?: string; urls?: string[]; targetLevel: string; targetDuration?: number };
     templateType: string;
   }) => {
+    // Prevent concurrent processing to avoid rate limits
+    if (isAnyProcessing) {
+      toast.error("Please wait", { description: "Another video is being processed. Wait for it to complete." });
+      return;
+    }
+
     setProcessingVideos(prev => ({ ...prev, [videoId]: "content" }));
     try {
       const response = await fetch("/api/video-generator/generate-lesson", {
@@ -234,11 +243,12 @@ export default function AdminVideoGeneratorPage() {
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Failed to generate content");
+      if (!response.ok) throw new Error(data.error || data.details || "Failed to generate content");
 
       toast.success("Content generated!", { description: "Ready to generate audio." });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Content generation failed");
+      const errorMsg = error instanceof Error ? error.message : "Content generation failed";
+      toast.error("Content generation failed", { description: errorMsg.slice(0, 200) });
     } finally {
       setProcessingVideos(prev => {
         const updated = { ...prev };
@@ -258,6 +268,12 @@ export default function AdminVideoGeneratorPage() {
       return;
     }
 
+    // Prevent concurrent processing to avoid rate limits
+    if (isAnyProcessing) {
+      toast.error("Please wait", { description: "Another video is being processed. Wait for it to complete." });
+      return;
+    }
+
     setProcessingVideos(prev => ({ ...prev, [videoId]: "audio" }));
     try {
       const response = await fetch("/api/video-generator/generate-audio", {
@@ -271,11 +287,12 @@ export default function AdminVideoGeneratorPage() {
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Failed to generate audio");
+      if (!response.ok) throw new Error(data.error || data.details || "Failed to generate audio");
 
       toast.success("Audio generated!", { description: "Ready to generate avatar video." });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Audio generation failed");
+      const errorMsg = error instanceof Error ? error.message : "Audio generation failed";
+      toast.error("Audio generation failed", { description: errorMsg.slice(0, 200) });
     } finally {
       setProcessingVideos(prev => {
         const updated = { ...prev };
@@ -285,8 +302,8 @@ export default function AdminVideoGeneratorPage() {
     }
   };
 
-  // Poll for avatar status
-  const pollAvatarStatus = async (videoId: string, hedraJobId: string, maxAttempts = 60): Promise<boolean> => {
+  // Poll for avatar status with exponential backoff
+  const pollAvatarStatus = async (videoId: string, hedraJobId: string, maxAttempts = 40): Promise<boolean> => {
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         const response = await fetch(`/api/video-generator/avatar-status?videoId=${videoId}&hedraJobId=${hedraJobId}`);
@@ -298,13 +315,18 @@ export default function AdminVideoGeneratorPage() {
           throw new Error(data.error || "Avatar generation failed");
         }
 
-        // Still processing, wait 5 seconds before next poll
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        // Exponential backoff: start at 5s, increase to max 20s
+        const baseDelay = 5000;
+        const delay = Math.min(baseDelay * Math.pow(1.2, Math.floor(attempt / 3)), 20000);
+        console.log(`[Avatar Poll] Attempt ${attempt + 1}/${maxAttempts}, next poll in ${delay}ms`);
+        await new Promise(resolve => setTimeout(resolve, delay));
       } catch (error) {
+        // On error, wait longer before retrying
         if (attempt === maxAttempts - 1) throw error;
+        await new Promise(resolve => setTimeout(resolve, 10000));
       }
     }
-    throw new Error("Avatar generation timed out after 5 minutes");
+    throw new Error("Avatar generation timed out after 10 minutes");
   };
 
   // Generate avatar video
@@ -325,6 +347,12 @@ export default function AdminVideoGeneratorPage() {
       return;
     }
 
+    // Prevent concurrent processing to avoid rate limits
+    if (isAnyProcessing) {
+      toast.error("Please wait", { description: "Another video is being processed. Wait for it to complete." });
+      return;
+    }
+
     setProcessingVideos(prev => ({ ...prev, [videoId]: "avatar" }));
     try {
       // Step 1: Start the avatar generation job
@@ -340,7 +368,7 @@ export default function AdminVideoGeneratorPage() {
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Failed to start avatar generation");
+      if (!response.ok) throw new Error(data.error || data.details || "Failed to start avatar generation");
 
       toast.info("Avatar generation started", { description: "This may take 2-5 minutes..." });
 
@@ -351,7 +379,8 @@ export default function AdminVideoGeneratorPage() {
         toast.success("Avatar video generated!", { description: "Ready to render final video." });
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Avatar generation failed");
+      const errorMsg = error instanceof Error ? error.message : "Avatar generation failed";
+      toast.error("Avatar generation failed", { description: errorMsg.slice(0, 200) });
     } finally {
       setProcessingVideos(prev => {
         const updated = { ...prev };
@@ -363,6 +392,12 @@ export default function AdminVideoGeneratorPage() {
 
   // Render final video
   const handleRender = async (videoId: string) => {
+    // Prevent concurrent processing to avoid rate limits
+    if (isAnyProcessing) {
+      toast.error("Please wait", { description: "Another video is being processed. Wait for it to complete." });
+      return;
+    }
+
     setProcessingVideos(prev => ({ ...prev, [videoId]: "render" }));
     try {
       const response = await fetch("/api/video-generator/render", {
@@ -378,6 +413,11 @@ export default function AdminVideoGeneratorPage() {
             description: "Please set up AWS credentials for Remotion.",
             duration: 10000,
           });
+          setProcessingVideos(prev => {
+            const updated = { ...prev };
+            delete updated[videoId];
+            return updated;
+          });
         } else {
           throw new Error(data.error || "Render failed");
         }
@@ -388,36 +428,67 @@ export default function AdminVideoGeneratorPage() {
         description: "This may take a few minutes. Check back soon.",
       });
 
-      // Start polling for render status
-      const pollRender = async () => {
-        const statusResponse = await fetch(
-          `/api/video-generator/render/${data.renderId}?videoId=${videoId}&bucketName=${data.bucketName}`
-        );
-        const statusData = await statusResponse.json();
+      // Start polling for render status with exponential backoff
+      let pollCount = 0;
+      const maxPolls = 60; // ~10 minutes total
 
-        if (statusData.status === "complete") {
-          toast.success("Video rendered!", { description: "Ready to download." });
-          setProcessingVideos(prev => {
-            const updated = { ...prev };
-            delete updated[videoId];
-            return updated;
-          });
-        } else if (statusData.status === "failed" || statusData.status === "error") {
-          toast.error("Render failed", { description: statusData.error });
-          setProcessingVideos(prev => {
-            const updated = { ...prev };
-            delete updated[videoId];
-            return updated;
-          });
-        } else {
-          // Continue polling
-          setTimeout(pollRender, 5000);
+      const pollRender = async () => {
+        pollCount++;
+        try {
+          const statusResponse = await fetch(
+            `/api/video-generator/render/${data.renderId}?videoId=${videoId}&bucketName=${data.bucketName}`
+          );
+          const statusData = await statusResponse.json();
+
+          if (statusData.status === "complete") {
+            toast.success("Video rendered!", { description: "Ready to download." });
+            setProcessingVideos(prev => {
+              const updated = { ...prev };
+              delete updated[videoId];
+              return updated;
+            });
+          } else if (statusData.status === "failed" || statusData.status === "error") {
+            toast.error("Render failed", { description: statusData.error?.slice(0, 200) });
+            setProcessingVideos(prev => {
+              const updated = { ...prev };
+              delete updated[videoId];
+              return updated;
+            });
+          } else if (statusData.status === "rate_limited") {
+            // Wait longer on rate limit
+            console.log("[Render Poll] Rate limited, waiting 10s...");
+            setTimeout(pollRender, 10000);
+          } else if (pollCount < maxPolls) {
+            // Continue polling with exponential backoff (5s to 15s)
+            const delay = Math.min(5000 + pollCount * 500, 15000);
+            setTimeout(pollRender, delay);
+          } else {
+            toast.error("Render timed out", { description: "Check back later or retry." });
+            setProcessingVideos(prev => {
+              const updated = { ...prev };
+              delete updated[videoId];
+              return updated;
+            });
+          }
+        } catch (pollError) {
+          console.error("[Render Poll] Error:", pollError);
+          if (pollCount < maxPolls) {
+            // Retry with longer delay on error
+            setTimeout(pollRender, 10000);
+          } else {
+            setProcessingVideos(prev => {
+              const updated = { ...prev };
+              delete updated[videoId];
+              return updated;
+            });
+          }
         }
       };
 
       setTimeout(pollRender, 5000);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Render failed");
+      const errorMsg = error instanceof Error ? error.message : "Render failed";
+      toast.error("Render failed", { description: errorMsg.slice(0, 200) });
       setProcessingVideos(prev => {
         const updated = { ...prev };
         delete updated[videoId];
@@ -509,6 +580,7 @@ export default function AdminVideoGeneratorPage() {
   const getNextAction = (video: NonNullable<typeof videos>[0]) => {
     const status = video.status as VideoStatus;
     const isProcessing = processingVideos[video._id];
+    const isOtherProcessing = isAnyProcessing && !isProcessing;
 
     if (isProcessing) {
       return (
@@ -522,6 +594,23 @@ export default function AdminVideoGeneratorPage() {
       );
     }
 
+    // Show waiting state when another video is processing
+    if (isOtherProcessing) {
+      switch (status) {
+        case "draft":
+        case "failed":
+        case "content_ready":
+        case "audio_ready":
+        case "avatar_ready":
+          return (
+            <Button disabled size="sm" className="gap-2 opacity-50" title="Wait for other video to complete">
+              <Clock className="w-4 h-4" />
+              Waiting...
+            </Button>
+          );
+      }
+    }
+
     switch (status) {
       case "draft":
       case "failed":
@@ -530,6 +619,7 @@ export default function AdminVideoGeneratorPage() {
             size="sm"
             onClick={() => handleGenerateContent(video._id, video)}
             className="gap-2 bg-blue-600 hover:bg-blue-700"
+            disabled={isOtherProcessing}
           >
             <Wand2 className="w-4 h-4" />
             Generate Content
