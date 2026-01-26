@@ -181,7 +181,9 @@ export async function POST(request: NextRequest) {
             fileName: `educational-video-${videoId}.mp4`,
           },
           maxRetries: 3,
-          framesPerLambda: 120, // Fewer chunks = fewer concurrent lambdas
+          framesPerLambda: 240, // More frames per lambda = fewer concurrent lambdas
+          rendererFunctionName: null, // Use same function for rendering
+          concurrencyPerLambda: 1, // Limit concurrency to avoid rate limits
         });
 
         return NextResponse.json({
