@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
-// Initialize OpenRouter client
-const openai = new OpenAI({
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.OPENROUTER_API_KEY,
-});
+// Lazy-init OpenRouter client to avoid build-time env var issues
+let openaiClient: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (!openaiClient) {
+    openaiClient = new OpenAI({
+      baseURL: "https://openrouter.ai/api/v1",
+      apiKey: process.env.OPENROUTER_API_KEY,
+    });
+  }
+  return openaiClient;
+}
 
 // SEO-optimized system prompts for different content types
 const SEO_SYSTEM_PROMPTS = {
@@ -392,7 +398,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Invalid type" }, { status: 400 });
     }
 
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: "google/gemini-2.5-flash-preview",
       messages: [
         { role: "system", content: systemPrompt },
@@ -474,7 +480,7 @@ Provide analysis in JSON format:
   "recommendations": ["prioritized list of changes to make"]
 }`;
 
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: "google/gemini-2.5-flash-preview",
       messages: [
         {
