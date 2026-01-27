@@ -13,3 +13,4 @@ export { PricingTable } from "./PricingTable";
 export { Breadcrumbs } from "./Breadcrumbs";
 export { BlogCard } from "./BlogCard";
 export { LanguageToggle } from "./LanguageToggle";
+export { YouTubeAvatarDemo } from "./YouTubeAvatarDemo";

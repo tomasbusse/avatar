@@ -253,6 +253,89 @@
     "viewAllGames": "View All Games",
     "contactHeadline": "Questions? We're Here to Help"
   },
+  "aiPractice": {
+    "title": "AI Avatar Practice",
+    "badge": "24/7 AI Practice Partner",
+    "meta": {
+      "title": "AI Avatar English Practice",
+      "description": "Practice English 24/7 with George Patterson, your incredibly patient AI teacher. Instant feedback, no judgment, available whenever you need."
+    },
+    "hero": {
+      "headline": "Meet George Patterson",
+      "subheadline": "Your incredibly patient English teacher, available around the clock. Practice conversations, improve pronunciation, and build confidence – all at your own pace."
+    },
+    "george": {
+      "title": "Your Incredibly Patient AI Teacher",
+      "headline": "Why Practice with George?",
+      "description": "George Patterson is designed to be the most patient English teacher you've ever had. He never gets frustrated, always provides constructive feedback, and adapts to your learning pace.",
+      "trait1": "Infinite patience – repeat as many times as you need",
+      "trait2": "Instant, constructive feedback on every response",
+      "trait3": "Adapts difficulty to your current level",
+      "trait4": "Remembers your progress and learning goals"
+    },
+    "benefits": {
+      "availability": {
+        "title": "Available 24/7",
+        "description": "Practice whenever suits your schedule – early morning, lunch break, or late at night."
+      },
+      "patience": {
+        "title": "Infinitely Patient",
+        "description": "No judgment, no rush. Take your time and repeat as often as you need."
+      },
+      "feedback": {
+        "title": "Instant Feedback",
+        "description": "Get immediate, constructive feedback to improve with every conversation."
+      }
+    },
+    "features": {
+      "headline": "Practice Types",
+      "subheadline": "Multiple ways to practice and improve your English skills",
+      "conversations": {
+        "title": "Free Conversations",
+        "description": "Chat naturally about any topic – from daily life to current events."
+      },
+      "pronunciation": {
+        "title": "Pronunciation Practice",
+        "description": "Get feedback on how you sound and tips to improve clarity."
+      },
+      "business": {
+        "title": "Business Scenarios",
+        "description": "Role-play meetings, presentations, negotiations, and emails."
+      },
+      "vocabulary": {
+        "title": "Vocabulary Building",
+        "description": "Learn and practice new words in context, with spaced repetition."
+      },
+      "grammar": {
+        "title": "Grammar Drills",
+        "description": "Targeted exercises for tenses, articles, prepositions, and more."
+      }
+    },
+    "howItWorks": {
+      "headline": "How It Works",
+      "subheadline": "Getting started is simple",
+      "step1": {
+        "title": "Start a Session",
+        "description": "Click to connect with George – no downloads or installations needed."
+      },
+      "step2": {
+        "title": "Choose Your Focus",
+        "description": "Select what you want to practice – conversation, pronunciation, or specific skills."
+      },
+      "step3": {
+        "title": "Practice & Improve",
+        "description": "Speak naturally, get instant feedback, and track your progress over time."
+      }
+    },
+    "demo": {
+      "badge": "AI-Powered",
+      "title": "Your Incredibly Patient AI Teacher",
+      "voiceEnabled": "Voice Enabled",
+      "instantFeedback": "Instant Feedback",
+      "startButton": "Start Practice",
+      "contactPrompt": "Interested in AI-powered English practice? Leave us a message!"
+    }
+  },
   "imprint": {
     "title": "Legal Notice (Imprint)",
     "responsibleTitle": "Information according to § 5 TMG",

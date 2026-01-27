@@ -253,6 +253,89 @@
     "viewAllGames": "Alle Spiele ansehen",
     "contactHeadline": "Fragen? Wir helfen gerne"
   },
+  "aiPractice": {
+    "title": "KI-Avatar Übung",
+    "badge": "24/7 KI-Übungspartner",
+    "meta": {
+      "title": "KI-Avatar Englisch Übung",
+      "description": "Üben Sie Englisch rund um die Uhr mit George Patterson, Ihrem unglaublich geduldigen KI-Lehrer. Sofortiges Feedback, keine Bewertung, immer verfügbar."
+    },
+    "hero": {
+      "headline": "Lernen Sie George Patterson kennen",
+      "subheadline": "Ihr unglaublich geduldiger Englischlehrer, rund um die Uhr verfügbar. Üben Sie Gespräche, verbessern Sie Ihre Aussprache und gewinnen Sie Selbstvertrauen – in Ihrem eigenen Tempo."
+    },
+    "george": {
+      "title": "Ihr unglaublich geduldiger KI-Lehrer",
+      "headline": "Warum mit George üben?",
+      "description": "George Patterson wurde entwickelt, um der geduldigste Englischlehrer zu sein, den Sie je hatten. Er wird nie frustriert, gibt immer konstruktives Feedback und passt sich Ihrem Lerntempo an.",
+      "trait1": "Unendliche Geduld – wiederholen Sie so oft Sie möchten",
+      "trait2": "Sofortiges, konstruktives Feedback bei jeder Antwort",
+      "trait3": "Passt den Schwierigkeitsgrad an Ihr aktuelles Niveau an",
+      "trait4": "Merkt sich Ihren Fortschritt und Ihre Lernziele"
+    },
+    "benefits": {
+      "availability": {
+        "title": "24/7 Verfügbar",
+        "description": "Üben Sie wann es Ihnen passt – früh morgens, in der Mittagspause oder spät abends."
+      },
+      "patience": {
+        "title": "Unendlich Geduldig",
+        "description": "Keine Bewertung, kein Druck. Nehmen Sie sich Zeit und wiederholen Sie so oft Sie möchten."
+      },
+      "feedback": {
+        "title": "Sofortiges Feedback",
+        "description": "Erhalten Sie sofort konstruktives Feedback, um sich mit jedem Gespräch zu verbessern."
+      }
+    },
+    "features": {
+      "headline": "Übungsarten",
+      "subheadline": "Verschiedene Möglichkeiten, Ihre Englischkenntnisse zu üben und zu verbessern",
+      "conversations": {
+        "title": "Freie Gespräche",
+        "description": "Unterhalten Sie sich natürlich über jedes Thema – vom Alltag bis zu aktuellen Ereignissen."
+      },
+      "pronunciation": {
+        "title": "Aussprache-Übung",
+        "description": "Erhalten Sie Feedback zu Ihrer Aussprache und Tipps zur Verbesserung."
+      },
+      "business": {
+        "title": "Business-Szenarien",
+        "description": "Rollenspiele für Meetings, Präsentationen, Verhandlungen und E-Mails."
+      },
+      "vocabulary": {
+        "title": "Wortschatz aufbauen",
+        "description": "Lernen und üben Sie neue Wörter im Kontext mit Wiederholungssystem."
+      },
+      "grammar": {
+        "title": "Grammatik-Übungen",
+        "description": "Gezielte Übungen für Zeiten, Artikel, Präpositionen und mehr."
+      }
+    },
+    "howItWorks": {
+      "headline": "So funktioniert's",
+      "subheadline": "Der Einstieg ist einfach",
+      "step1": {
+        "title": "Session starten",
+        "description": "Klicken Sie, um sich mit George zu verbinden – keine Downloads oder Installationen nötig."
+      },
+      "step2": {
+        "title": "Fokus wählen",
+        "description": "Wählen Sie, was Sie üben möchten – Konversation, Aussprache oder bestimmte Fähigkeiten."
+      },
+      "step3": {
+        "title": "Üben & Verbessern",
+        "description": "Sprechen Sie natürlich, erhalten Sie sofortiges Feedback und verfolgen Sie Ihren Fortschritt."
+      }
+    },
+    "demo": {
+      "badge": "KI-gestützt",
+      "title": "Ihr unglaublich geduldiger KI-Lehrer",
+      "voiceEnabled": "Sprachgesteuert",
+      "instantFeedback": "Sofort-Feedback",
+      "startButton": "Übung starten",
+      "contactPrompt": "Interesse an KI-gestütztem Englischtraining? Schreiben Sie uns!"
+    }
+  },
   "imprint": {
     "title": "Impressum",
     "responsibleTitle": "Angaben gemäß § 5 TMG",
