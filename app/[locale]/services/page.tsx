@@ -2,8 +2,11 @@ import { setRequestLocale } from "next-intl/server";
 import { getTranslations } from "next-intl/server";
 import { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Briefcase,
+  Users,
+  Bot,
   GraduationCap,
   FileEdit,
   ArrowRight,
@@ -36,36 +39,50 @@ export default async function ServicesPage({ params }: PageProps) {
       title: t("businessEnglish.title"),
       description: t("businessEnglish.description"),
       href: `/${locale}/services/business-english`,
-      features: [
-        "Meetings & Presentations",
-        "Email & Written Communication",
-        "Negotiations & Sales",
-        "Telephone & Video Calls",
-      ],
+      image: "/images/business-english-hero.webp",
+      features: locale === "de"
+        ? ["Meetings & Präsentationen", "E-Mail & Schriftverkehr", "Verhandlungen & Vertrieb", "Telefon- & Videokonferenzen"]
+        : ["Meetings & Presentations", "Email & Written Communication", "Negotiations & Sales", "Telephone & Video Calls"],
+    },
+    {
+      icon: <Users className="w-12 h-12" />,
+      title: t("teamTraining.title"),
+      description: t("teamTraining.description"),
+      href: `/${locale}/services/team-training`,
+      image: "/images/team-training-hero.webp",
+      features: locale === "de"
+        ? ["Gruppentraining für Teams", "Branchenspezifische Inhalte", "Flexible Formate", "Fortschrittsverfolgung"]
+        : ["Group training for teams", "Industry-specific content", "Flexible formats", "Progress tracking"],
+    },
+    {
+      icon: <Bot className="w-12 h-12" />,
+      title: t("aiPractice.title"),
+      description: t("aiPractice.description"),
+      href: `/${locale}/services/ai-practice`,
+      image: "/images/george-avatar-hero.webp",
+      features: locale === "de"
+        ? ["24/7 verfügbar", "Sofortiges Feedback", "Keine Bewertung", "Individuelles Lerntempo"]
+        : ["Available 24/7", "Instant feedback", "No judgment", "Learn at your pace"],
     },
     {
       icon: <GraduationCap className="w-12 h-12" />,
       title: t("germanCourses.title"),
       description: t("germanCourses.description"),
       href: `/${locale}/services/german-courses`,
-      features: [
-        "Integration Training",
-        "Business German",
-        "Conversation Skills",
-        "Cultural Understanding",
-      ],
+      image: "/images/german-courses-hero.webp",
+      features: locale === "de"
+        ? ["Integrationskurse", "Business-Deutsch", "Konversationstraining", "Kulturelles Verständnis"]
+        : ["Integration Training", "Business German", "Conversation Skills", "Cultural Understanding"],
     },
     {
       icon: <FileEdit className="w-12 h-12" />,
       title: t("copyEditing.title"),
       description: t("copyEditing.description"),
       href: `/${locale}/services/copy-editing`,
-      features: [
-        "Document Editing",
-        "Report & Proposal Review",
-        "Website Content",
-        "Marketing Materials",
-      ],
+      image: "/images/copy-editing-hero.webp",
+      features: locale === "de"
+        ? ["Dokumentenbearbeitung", "Berichte & Angebote", "Website-Inhalte", "Marketing-Materialien"]
+        : ["Document Editing", "Report & Proposal Review", "Website Content", "Marketing Materials"],
     },
   ];
 
@@ -131,10 +148,17 @@ export default async function ServicesPage({ params }: PageProps) {
                   </Link>
                 </div>
                 <div
-                  className={`aspect-[4/3] rounded-3xl bg-gradient-to-br from-sls-teal/5 to-sls-chartreuse/10 ${
+                  className={`relative aspect-[4/3] rounded-3xl overflow-hidden shadow-2xl ${
                     index % 2 === 1 ? "lg:order-1" : ""
                   }`}
-                />
+                >
+                  <Image
+                    src={service.image}
+                    alt={service.title}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
               </div>
             ))}
           </div>
