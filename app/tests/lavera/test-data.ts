@@ -11,7 +11,8 @@ export type QuestionType =
   | "key_word_transformation"
   | "reading_comprehension"
   | "grammar_mcq"
-  | "vocabulary_mcq";
+  | "vocabulary_mcq"
+  | "image_based";
 
 export interface Question {
   id: string;
@@ -38,6 +39,9 @@ export interface Question {
       options: string[];
       correctAnswer: number;
     }>;
+    // For image-based questions
+    imageUrl?: string;
+    imageAlt?: string;
     // General
     context?: string;
     explanation?: string;
@@ -197,18 +201,20 @@ export const laveraPlacementTest: PlacementTestData = {
     },
     {
       id: "lavera-005",
-      type: "grammar_mcq",
+      type: "image_based",
       level: "A1",
       content: {
-        question: "The shampoo _____ on the top shelf.",
-        options: ["are", "be", "is", "being"],
-        correctAnswer: 2,
-        context: "Complete the sentence about product location.",
+        imageUrl: "/tests/lavera/natural-cosmetics-lab.webp",
+        imageAlt: "A scientist working in a natural cosmetics laboratory",
+        question: "Look at the picture. Where is the person working?",
+        options: ["In a kitchen", "In a laboratory", "In an office", "In a shop"],
+        correctAnswer: 1,
+        context: "Look at the image and answer the question.",
       },
       metadata: {
-        topic: "be_verb",
+        topic: "workplace_vocabulary",
         difficulty: 0.15,
-        tags: ["grammar", "location"],
+        tags: ["vocabulary", "workplace", "image"],
       },
     },
     {
@@ -378,18 +384,20 @@ export const laveraPlacementTest: PlacementTestData = {
     },
     {
       id: "lavera-016",
-      type: "vocabulary_mcq",
+      type: "image_based",
       level: "A2",
       content: {
-        question: "We need to _____ the expiry date on all products.",
-        options: ["control", "check", "see", "watch"],
+        imageUrl: "/tests/lavera/customer-service-desk.webp",
+        imageAlt: "A customer service representative helping a customer in a cosmetics store",
+        question: "Look at the picture. What is the woman on the right doing?",
+        options: ["She is cooking", "She is helping a customer", "She is reading a book", "She is cleaning"],
         correctAnswer: 1,
-        context: "Choose the most appropriate verb.",
+        context: "Look at the image and answer the question.",
       },
       metadata: {
-        topic: "quality_control",
+        topic: "actions_vocabulary",
         difficulty: 0.32,
-        tags: ["vocabulary", "manufacturing"],
+        tags: ["vocabulary", "customer_service", "image"],
       },
     },
     {
@@ -544,18 +552,25 @@ export const laveraPlacementTest: PlacementTestData = {
     },
     {
       id: "lavera-026",
-      type: "multiple_choice_cloze",
+      type: "image_based",
       level: "B1",
       content: {
-        question: "We are _____ negotiations with a new organic supplier.",
-        options: ["making", "conducting", "doing", "taking"],
+        imageUrl: "/tests/lavera/sustainability-meeting.webp",
+        imageAlt: "A diverse business team having a meeting in an eco-friendly office",
+        question: "Look at the picture. What type of meeting is most likely taking place?",
+        options: [
+          "A job interview",
+          "A sustainability planning meeting",
+          "A birthday celebration",
+          "A training session for new employees"
+        ],
         correctAnswer: 1,
-        context: "Choose the correct collocation with 'negotiations'.",
+        context: "Look at the workplace scene and choose the best description.",
       },
       metadata: {
-        topic: "collocations",
+        topic: "workplace_situations",
         difficulty: 0.55,
-        tags: ["vocabulary", "business"],
+        tags: ["vocabulary", "business", "image"],
       },
     },
     {
@@ -703,18 +718,25 @@ In recent years, Lavera has expanded its commitment to sustainability beyond ing
     },
     {
       id: "lavera-034",
-      type: "vocabulary_mcq",
+      type: "image_based",
       level: "B1",
       content: {
-        question: "The new product _____ exceeded our sales expectations.",
-        options: ["launching", "launched", "launch", "launcher"],
-        correctAnswer: 2,
-        context: "Choose the correct noun form.",
+        imageUrl: "/tests/lavera/packaging-production.webp",
+        imageAlt: "Workers operating eco-friendly packaging production machinery",
+        question: "Based on the image, what can you infer about the company's values?",
+        options: [
+          "They prioritize low costs over quality",
+          "They are committed to sustainable manufacturing",
+          "They focus only on marketing",
+          "They don't care about the environment"
+        ],
+        correctAnswer: 1,
+        context: "Look at the production facility and draw a conclusion.",
       },
       metadata: {
-        topic: "marketing",
-        difficulty: 0.45,
-        tags: ["vocabulary", "business"],
+        topic: "inference",
+        difficulty: 0.50,
+        tags: ["comprehension", "sustainability", "image"],
       },
     },
     {
@@ -871,18 +893,25 @@ In recent years, Lavera has expanded its commitment to sustainability beyond ing
     },
     {
       id: "lavera-044",
-      type: "vocabulary_mcq",
+      type: "image_based",
       level: "B2",
       content: {
-        question: "The company's carbon _____ has decreased by 30% since 2020.",
-        options: ["print", "footprint", "step", "mark"],
+        imageUrl: "/tests/lavera/organic-farm-supplier.webp",
+        imageAlt: "An organic olive farm in the Mediterranean with a farmer and business professional",
+        question: "This image illustrates an important aspect of sustainable business. Which statement best describes what is happening?",
+        options: [
+          "A tourist is visiting a farm for leisure",
+          "A company representative is verifying the organic certification of a supplier",
+          "A farmer is selling products at a local market",
+          "An inspector is issuing a fine for environmental violations"
+        ],
         correctAnswer: 1,
-        context: "Choose the correct environmental term.",
+        context: "Analyze the business context shown in the image.",
       },
       metadata: {
-        topic: "sustainability",
-        difficulty: 0.55,
-        tags: ["vocabulary", "environment"],
+        topic: "supply_chain",
+        difficulty: 0.60,
+        tags: ["comprehension", "business", "image"],
       },
     },
     {
@@ -1085,19 +1114,25 @@ Industry analysts suggest that companies which fail to adapt to these changing m
     },
     {
       id: "lavera-054",
-      type: "word_formation",
+      type: "image_based",
       level: "C1",
       content: {
-        question: "The CEO's _____ approach to sustainability has transformed the company culture.",
-        stemWord: "VISION",
-        options: ["vision", "visionary", "visible", "visualize"],
+        imageUrl: "/tests/lavera/product-launch-presentation.webp",
+        imageAlt: "A marketing team presenting a new product launch in a modern conference room",
+        question: "Considering the corporate setting depicted, which statement most accurately captures the strategic significance of such presentations?",
+        options: [
+          "They serve primarily as informal team-building exercises",
+          "They represent critical touchpoints for aligning stakeholders and ensuring cohesive market positioning",
+          "They are mandatory regulatory requirements with no business value",
+          "They function solely as performance reviews for marketing staff"
+        ],
         correctAnswer: 1,
-        context: "Form the correct adjective from the stem.",
+        context: "Evaluate the business implications of the scene depicted.",
       },
       metadata: {
-        topic: "word_formation",
-        difficulty: 0.72,
-        tags: ["vocabulary", "word_formation"],
+        topic: "corporate_communication",
+        difficulty: 0.75,
+        tags: ["comprehension", "business_strategy", "image"],
       },
     },
     {

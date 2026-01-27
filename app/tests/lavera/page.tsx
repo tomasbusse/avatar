@@ -88,10 +88,19 @@ function RegistrationScreen({
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-white via-green-50/30 to-amber-50/20">
       <div
         className={cn(
-          "w-full max-w-md transition-all duration-500",
+          "w-full max-w-lg transition-all duration-500",
           isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
         )}
       >
+        {/* Hero Image */}
+        <div className="mb-6 rounded-2xl overflow-hidden shadow-lg">
+          <img
+            src="/tests/lavera/lavera-hero-banner.webp"
+            alt="Natural cosmetic ingredients"
+            className="w-full h-48 object-cover"
+          />
+        </div>
+
         {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-4 px-4 py-2 rounded-full bg-green-100 text-green-800">
@@ -453,6 +462,59 @@ function QuestionSlide({
       );
     }
 
+    // Image-based questions
+    if (type === "image_based" && content.imageUrl) {
+      return (
+        <div className="max-w-3xl mx-auto">
+          {/* Image */}
+          <div className="mb-6 rounded-xl overflow-hidden shadow-lg">
+            <img
+              src={content.imageUrl}
+              alt={content.imageAlt || "Question image"}
+              className="w-full h-64 md:h-80 object-cover"
+            />
+          </div>
+
+          {content.context && (
+            <p className="text-sm text-gray-500 italic mb-4 text-center">
+              {content.context}
+            </p>
+          )}
+          <h2 className="text-xl md:text-2xl font-semibold text-gray-900 text-center mb-8">
+            {content.question}
+          </h2>
+          <div className="space-y-3">
+            {content.options?.map((option, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleMCQAnswer(idx)}
+                className={cn(
+                  "w-full p-4 rounded-xl border-2 text-left transition-all",
+                  answer === idx
+                    ? "border-green-600 bg-green-50"
+                    : "border-gray-200 hover:border-green-300 bg-white"
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <span
+                    className={cn(
+                      "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold",
+                      answer === idx
+                        ? "bg-green-600 text-white"
+                        : "bg-gray-100 text-gray-600"
+                    )}
+                  >
+                    {String.fromCharCode(65 + idx)}
+                  </span>
+                  <span className="text-gray-700">{option}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
     // Default MCQ (grammar_mcq, vocabulary_mcq, multiple_choice_cloze)
     return (
       <div className="max-w-2xl mx-auto">
@@ -635,6 +697,15 @@ function ResultsScreen({
             isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
           )}
         >
+          {/* Success Banner Image */}
+          <div className="mb-6 rounded-2xl overflow-hidden shadow-lg">
+            <img
+              src="/tests/lavera/quality-control-testing.webp"
+              alt="Quality control at Lavera"
+              className="w-full h-40 object-cover"
+            />
+          </div>
+
           {/* Header */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center gap-2 mb-4 px-4 py-2 rounded-full bg-green-100 text-green-800">
