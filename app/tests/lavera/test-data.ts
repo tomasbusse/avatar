@@ -137,8 +137,8 @@ export const laveraPlacementTest: PlacementTestData = {
       level: "A1",
       content: {
         question: "I _____ at Lavera as a product designer.",
-        options: ["work", "works", "working", "am work"],
-        correctAnswer: 0,
+        options: ["works", "work", "working", "am work"],
+        correctAnswer: 1,
         context: "Complete the sentence with the correct verb form.",
       },
       metadata: {
@@ -153,8 +153,8 @@ export const laveraPlacementTest: PlacementTestData = {
       level: "A1",
       content: {
         question: "Our products are made from _____ ingredients.",
-        options: ["natural", "naturally", "nature", "naturals"],
-        correctAnswer: 0,
+        options: ["naturally", "nature", "natural", "naturals"],
+        correctAnswer: 2,
         context: "Choose the correct word.",
       },
       metadata: {
@@ -169,8 +169,8 @@ export const laveraPlacementTest: PlacementTestData = {
       level: "A1",
       content: {
         question: "_____ you like to try our new face cream?",
-        options: ["Would", "Do", "Are", "Is"],
-        correctAnswer: 0,
+        options: ["Do", "Are", "Would", "Is"],
+        correctAnswer: 2,
         context: "Complete the customer service question.",
       },
       metadata: {
@@ -185,8 +185,8 @@ export const laveraPlacementTest: PlacementTestData = {
       level: "A1",
       content: {
         question: "Please put the cream in a _____ before giving it to the customer.",
-        options: ["bag", "page", "bug", "big"],
-        correctAnswer: 0,
+        options: ["page", "bag", "bug", "big"],
+        correctAnswer: 1,
         context: "Choose the correct word for packaging.",
       },
       metadata: {
@@ -201,8 +201,8 @@ export const laveraPlacementTest: PlacementTestData = {
       level: "A1",
       content: {
         question: "The shampoo _____ on the top shelf.",
-        options: ["is", "are", "be", "being"],
-        correctAnswer: 0,
+        options: ["are", "be", "is", "being"],
+        correctAnswer: 2,
         context: "Complete the sentence about product location.",
       },
       metadata: {
@@ -233,8 +233,8 @@ export const laveraPlacementTest: PlacementTestData = {
       level: "A1",
       content: {
         question: "We _____ open at 9 o'clock every morning.",
-        options: ["are", "is", "be", "am"],
-        correctAnswer: 0,
+        options: ["is", "are", "be", "am"],
+        correctAnswer: 1,
         context: "Complete the sentence about business hours.",
       },
       metadata: {
@@ -249,8 +249,8 @@ export const laveraPlacementTest: PlacementTestData = {
       level: "A1",
       content: {
         question: "The customer wants to _____ the product.",
-        options: ["buy", "bye", "by", "bay"],
-        correctAnswer: 0,
+        options: ["bye", "by", "bay", "buy"],
+        correctAnswer: 3,
         context: "Choose the correct verb.",
       },
       metadata: {
@@ -265,8 +265,8 @@ export const laveraPlacementTest: PlacementTestData = {
       level: "A1",
       content: {
         question: "_____ is the price of this lip balm?",
-        options: ["What", "Who", "Where", "When"],
-        correctAnswer: 0,
+        options: ["Who", "What", "Where", "When"],
+        correctAnswer: 1,
         context: "Choose the correct question word.",
       },
       metadata: {
@@ -281,8 +281,8 @@ export const laveraPlacementTest: PlacementTestData = {
       level: "A1",
       content: {
         question: "Our products do not contain any _____ chemicals.",
-        options: ["harmful", "harm", "harming", "harms"],
-        correctAnswer: 0,
+        options: ["harm", "harming", "harmful", "harms"],
+        correctAnswer: 2,
         context: "Choose the correct form.",
       },
       metadata: {
@@ -302,8 +302,8 @@ export const laveraPlacementTest: PlacementTestData = {
       level: "A2",
       content: {
         question: "I have _____ working at Lavera for three years.",
-        options: ["been", "be", "being", "was"],
-        correctAnswer: 0,
+        options: ["be", "been", "being", "was"],
+        correctAnswer: 1,
         context: "Complete with the correct form of 'be'.",
       },
       metadata: {
@@ -318,8 +318,8 @@ export const laveraPlacementTest: PlacementTestData = {
       level: "A2",
       content: {
         question: "The new product launch was very _____. We sold 10,000 units.",
-        options: ["successful", "success", "succeed", "successfully"],
-        correctAnswer: 0,
+        options: ["success", "successfully", "successful", "succeed"],
+        correctAnswer: 2,
         context: "Choose the correct form.",
       },
       metadata: {
@@ -334,8 +334,8 @@ export const laveraPlacementTest: PlacementTestData = {
       level: "A2",
       content: {
         question: "If you _____ any questions, please ask our customer service team.",
-        options: ["have", "had", "having", "has"],
-        correctAnswer: 0,
+        options: ["had", "having", "have", "has"],
+        correctAnswer: 2,
         context: "Complete the conditional sentence.",
       },
       metadata: {
@@ -350,8 +350,8 @@ export const laveraPlacementTest: PlacementTestData = {
       level: "A2",
       content: {
         question: "All our packaging is _____ and can be recycled.",
-        options: ["eco-friendly", "eco-friend", "eco-friendship", "eco-friendliness"],
-        correctAnswer: 0,
+        options: ["eco-friend", "eco-friendship", "eco-friendliness", "eco-friendly"],
+        correctAnswer: 3,
         context: "Choose the correct compound adjective.",
       },
       metadata: {
@@ -382,8 +382,8 @@ export const laveraPlacementTest: PlacementTestData = {
       level: "A2",
       content: {
         question: "We need to _____ the expiry date on all products.",
-        options: ["check", "control", "see", "watch"],
-        correctAnswer: 0,
+        options: ["control", "check", "see", "watch"],
+        correctAnswer: 1,
         context: "Choose the most appropriate verb.",
       },
       metadata: {
@@ -398,8 +398,8 @@ export const laveraPlacementTest: PlacementTestData = {
       level: "A2",
       content: {
         question: "She is _____ customer service representative in the team.",
-        options: ["the best", "better", "good", "the more good"],
-        correctAnswer: 0,
+        options: ["better", "the best", "good", "the more good"],
+        correctAnswer: 1,
         context: "Complete with the correct superlative.",
       },
       metadata: {
@@ -414,8 +414,8 @@ export const laveraPlacementTest: PlacementTestData = {
       level: "A2",
       content: {
         question: "The _____ of this cream include organic olive oil and aloe vera.",
-        options: ["ingredients", "ingredient", "ingredience", "ingredienting"],
-        correctAnswer: 0,
+        options: ["ingredient", "ingredience", "ingredients", "ingredienting"],
+        correctAnswer: 2,
         context: "Choose the correct plural noun.",
       },
       metadata: {
@@ -430,8 +430,8 @@ export const laveraPlacementTest: PlacementTestData = {
       level: "A2",
       content: {
         question: "You _____ wear a hairnet in the production area.",
-        options: ["must", "may", "might", "could"],
-        correctAnswer: 0,
+        options: ["may", "might", "must", "could"],
+        correctAnswer: 2,
         context: "Complete with the correct modal for obligation.",
       },
       metadata: {
@@ -446,8 +446,8 @@ export const laveraPlacementTest: PlacementTestData = {
       level: "A2",
       content: {
         question: "Please _____ the form and send it to HR.",
-        options: ["fill in", "fill on", "fill at", "fill by"],
-        correctAnswer: 0,
+        options: ["fill on", "fill at", "fill in", "fill by"],
+        correctAnswer: 2,
         context: "Choose the correct phrasal verb.",
       },
       metadata: {
@@ -467,8 +467,8 @@ export const laveraPlacementTest: PlacementTestData = {
       level: "B1",
       content: {
         question: "The company has _____ a significant investment in sustainable packaging.",
-        options: ["made", "done", "taken", "given"],
-        correctAnswer: 0,
+        options: ["done", "made", "taken", "given"],
+        correctAnswer: 1,
         context: "Choose the correct collocation.",
         explanation: "'Make an investment' is the correct collocation in business English.",
       },
@@ -484,8 +484,8 @@ export const laveraPlacementTest: PlacementTestData = {
       level: "B1",
       content: {
         question: "By next month, we _____ the new product line.",
-        options: ["will have launched", "will launch", "are launching", "have launched"],
-        correctAnswer: 0,
+        options: ["will launch", "are launching", "will have launched", "have launched"],
+        correctAnswer: 2,
         context: "Complete with the correct future tense.",
       },
       metadata: {
@@ -500,8 +500,8 @@ export const laveraPlacementTest: PlacementTestData = {
       level: "B1",
       content: {
         question: "Our research and _____ department is developing new formulas.",
-        options: ["development", "developing", "develop", "developed"],
-        correctAnswer: 0,
+        options: ["developing", "development", "develop", "developed"],
+        correctAnswer: 1,
         context: "Complete the compound noun.",
       },
       metadata: {
@@ -516,8 +516,8 @@ export const laveraPlacementTest: PlacementTestData = {
       level: "B1",
       content: {
         question: "If we _____ more sustainable suppliers, our carbon footprint would decrease.",
-        options: ["found", "find", "will find", "finding"],
-        correctAnswer: 0,
+        options: ["find", "will find", "found", "finding"],
+        correctAnswer: 2,
         context: "Complete the second conditional.",
       },
       metadata: {
@@ -532,8 +532,8 @@ export const laveraPlacementTest: PlacementTestData = {
       level: "B1",
       content: {
         question: "The marketing team needs to _____ consumer preferences before the launch.",
-        options: ["analyze", "analysis", "analytical", "analyzing"],
-        correctAnswer: 0,
+        options: ["analysis", "analytical", "analyze", "analyzing"],
+        correctAnswer: 2,
         context: "Choose the correct verb form.",
       },
       metadata: {
@@ -548,8 +548,8 @@ export const laveraPlacementTest: PlacementTestData = {
       level: "B1",
       content: {
         question: "We are _____ negotiations with a new organic supplier.",
-        options: ["conducting", "making", "doing", "taking"],
-        correctAnswer: 0,
+        options: ["making", "conducting", "doing", "taking"],
+        correctAnswer: 1,
         context: "Choose the correct collocation with 'negotiations'.",
       },
       metadata: {
@@ -564,8 +564,8 @@ export const laveraPlacementTest: PlacementTestData = {
       level: "B1",
       content: {
         question: "The report _____ by the sustainability team yesterday.",
-        options: ["was submitted", "submitted", "has submitted", "is submitted"],
-        correctAnswer: 0,
+        options: ["submitted", "was submitted", "has submitted", "is submitted"],
+        correctAnswer: 1,
         context: "Complete with the correct passive form.",
       },
       metadata: {
@@ -580,8 +580,8 @@ export const laveraPlacementTest: PlacementTestData = {
       level: "B1",
       content: {
         question: "Customer _____ is our top priority at Lavera.",
-        options: ["satisfaction", "satisfy", "satisfying", "satisfactory"],
-        correctAnswer: 0,
+        options: ["satisfy", "satisfying", "satisfaction", "satisfactory"],
+        correctAnswer: 2,
         context: "Choose the correct noun.",
       },
       metadata: {
@@ -612,8 +612,8 @@ export const laveraPlacementTest: PlacementTestData = {
       level: "B1",
       content: {
         question: "We need to _____ our marketing strategy for the Asian market.",
-        options: ["adapt", "adopt", "adept", "adaption"],
-        correctAnswer: 0,
+        options: ["adopt", "adapt", "adept", "adaption"],
+        correctAnswer: 1,
         context: "Choose the correct verb meaning 'to modify'.",
       },
       metadata: {
@@ -637,18 +637,18 @@ In recent years, Lavera has expanded its commitment to sustainability beyond ing
         questions: [
           {
             question: "When was Lavera founded?",
-            options: ["1978", "1987", "1997", "2007"],
-            correctAnswer: 1,
+            options: ["1978", "1997", "1987", "2007"],
+            correctAnswer: 2,
           },
           {
             question: "What does NATRUE certification guarantee?",
             options: [
               "Products are the cheapest on the market",
-              "Products contain only natural and organic raw materials",
               "Products are made in Germany",
               "Products are available worldwide",
+              "Products contain only natural and organic raw materials",
             ],
-            correctAnswer: 1,
+            correctAnswer: 3,
           },
           {
             question: "Where does Lavera source its organic olive oil?",
@@ -675,8 +675,8 @@ In recent years, Lavera has expanded its commitment to sustainability beyond ing
       level: "B1",
       content: {
         question: "The quality control team is _____ for testing all products before shipment.",
-        options: ["responsible", "response", "responsibility", "responsive"],
-        correctAnswer: 0,
+        options: ["response", "responsibility", "responsible", "responsive"],
+        correctAnswer: 2,
         context: "Choose the correct adjective.",
       },
       metadata: {
@@ -691,8 +691,8 @@ In recent years, Lavera has expanded its commitment to sustainability beyond ing
       level: "B1",
       content: {
         question: "I wish I _____ more about organic chemistry.",
-        options: ["knew", "know", "known", "knowing"],
-        correctAnswer: 0,
+        options: ["know", "knew", "known", "knowing"],
+        correctAnswer: 1,
         context: "Complete the wish sentence about the present.",
       },
       metadata: {
@@ -707,8 +707,8 @@ In recent years, Lavera has expanded its commitment to sustainability beyond ing
       level: "B1",
       content: {
         question: "The new product _____ exceeded our sales expectations.",
-        options: ["launch", "launching", "launched", "launcher"],
-        correctAnswer: 0,
+        options: ["launching", "launched", "launch", "launcher"],
+        correctAnswer: 2,
         context: "Choose the correct noun form.",
       },
       metadata: {
@@ -723,8 +723,8 @@ In recent years, Lavera has expanded its commitment to sustainability beyond ing
       level: "B1",
       content: {
         question: "Not only _____ organic, but our products are also vegan.",
-        options: ["are our products", "our products are", "our products", "are products our"],
-        correctAnswer: 0,
+        options: ["our products are", "are our products", "our products", "are products our"],
+        correctAnswer: 1,
         context: "Complete with the correct inverted structure.",
       },
       metadata: {
@@ -744,8 +744,8 @@ In recent years, Lavera has expanded its commitment to sustainability beyond ing
       level: "B2",
       content: {
         question: "The board has _____ concerns about the environmental impact of our supply chain.",
-        options: ["raised", "risen", "arose", "rising"],
-        correctAnswer: 0,
+        options: ["risen", "raised", "arose", "rising"],
+        correctAnswer: 1,
         context: "Choose the correct verb form.",
         explanation: "'Raise concerns' is a fixed collocation; 'rise' is intransitive.",
       },
@@ -761,8 +761,8 @@ In recent years, Lavera has expanded its commitment to sustainability beyond ing
       level: "B2",
       content: {
         question: "Had we anticipated the demand, we _____ production earlier.",
-        options: ["would have increased", "would increase", "will have increased", "had increased"],
-        correctAnswer: 0,
+        options: ["would increase", "will have increased", "would have increased", "had increased"],
+        correctAnswer: 2,
         context: "Complete the third conditional.",
       },
       metadata: {
@@ -778,8 +778,8 @@ In recent years, Lavera has expanded its commitment to sustainability beyond ing
       content: {
         question: "The company's _____ to sustainability is evident in all its practices.",
         stemWord: "COMMIT",
-        options: ["commitment", "committed", "committing", "commits"],
-        correctAnswer: 0,
+        options: ["committed", "commitment", "committing", "commits"],
+        correctAnswer: 1,
         context: "Form the correct word from the stem.",
       },
       metadata: {
@@ -794,8 +794,8 @@ In recent years, Lavera has expanded its commitment to sustainability beyond ing
       level: "B2",
       content: {
         question: "The merger will _____ our market position in the organic cosmetics sector.",
-        options: ["consolidate", "consolidation", "consolidated", "consolidating"],
-        correctAnswer: 0,
+        options: ["consolidation", "consolidated", "consolidate", "consolidating"],
+        correctAnswer: 2,
         context: "Choose the correct verb form.",
       },
       metadata: {
@@ -810,8 +810,8 @@ In recent years, Lavera has expanded its commitment to sustainability beyond ing
       level: "B2",
       content: {
         question: "The CEO insisted that the sustainability report _____ published immediately.",
-        options: ["be", "was", "is", "being"],
-        correctAnswer: 0,
+        options: ["was", "be", "is", "being"],
+        correctAnswer: 1,
         context: "Complete with the correct subjunctive form.",
       },
       metadata: {
@@ -826,8 +826,8 @@ In recent years, Lavera has expanded its commitment to sustainability beyond ing
       level: "B2",
       content: {
         question: "We need to _____ a balance between profitability and environmental responsibility.",
-        options: ["strike", "hit", "beat", "knock"],
-        correctAnswer: 0,
+        options: ["hit", "beat", "strike", "knock"],
+        correctAnswer: 2,
         context: "Choose the correct collocation with 'balance'.",
       },
       metadata: {
@@ -842,8 +842,8 @@ In recent years, Lavera has expanded its commitment to sustainability beyond ing
       level: "B2",
       content: {
         question: "_____ the circumstances, the product recall was handled professionally.",
-        options: ["Given", "Giving", "Give", "Having given"],
-        correctAnswer: 0,
+        options: ["Giving", "Given", "Give", "Having given"],
+        correctAnswer: 1,
         context: "Complete with the correct participle form.",
       },
       metadata: {
@@ -859,8 +859,8 @@ In recent years, Lavera has expanded its commitment to sustainability beyond ing
       content: {
         question: "The _____ of natural ingredients ensures product quality.",
         stemWord: "PURE",
-        options: ["purity", "purely", "pureness", "purify"],
-        correctAnswer: 0,
+        options: ["purely", "purity", "pureness", "purify"],
+        correctAnswer: 1,
         context: "Form the correct noun from the stem.",
       },
       metadata: {
@@ -875,8 +875,8 @@ In recent years, Lavera has expanded its commitment to sustainability beyond ing
       level: "B2",
       content: {
         question: "The company's carbon _____ has decreased by 30% since 2020.",
-        options: ["footprint", "print", "step", "mark"],
-        correctAnswer: 0,
+        options: ["print", "footprint", "step", "mark"],
+        correctAnswer: 1,
         context: "Choose the correct environmental term.",
       },
       metadata: {
@@ -891,8 +891,8 @@ In recent years, Lavera has expanded its commitment to sustainability beyond ing
       level: "B2",
       content: {
         question: "The new regulations, _____ were introduced last year, have significantly impacted our operations.",
-        options: ["which", "what", "that", "who"],
-        correctAnswer: 0,
+        options: ["what", "which", "that", "who"],
+        correctAnswer: 1,
         context: "Complete with the correct relative pronoun.",
       },
       metadata: {
@@ -916,28 +916,28 @@ Industry analysts suggest that companies which fail to adapt to these changing m
         questions: [
           {
             question: "What is the projected value of the natural cosmetics market by 2027?",
-            options: ["$45 billion", "$54 billion", "$64 billion", "$75 billion"],
-            correctAnswer: 1,
+            options: ["$45 billion", "$64 billion", "$54 billion", "$75 billion"],
+            correctAnswer: 2,
           },
           {
             question: "According to the passage, what is one challenge of market growth?",
             options: [
               "Decreased consumer interest",
               "Reduced product quality",
-              "Intensified competition",
               "Higher ingredient costs",
+              "Intensified competition",
             ],
-            correctAnswer: 2,
+            correctAnswer: 3,
           },
           {
             question: "What is NOT mentioned as part of Lavera's strategy?",
             options: [
+              "Reducing product prices",
               "Investing in R&D",
               "Strengthening supply chain relationships",
-              "Reducing product prices",
               "Digital transformation",
             ],
-            correctAnswer: 2,
+            correctAnswer: 0,
           },
           {
             question: "What do industry analysts say is key to success?",
@@ -964,8 +964,8 @@ Industry analysts suggest that companies which fail to adapt to these changing m
       level: "B2",
       content: {
         question: "The sustainability initiative has _____ widespread support from stakeholders.",
-        options: ["garnered", "garnering", "garner", "garnerers"],
-        correctAnswer: 0,
+        options: ["garnering", "garner", "garnered", "garnerers"],
+        correctAnswer: 2,
         context: "Choose the correct verb form.",
       },
       metadata: {
@@ -980,8 +980,8 @@ Industry analysts suggest that companies which fail to adapt to these changing m
       level: "B2",
       content: {
         question: "It is essential that all employees _____ the new safety protocols.",
-        options: ["follow", "follows", "following", "followed"],
-        correctAnswer: 0,
+        options: ["follows", "following", "follow", "followed"],
+        correctAnswer: 2,
         context: "Complete with the correct subjunctive form.",
       },
       metadata: {
@@ -997,8 +997,8 @@ Industry analysts suggest that companies which fail to adapt to these changing m
       content: {
         question: "The product's _____ has been scientifically proven in clinical trials.",
         stemWord: "EFFECT",
-        options: ["effectiveness", "effective", "effecting", "effect"],
-        correctAnswer: 0,
+        options: ["effective", "effecting", "effectiveness", "effect"],
+        correctAnswer: 2,
         context: "Form the correct noun from the stem.",
       },
       metadata: {
@@ -1013,8 +1013,8 @@ Industry analysts suggest that companies which fail to adapt to these changing m
       level: "B2",
       content: {
         question: "The company has _____ strict quality control measures.",
-        options: ["implemented", "implementation", "implementing", "implement"],
-        correctAnswer: 0,
+        options: ["implementation", "implementing", "implemented", "implement"],
+        correctAnswer: 2,
         context: "Choose the correct past participle.",
       },
       metadata: {
@@ -1037,12 +1037,12 @@ Industry analysts suggest that companies which fail to adapt to these changing m
         keyWord: "WISH",
         gappedSentence: "The company _____ sustainable packaging earlier.",
         options: [
-          "wishes it had invested in",
           "wishes to invest in",
+          "wishes it had invested in",
           "wishes it invests in",
           "wishes investing in",
         ],
-        correctAnswer: 0,
+        correctAnswer: 1,
         context: "Complete the sentence using the key word so it has a similar meaning.",
       },
       metadata: {
@@ -1057,8 +1057,8 @@ Industry analysts suggest that companies which fail to adapt to these changing m
       level: "C1",
       content: {
         question: "The audit revealed several _____ in our supply chain documentation.",
-        options: ["discrepancies", "discrepancy", "discrepant", "discrepate"],
-        correctAnswer: 0,
+        options: ["discrepancy", "discrepant", "discrepancies", "discrepate"],
+        correctAnswer: 2,
         context: "Choose the correct noun form.",
       },
       metadata: {
@@ -1073,8 +1073,8 @@ Industry analysts suggest that companies which fail to adapt to these changing m
       level: "C1",
       content: {
         question: "_____ the financial constraints, the R&D team managed to develop an innovative formula.",
-        options: ["Notwithstanding", "Nevertheless", "However", "Although"],
-        correctAnswer: 0,
+        options: ["Nevertheless", "However", "Notwithstanding", "Although"],
+        correctAnswer: 2,
         context: "Complete with the correct formal conjunction.",
       },
       metadata: {
@@ -1090,8 +1090,8 @@ Industry analysts suggest that companies which fail to adapt to these changing m
       content: {
         question: "The CEO's _____ approach to sustainability has transformed the company culture.",
         stemWord: "VISION",
-        options: ["visionary", "vision", "visible", "visualize"],
-        correctAnswer: 0,
+        options: ["vision", "visionary", "visible", "visualize"],
+        correctAnswer: 1,
         context: "Form the correct adjective from the stem.",
       },
       metadata: {
@@ -1109,12 +1109,12 @@ Industry analysts suggest that companies which fail to adapt to these changing m
         keyWord: "ONLY",
         gappedSentence: "_____ carbon neutrality.",
         options: [
-          "Only in 2020 did the company achieve",
           "Only in 2020 the company achieved",
           "Only did the company achieve in 2020",
           "Only the company achieved in 2020",
+          "Only in 2020 did the company achieve",
         ],
-        correctAnswer: 0,
+        correctAnswer: 3,
         context: "Complete using inversion with the key word.",
       },
       metadata: {
@@ -1129,8 +1129,8 @@ Industry analysts suggest that companies which fail to adapt to these changing m
       level: "C1",
       content: {
         question: "The stakeholders expressed their _____ regarding the proposed merger.",
-        options: ["apprehension", "apprehend", "apprehensive", "apprehensively"],
-        correctAnswer: 0,
+        options: ["apprehend", "apprehensive", "apprehension", "apprehensively"],
+        correctAnswer: 2,
         context: "Choose the correct noun form.",
       },
       metadata: {
@@ -1145,8 +1145,8 @@ Industry analysts suggest that companies which fail to adapt to these changing m
       level: "C1",
       content: {
         question: "Little _____ that the decision would have such far-reaching consequences.",
-        options: ["did they realize", "they realized", "they did realize", "realize they did"],
-        correctAnswer: 0,
+        options: ["they realized", "did they realize", "they did realize", "realize they did"],
+        correctAnswer: 1,
         context: "Complete the inverted negative construction.",
       },
       metadata: {
@@ -1161,8 +1161,8 @@ Industry analysts suggest that companies which fail to adapt to these changing m
       level: "C1",
       content: {
         question: "The company's ethos is _____ rooted in environmental stewardship.",
-        options: ["deeply", "deep", "depth", "deepen"],
-        correctAnswer: 0,
+        options: ["deep", "depth", "deeply", "deepen"],
+        correctAnswer: 2,
         context: "Choose the correct adverb form.",
       },
       metadata: {
@@ -1188,21 +1188,21 @@ Industry observers suggest that the regulatory landscape will continue to evolve
             question: "What has prompted stricter scrutiny of environmental claims?",
             options: [
               "Consumer demand for cheaper products",
-              "The proliferation of greenwashing",
               "New product innovations",
+              "The proliferation of greenwashing",
               "Declining market sales",
             ],
-            correctAnswer: 1,
+            correctAnswer: 2,
           },
           {
             question: "Why is the regulatory tightening 'paradoxical' for brands like Lavera?",
             options: [
-              "It validates their practices but increases administrative burden",
               "It reduces their market share",
               "It makes their products more expensive",
               "It forces them to change their formulas",
+              "It validates their practices but increases administrative burden",
             ],
-            correctAnswer: 0,
+            correctAnswer: 3,
           },
           {
             question: "What penalty does the proposed EU directive specify for non-compliance?",
@@ -1232,12 +1232,12 @@ Industry observers suggest that the regulatory landscape will continue to evolve
         keyWord: "CREDIT",
         gappedSentence: "The marketing team _____ the successful product launch.",
         options: [
-          "should be given credit for",
           "should give credit to",
           "credited with",
+          "should be given credit for",
           "credit should be",
         ],
-        correctAnswer: 0,
+        correctAnswer: 2,
         context: "Complete using the key word so the sentence has a similar meaning.",
       },
       metadata: {

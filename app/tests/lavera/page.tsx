@@ -265,6 +265,9 @@ function QuestionSlide({
     // Reading comprehension
     if (type === "reading_comprehension" && content.passage && content.questions) {
       const currentSubQuestion = content.questions[readingSubIndex];
+      if (!currentSubQuestion) {
+        return <div>Loading question...</div>;
+      }
       const isLastSubQuestion = readingSubIndex === content.questions.length - 1;
       const isFirstSubQuestion = readingSubIndex === 0;
 
