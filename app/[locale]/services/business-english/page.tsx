@@ -1,6 +1,7 @@
 import { setRequestLocale } from "next-intl/server";
 import { getTranslations } from "next-intl/server";
 import { Metadata } from "next";
+import Image from "next/image";
 import {
   CheckCircle2,
   Presentation,
@@ -75,7 +76,15 @@ export default async function BusinessEnglishPage({ params }: PageProps) {
                 )}
               </ul>
             </div>
-            <div className="aspect-[4/3] rounded-3xl bg-gradient-to-br from-sls-orange/10 to-sls-teal/10" />
+            <div className="relative aspect-[4/3] rounded-3xl overflow-hidden shadow-2xl">
+              <Image
+                src="/images/business-english-hero.webp"
+                alt="Professional English teacher ready for online lesson"
+                fill
+                className="object-cover"
+                priority
+              />
+            </div>
           </div>
         </div>
       </section>
