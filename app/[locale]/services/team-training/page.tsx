@@ -1,0 +1,126 @@
+import { setRequestLocale } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
+import { Metadata } from "next";
+import Image from "next/image";
+import {
+  CheckCircle2,
+  Users,
+  Target,
+  TrendingUp,
+  MessageSquare,
+  Globe,
+} from "lucide-react";
+import { Breadcrumbs, FAQAccordion, CTASection } from "@/components/landing";
+
+interface PageProps {
+  params: Promise<{ locale: string }>;
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "services" });
+
+  return {
+    title: `${t("teamTraining.title")} | Simmonds Language Services`,
+    description: t("teamTraining.description"),
+  };
+}
+
+export default async function TeamTrainingPage({ params }: PageProps) {
+  const { locale } = await params;
+  setRequestLocale(locale);
+  const t = await getTranslations({ locale, namespace: "services" });
+
+  const features = [
+    { icon: <Users />, title: "Group Dynamics", desc: "Interactive exercises that build team communication" },
+    { icon: <Target />, title: "Custom Content", desc: "Training tailored to your industry and goals" },
+    { icon: <TrendingUp />, title: "Measurable Progress", desc: "Track improvement across your entire team" },
+    { icon: <MessageSquare />, title: "Real Scenarios", desc: "Practice with situations from your workplace" },
+    { icon: <Globe />, title: "Cross-Cultural", desc: "Navigate international business communication" },
+  ];
+
+  const benefits = locale === "de"
+    ? ["Maßgeschneidert für Ihr Team", "Flexible Terminplanung", "Erfahrene Trainer"]
+    : ["Tailored to your team", "Flexible scheduling", "Experienced trainers"];
+
+  return (
+    <div className="pt-20">
+      {/* Breadcrumbs */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <Breadcrumbs
+          items={[
+            { label: t("badge"), href: `/${locale}/services` },
+            { label: t("teamTraining.title") },
+          ]}
+        />
+      </div>
+
+      {/* Hero */}
+      <section className="py-16 bg-sls-cream">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <span className="inline-block px-4 py-2 rounded-full bg-sls-orange/10 text-sls-orange text-sm font-semibold mb-4">
+                {t("badge")}
+              </span>
+              <h1 className="text-4xl sm:text-5xl font-bold text-sls-teal mb-4">
+                {t("teamTraining.title")}
+              </h1>
+              <p className="text-xl text-sls-olive/70 mb-8">
+                {t("teamTraining.description")}
+              </p>
+              <ul className="space-y-3">
+                {benefits.map((item) => (
+                  <li key={item} className="flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-sls-chartreuse" />
+                    <span className="text-sls-olive">{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="relative aspect-[4/3] rounded-3xl overflow-hidden shadow-2xl">
+              <Image
+                src="/images/team-training-hero.webp"
+                alt="Professional team training workshop"
+                fill
+                className="object-cover"
+                priority
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features */}
+      <section className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-3xl font-bold text-sls-teal text-center mb-12">
+            {locale === "de" ? "Was wir bieten" : "What We Offer"}
+          </h2>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            {features.map((feature) => (
+              <div
+                key={feature.title}
+                className="p-6 rounded-2xl bg-sls-cream border-2 border-sls-beige hover:border-sls-teal/30 transition-colors"
+              >
+                <div className="w-12 h-12 rounded-xl bg-sls-teal/10 flex items-center justify-center text-sls-teal mb-4">
+                  {feature.icon}
+                </div>
+                <h3 className="text-lg font-bold text-sls-teal mb-2">
+                  {feature.title}
+                </h3>
+                <p className="text-sls-olive/70">{feature.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <FAQAccordion maxItems={3} showViewAll={true} />
+
+      {/* CTA */}
+      <CTASection variant="accent" />
+    </div>
+  );
+}
