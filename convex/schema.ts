@@ -3566,6 +3566,31 @@ export default defineSchema({
     .index("by_share_token", ["shareToken"])
     .index("by_created", ["createdAt"]),
 
+  // ============================================
+  // PLACEMENT TESTS (Simple JSON-based test storage)
+  // ============================================
+
+  placementTests: defineTable({
+    title: v.string(),
+    slug: v.string(),
+    companyName: v.optional(v.string()),
+    companyLogo: v.optional(v.string()),
+    // Full test configuration as JSON (questions, images, settings, etc.)
+    config: v.any(),
+    status: v.union(v.literal("draft"), v.literal("published")),
+    // Result email configuration
+    resultEmails: v.optional(v.object({
+      sendToCandidate: v.boolean(),
+      hrEmails: v.optional(v.array(v.string())),
+    })),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    createdBy: v.optional(v.id("users")),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_status", ["status"])
+    .index("by_created", ["createdAt"]),
+
   /**
    * Voice Library - Standalone voice configurations
    * Not tied to avatars table, used for video generator

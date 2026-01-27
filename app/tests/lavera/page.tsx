@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { cn } from "@/lib/utils";
 import {
   ChevronRight,
@@ -21,10 +23,11 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import {
-  laveraPlacementTest,
+  laveraPlacementTest as staticLaveraTest,
   calculateCEFRLevel,
   type Question,
   type CEFRLevel,
+  type PlacementTestData,
 } from "./test-data";
 
 // ============================================
@@ -832,6 +835,17 @@ export default function LaveraPlacementTestPage() {
   const [results, setResults] = useState<ReturnType<typeof calculateCEFRLevel> | null>(
     null
   );
+
+  // Try to load test data from Convex, fallback to static data
+  const convexTest = useQuery(api.placementTests.getPublishedBySlug, { slug: "lavera" });
+
+  // Use Convex data if available, otherwise static data
+  const laveraPlacementTest = useMemo<PlacementTestData>(() => {
+    if (convexTest?.config) {
+      return convexTest.config as PlacementTestData;
+    }
+    return staticLaveraTest;
+  }, [convexTest]);
 
   const questions = laveraPlacementTest.questions;
   const currentQuestion = questions[testState.currentQuestionIndex];

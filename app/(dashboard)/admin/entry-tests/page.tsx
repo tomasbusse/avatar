@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -19,38 +19,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   Plus,
   ClipboardCheck,
   Edit,
   Trash2,
-  Copy,
   Eye,
-  MoreHorizontal,
-  FileText,
+  Save,
   Send,
-  Archive,
-  Building2,
-  Users,
-  Globe,
+  FileJson,
+  ExternalLink,
+  Check,
+  X,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -58,162 +42,71 @@ import { toast } from "sonner";
 // TYPES
 // ============================================
 
-type CEFRLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
-type OwnershipType = "platform" | "company" | "group";
-type TemplateStatus = "draft" | "published" | "archived";
-
-// ============================================
-// TEMPLATE CARD COMPONENT
-// ============================================
-
-interface TemplateCardProps {
-  template: {
-    _id: Id<"entryTestTemplates">;
-    title: string;
-    slug: string;
-    description?: string;
-    targetLevelRange: { min: CEFRLevel; max: CEFRLevel };
-    ownership: {
-      type: OwnershipType;
-      companyId?: Id<"companies">;
-      groupId?: Id<"groups">;
-    };
-    sections: Array<{ id: string; type: string; title: string }>;
-    status: TemplateStatus;
-    version: number;
-    createdAt: number;
+interface PlacementTest {
+  _id: Id<"placementTests">;
+  title: string;
+  slug: string;
+  companyName?: string;
+  companyLogo?: string;
+  config: Record<string, unknown>;
+  status: "draft" | "published";
+  resultEmails?: {
+    sendToCandidate: boolean;
+    hrEmails?: string[];
   };
-  onEdit: (templateId: Id<"entryTestTemplates">) => void;
-  onDelete: (templateId: Id<"entryTestTemplates">) => void;
-  onDuplicate: (templateId: Id<"entryTestTemplates">) => void;
-  onPreview: (templateId: Id<"entryTestTemplates">) => void;
-  onPublish: (templateId: Id<"entryTestTemplates">) => void;
-  onArchive: (templateId: Id<"entryTestTemplates">) => void;
+  createdAt: number;
+  updatedAt: number;
 }
 
-function TemplateCard({
-  template,
-  onEdit,
-  onDelete,
-  onDuplicate,
-  onPreview,
-  onPublish,
-  onArchive,
-}: TemplateCardProps) {
-  const statusColors = {
-    draft: "bg-yellow-100 text-yellow-800",
-    published: "bg-green-100 text-green-800",
-    archived: "bg-gray-100 text-gray-800",
-  };
+// ============================================
+// TEST CARD COMPONENT
+// ============================================
 
-  const ownershipIcons = {
-    platform: <Globe className="h-4 w-4" />,
-    company: <Building2 className="h-4 w-4" />,
-    group: <Users className="h-4 w-4" />,
-  };
+interface TestCardProps {
+  test: PlacementTest;
+  isSelected: boolean;
+  onSelect: () => void;
+  onDelete: () => void;
+}
 
-  const levelColors: Record<CEFRLevel, string> = {
-    A1: "bg-green-100 text-green-800",
-    A2: "bg-lime-100 text-lime-800",
-    B1: "bg-yellow-100 text-yellow-800",
-    B2: "bg-orange-100 text-orange-800",
-    C1: "bg-red-100 text-red-800",
-    C2: "bg-purple-100 text-purple-800",
-  };
+function TestCard({ test, isSelected, onSelect, onDelete }: TestCardProps) {
+  const questionCount = (test.config as { questions?: unknown[] })?.questions?.length || 0;
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardHeader className="pb-3">
+    <Card
+      className={`cursor-pointer transition-all hover:shadow-md ${
+        isSelected ? "ring-2 ring-primary" : ""
+      }`}
+      onClick={onSelect}
+    >
+      <CardHeader className="pb-2">
         <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2">
-            <ClipboardCheck className="h-5 w-5 text-primary" />
-            <div>
-              <CardTitle className="text-lg">{template.title}</CardTitle>
-              <CardDescription className="text-sm">
-                {template.sections.length} sections
-              </CardDescription>
-            </div>
+          <div>
+            <CardTitle className="text-base">{test.title}</CardTitle>
+            <CardDescription className="text-sm">
+              /{test.slug}
+            </CardDescription>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onPreview(template._id)}>
-                <Eye className="h-4 w-4 mr-2" />
-                Preview
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onEdit(template._id)}>
-                <Edit className="h-4 w-4 mr-2" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onDuplicate(template._id)}>
-                <Copy className="h-4 w-4 mr-2" />
-                Duplicate
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              {template.status === "draft" && (
-                <DropdownMenuItem onClick={() => onPublish(template._id)}>
-                  <Send className="h-4 w-4 mr-2" />
-                  Publish
-                </DropdownMenuItem>
-              )}
-              {template.status !== "archived" && (
-                <DropdownMenuItem onClick={() => onArchive(template._id)}>
-                  <Archive className="h-4 w-4 mr-2" />
-                  Archive
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => onDelete(template._id)}
-                className="text-red-600"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Badge
+            variant={test.status === "published" ? "default" : "secondary"}
+          >
+            {test.status}
+          </Badge>
         </div>
       </CardHeader>
       <CardContent>
-        {/* Description */}
-        {template.description && (
-          <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-            {template.description}
-          </p>
-        )}
-
-        {/* Badges */}
-        <div className="flex flex-wrap gap-2 mb-4">
-          <Badge variant="outline" className={levelColors[template.targetLevelRange.min]}>
-            {template.targetLevelRange.min === template.targetLevelRange.max
-              ? template.targetLevelRange.min
-              : `${template.targetLevelRange.min}-${template.targetLevelRange.max}`}
-          </Badge>
-          <Badge variant="outline" className={statusColors[template.status]}>
-            {template.status}
-          </Badge>
-          <Badge variant="outline" className="flex items-center gap-1">
-            {ownershipIcons[template.ownership.type]}
-            {template.ownership.type}
-          </Badge>
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <span>{questionCount} questions</span>
+          {test.companyName && <span>{test.companyName}</span>}
         </div>
-
-        {/* Sections summary */}
-        <div className="text-xs text-muted-foreground">
-          {template.sections.map((s) => s.type).join(" • ")}
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-2 mt-4">
+        <div className="flex gap-2 mt-3">
           <Button
             variant="outline"
             size="sm"
-            onClick={() => onPreview(template._id)}
-            className="flex-1"
+            onClick={(e) => {
+              e.stopPropagation();
+              window.open(`/tests/${test.slug}`, "_blank");
+            }}
           >
             <Eye className="h-4 w-4 mr-1" />
             Preview
@@ -221,11 +114,13 @@ function TemplateCard({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => onEdit(template._id)}
-            className="flex-1"
+            className="text-red-600 hover:text-red-700"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
           >
-            <Edit className="h-4 w-4 mr-1" />
-            Edit
+            <Trash2 className="h-4 w-4" />
           </Button>
         </div>
       </CardContent>
@@ -234,165 +129,379 @@ function TemplateCard({
 }
 
 // ============================================
-// CREATE TEMPLATE DIALOG
+// JSON EDITOR
 // ============================================
 
-interface CreateTemplateDialogProps {
+interface JsonEditorProps {
+  test: PlacementTest | null;
+  onSave: (updates: {
+    title?: string;
+    slug?: string;
+    companyName?: string;
+    config?: Record<string, unknown>;
+    status?: "draft" | "published";
+  }) => Promise<void>;
+  isSaving: boolean;
+}
+
+function JsonEditor({ test, onSave, isSaving }: JsonEditorProps) {
+  const [jsonText, setJsonText] = useState("");
+  const [jsonError, setJsonError] = useState<string | null>(null);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [title, setTitle] = useState("");
+  const [slug, setSlug] = useState("");
+  const [companyName, setCompanyName] = useState("");
+
+  // Update local state when test changes
+  useEffect(() => {
+    if (test) {
+      setJsonText(JSON.stringify(test.config, null, 2));
+      setTitle(test.title);
+      setSlug(test.slug);
+      setCompanyName(test.companyName || "");
+      setJsonError(null);
+      setHasChanges(false);
+    } else {
+      setJsonText("");
+      setTitle("");
+      setSlug("");
+      setCompanyName("");
+    }
+  }, [test]);
+
+  const handleJsonChange = (value: string) => {
+    setJsonText(value);
+    setHasChanges(true);
+
+    // Validate JSON
+    try {
+      JSON.parse(value);
+      setJsonError(null);
+    } catch (e) {
+      setJsonError((e as Error).message);
+    }
+  };
+
+  const handleSave = async () => {
+    if (jsonError) {
+      toast.error("Please fix JSON errors before saving");
+      return;
+    }
+
+    try {
+      const config = JSON.parse(jsonText);
+      await onSave({
+        title,
+        slug,
+        companyName: companyName || undefined,
+        config,
+      });
+      setHasChanges(false);
+      toast.success("Test saved successfully");
+    } catch (error) {
+      toast.error("Failed to save test");
+      console.error(error);
+    }
+  };
+
+  const handlePublish = async () => {
+    if (!test) return;
+
+    try {
+      const config = JSON.parse(jsonText);
+      await onSave({
+        title,
+        slug,
+        companyName: companyName || undefined,
+        config,
+        status: "published",
+      });
+      setHasChanges(false);
+      toast.success("Test published successfully");
+    } catch (error) {
+      toast.error("Failed to publish test");
+      console.error(error);
+    }
+  };
+
+  if (!test) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-gray-50 rounded-lg">
+        <div className="text-center text-muted-foreground">
+          <FileJson className="h-12 w-12 mx-auto mb-4 opacity-50" />
+          <p>Select a test to edit or create a new one</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 flex flex-col bg-white rounded-lg border">
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 border-b">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <ClipboardCheck className="h-5 w-5 text-primary" />
+            <span className="font-semibold">{test.title}</span>
+          </div>
+          {hasChanges && (
+            <Badge variant="outline" className="text-amber-600 border-amber-300">
+              Unsaved changes
+            </Badge>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.open(`/tests/${test.slug}`, "_blank")}
+          >
+            <ExternalLink className="h-4 w-4 mr-1" />
+            Preview
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSave}
+            disabled={isSaving || !!jsonError}
+          >
+            {isSaving ? (
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4 mr-1" />
+            )}
+            Save
+          </Button>
+          {test.status === "draft" && (
+            <Button
+              size="sm"
+              onClick={handlePublish}
+              disabled={isSaving || !!jsonError}
+            >
+              <Send className="h-4 w-4 mr-1" />
+              Publish
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Metadata fields */}
+      <div className="grid grid-cols-3 gap-4 p-4 border-b bg-gray-50">
+        <div className="space-y-1">
+          <Label htmlFor="title" className="text-xs">Title</Label>
+          <Input
+            id="title"
+            value={title}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              setHasChanges(true);
+            }}
+            placeholder="Test title"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="slug" className="text-xs">Slug (URL path)</Label>
+          <Input
+            id="slug"
+            value={slug}
+            onChange={(e) => {
+              setSlug(e.target.value);
+              setHasChanges(true);
+            }}
+            placeholder="test-slug"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="companyName" className="text-xs">Company Name</Label>
+          <Input
+            id="companyName"
+            value={companyName}
+            onChange={(e) => {
+              setCompanyName(e.target.value);
+              setHasChanges(true);
+            }}
+            placeholder="Company name (optional)"
+          />
+        </div>
+      </div>
+
+      {/* JSON validation status */}
+      {jsonError && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-700 text-sm border-b">
+          <X className="h-4 w-4" />
+          <span>JSON Error: {jsonError}</span>
+        </div>
+      )}
+      {!jsonError && jsonText && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 text-sm border-b">
+          <Check className="h-4 w-4" />
+          <span>Valid JSON</span>
+        </div>
+      )}
+
+      {/* JSON Editor */}
+      <div className="flex-1 p-4 overflow-hidden">
+        <textarea
+          value={jsonText}
+          onChange={(e) => handleJsonChange(e.target.value)}
+          className="w-full h-full font-mono text-sm p-4 border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+          placeholder="Test configuration JSON..."
+          spellCheck={false}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// CREATE TEST DIALOG
+// ============================================
+
+interface CreateTestDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-function CreateTemplateDialog({ open, onOpenChange }: CreateTemplateDialogProps) {
+function CreateTestDialog({ open, onOpenChange }: CreateTestDialogProps) {
   const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [minLevel, setMinLevel] = useState<CEFRLevel>("A1");
-  const [maxLevel, setMaxLevel] = useState<CEFRLevel>("C2");
-  const [ownershipType, setOwnershipType] = useState<OwnershipType>("platform");
+  const [slug, setSlug] = useState("");
+  const [companyName, setCompanyName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const createTemplate = useMutation(api.entryTests.createTemplate);
+  const createTest = useMutation(api.placementTests.create);
 
   const handleCreate = async () => {
     if (!title.trim()) {
       toast.error("Please enter a title");
       return;
     }
+    if (!slug.trim()) {
+      toast.error("Please enter a slug");
+      return;
+    }
 
     setIsSubmitting(true);
 
     try {
-      await createTemplate({
+      const defaultConfig = {
+        id: slug,
+        title: title,
+        company: {
+          name: companyName || "Company",
+          industry: "General",
+          primaryColor: "#3B82F6",
+          secondaryColor: "#6B7280",
+        },
+        totalQuestions: 0,
+        questions: [],
+        levelDescriptions: {
+          A1: {
+            title: "Beginner (A1)",
+            description: "Basic understanding of everyday expressions.",
+            recommendations: ["Start with foundational courses"],
+          },
+          A2: {
+            title: "Elementary (A2)",
+            description: "Can communicate in simple, routine tasks.",
+            recommendations: ["Build confidence with intermediate vocabulary"],
+          },
+          B1: {
+            title: "Intermediate (B1)",
+            description: "Can deal with most situations while traveling.",
+            recommendations: ["Develop business writing skills"],
+          },
+          B2: {
+            title: "Upper-Intermediate (B2)",
+            description: "Can interact with fluency and spontaneity.",
+            recommendations: ["Focus on advanced communication"],
+          },
+          C1: {
+            title: "Advanced (C1)",
+            description: "Can express yourself fluently and spontaneously.",
+            recommendations: ["Refine presentation skills"],
+          },
+        },
+      };
+
+      await createTest({
         title: title.trim(),
-        description: description.trim() || undefined,
-        targetLevelRange: { min: minLevel, max: maxLevel },
-        ownershipType,
+        slug: slug.trim(),
+        companyName: companyName.trim() || undefined,
+        config: defaultConfig,
+        status: "draft",
       });
 
-      toast.success("Template created successfully!");
+      toast.success("Test created successfully!");
       onOpenChange(false);
-      resetForm();
+      setTitle("");
+      setSlug("");
+      setCompanyName("");
     } catch (error) {
-      toast.error("Failed to create template");
+      toast.error((error as Error).message || "Failed to create test");
       console.error(error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const resetForm = () => {
-    setTitle("");
-    setDescription("");
-    setMinLevel("A1");
-    setMaxLevel("C2");
-    setOwnershipType("platform");
+  // Auto-generate slug from title
+  const handleTitleChange = (value: string) => {
+    setTitle(value);
+    // Only auto-generate if slug hasn't been manually edited
+    const autoSlug = value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    setSlug(autoSlug);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Create Entry Test Template</DialogTitle>
+          <DialogTitle>Create New Placement Test</DialogTitle>
           <DialogDescription>
-            Create a new entry test template. You can add sections after creation.
+            Create a new placement test. You can edit the questions after creation.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 mt-4">
-          {/* Title */}
           <div className="space-y-2">
-            <Label>Title</Label>
+            <Label>Test Title</Label>
             <Input
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Cambridge English Placement Test"
+              onChange={(e) => handleTitleChange(e.target.value)}
+              placeholder="e.g., Cambridge English Placement Test"
             />
           </div>
 
-          {/* Description */}
           <div className="space-y-2">
-            <Label>Description (optional)</Label>
-            <Textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="A comprehensive assessment to determine student CEFR level..."
-              rows={3}
+            <Label>URL Slug</Label>
+            <Input
+              value={slug}
+              onChange={(e) => setSlug(e.target.value)}
+              placeholder="e.g., company-name"
+            />
+            <p className="text-xs text-muted-foreground">
+              Test will be available at: /tests/{slug || "your-slug"}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Company Name (optional)</Label>
+            <Input
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              placeholder="e.g., Lavera"
             />
           </div>
 
-          {/* Level Range */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Min Level</Label>
-              <Select value={minLevel} onValueChange={(v) => setMinLevel(v as CEFRLevel)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(["A1", "A2", "B1", "B2", "C1", "C2"] as CEFRLevel[]).map((l) => (
-                    <SelectItem key={l} value={l}>
-                      {l}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Max Level</Label>
-              <Select value={maxLevel} onValueChange={(v) => setMaxLevel(v as CEFRLevel)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(["A1", "A2", "B1", "B2", "C1", "C2"] as CEFRLevel[]).map((l) => (
-                    <SelectItem key={l} value={l}>
-                      {l}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Ownership */}
-          <div className="space-y-2">
-            <Label>Template Scope</Label>
-            <Select
-              value={ownershipType}
-              onValueChange={(v) => setOwnershipType(v as OwnershipType)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="platform">
-                  <span className="flex items-center gap-2">
-                    <Globe className="h-4 w-4" />
-                    Platform-wide (Official)
-                  </span>
-                </SelectItem>
-                <SelectItem value="company">
-                  <span className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4" />
-                    Company-specific
-                  </span>
-                </SelectItem>
-                <SelectItem value="group">
-                  <span className="flex items-center gap-2">
-                    <Users className="h-4 w-4" />
-                    Group-specific
-                  </span>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Actions */}
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button onClick={handleCreate} disabled={isSubmitting}>
-              {isSubmitting ? "Creating..." : "Create Template"}
+              {isSubmitting ? "Creating..." : "Create Test"}
             </Button>
           </div>
         </div>
@@ -407,167 +516,134 @@ function CreateTemplateDialog({ open, onOpenChange }: CreateTemplateDialogProps)
 
 export default function AdminEntryTestsPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [filterOwnership, setFilterOwnership] = useState<string>("all");
+  const [selectedTestId, setSelectedTestId] = useState<Id<"placementTests"> | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Fetch templates
-  const templates = useQuery(api.entryTests.listTemplates, {
-    status: filterStatus !== "all" ? (filterStatus as TemplateStatus) : undefined,
-    ownershipType: filterOwnership !== "all" ? (filterOwnership as OwnershipType) : undefined,
-  });
+  // Fetch all tests
+  const tests = useQuery(api.placementTests.list, {});
 
-  // Fetch question bank stats
-  const pendingCount = useQuery(api.entryTestQuestionBank.getPendingCount);
+  // Fetch selected test
+  const selectedTest = useQuery(
+    api.placementTests.getById,
+    selectedTestId ? { id: selectedTestId } : "skip"
+  );
 
   // Mutations
-  const deleteTemplate = useMutation(api.entryTests.deleteTemplate);
-  const publishTemplate = useMutation(api.entryTests.publishTemplate);
-  const archiveTemplate = useMutation(api.entryTests.archiveTemplate);
+  const updateTest = useMutation(api.placementTests.update);
+  const deleteTest = useMutation(api.placementTests.remove);
 
-  const handleDelete = async (templateId: Id<"entryTestTemplates">) => {
-    if (!confirm("Are you sure you want to delete this template? Only draft templates can be deleted.")) return;
+  // Auto-select first test if none selected
+  useEffect(() => {
+    if (tests && tests.length > 0 && !selectedTestId) {
+      setSelectedTestId(tests[0]._id);
+    }
+  }, [tests, selectedTestId]);
+
+  const handleSave = async (updates: {
+    title?: string;
+    slug?: string;
+    companyName?: string;
+    config?: Record<string, unknown>;
+    status?: "draft" | "published";
+  }) => {
+    if (!selectedTestId) return;
+
+    setIsSaving(true);
     try {
-      await deleteTemplate({ templateId });
-      toast.success("Template deleted");
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to delete template";
-      toast.error(errorMessage);
+      await updateTest({
+        id: selectedTestId,
+        ...updates,
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleDuplicate = (templateId: Id<"entryTestTemplates">) => {
-    // Navigate to derive page
-    window.location.href = `/admin/entry-tests/${templateId}/derive`;
-  };
+  const handleDelete = async (testId: Id<"placementTests">) => {
+    if (!confirm("Are you sure you want to delete this test?")) return;
 
-  const handleEdit = (templateId: Id<"entryTestTemplates">) => {
-    window.location.href = `/admin/entry-tests/${templateId}/edit`;
-  };
-
-  const handlePreview = (templateId: Id<"entryTestTemplates">) => {
-    window.location.href = `/admin/entry-tests/${templateId}/preview`;
-  };
-
-  const handlePublish = async (templateId: Id<"entryTestTemplates">) => {
     try {
-      await publishTemplate({ templateId });
-      toast.success("Template published successfully!");
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to publish template";
-      toast.error(errorMessage);
-    }
-  };
-
-  const handleArchive = async (templateId: Id<"entryTestTemplates">) => {
-    try {
-      await archiveTemplate({ templateId });
-      toast.success("Template archived");
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to archive template";
-      toast.error(errorMessage);
+      await deleteTest({ id: testId });
+      if (selectedTestId === testId) {
+        setSelectedTestId(null);
+      }
+      toast.success("Test deleted");
+    } catch (error) {
+      toast.error("Failed to delete test");
     }
   };
 
   return (
-    <div className="container mx-auto py-8 px-4">
+    <div className="h-[calc(100vh-4rem)] flex flex-col p-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <ClipboardCheck className="h-8 w-8" />
-            Entry Tests
+          <h1 className="text-2xl font-bold flex items-center gap-3">
+            <ClipboardCheck className="h-7 w-7" />
+            Placement Tests
           </h1>
           <p className="text-muted-foreground mt-1">
-            Create and manage Cambridge English assessment tests
+            Create and manage Cambridge English placement tests
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => (window.location.href = "/admin/entry-tests/questions")}
-          >
-            <FileText className="h-4 w-4 mr-2" />
-            Question Bank
-            {pendingCount !== undefined && pendingCount > 0 && (
-              <Badge variant="destructive" className="ml-2">
-                {pendingCount}
-              </Badge>
+        <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
+          <Plus className="h-4 w-4" />
+          Create Test
+        </Button>
+      </div>
+
+      {/* Main content */}
+      <div className="flex-1 flex gap-6 overflow-hidden">
+        {/* Sidebar - Test list */}
+        <div className="w-80 flex-shrink-0 overflow-y-auto">
+          <div className="space-y-3">
+            {tests === undefined ? (
+              // Loading state
+              <>
+                {[1, 2, 3].map((i) => (
+                  <Card key={i} className="h-32 animate-pulse bg-gray-100" />
+                ))}
+              </>
+            ) : tests.length === 0 ? (
+              // Empty state
+              <div className="text-center py-8 px-4 bg-gray-50 rounded-lg">
+                <ClipboardCheck className="h-10 w-10 mx-auto text-gray-400 mb-3" />
+                <p className="text-sm text-gray-600 mb-4">
+                  No placement tests yet
+                </p>
+                <Button
+                  size="sm"
+                  onClick={() => setIsCreateDialogOpen(true)}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Create Test
+                </Button>
+              </div>
+            ) : (
+              // Test cards
+              tests.map((test) => (
+                <TestCard
+                  key={test._id}
+                  test={test as PlacementTest}
+                  isSelected={selectedTestId === test._id}
+                  onSelect={() => setSelectedTestId(test._id)}
+                  onDelete={() => handleDelete(test._id)}
+                />
+              ))
             )}
-          </Button>
-          <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Create Template
-          </Button>
+          </div>
         </div>
+
+        {/* Main editor */}
+        <JsonEditor
+          test={selectedTest as PlacementTest | null}
+          onSave={handleSave}
+          isSaving={isSaving}
+        />
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-4 mb-6">
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="draft">Draft</SelectItem>
-            <SelectItem value="published">Published</SelectItem>
-            <SelectItem value="archived">Archived</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select value={filterOwnership} onValueChange={setFilterOwnership}>
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Scope" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Scopes</SelectItem>
-            <SelectItem value="platform">Platform</SelectItem>
-            <SelectItem value="company">Company</SelectItem>
-            <SelectItem value="group">Group</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Templates Grid */}
-      {templates === undefined ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Card key={i} className="h-48 animate-pulse bg-gray-100" />
-          ))}
-        </div>
-      ) : templates.length === 0 ? (
-        <div className="text-center py-12 bg-gray-50 rounded-lg">
-          <ClipboardCheck className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            No entry test templates yet
-          </h3>
-          <p className="text-gray-500 mb-4">
-            Create your first entry test template to assess student levels.
-          </p>
-          <Button onClick={() => setIsCreateDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create Template
-          </Button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {templates.map((template) => (
-            <TemplateCard
-              key={template._id}
-              template={template}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              onDuplicate={handleDuplicate}
-              onPreview={handlePreview}
-              onPublish={handlePublish}
-              onArchive={handleArchive}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Create Dialog */}
-      <CreateTemplateDialog
+      {/* Create dialog */}
+      <CreateTestDialog
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
       />

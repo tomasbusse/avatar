@@ -33,6 +33,7 @@ import type * as landing from "../landing.js";
 import type * as lessonEnrollments from "../lessonEnrollments.js";
 import type * as memories from "../memories.js";
 import type * as pdfWorksheets from "../pdfWorksheets.js";
+import type * as placementTests from "../placementTests.js";
 import type * as presentations from "../presentations.js";
 import type * as rbac from "../rbac.js";
 import type * as scrapingJobs from "../scrapingJobs.js";
@@ -82,6 +83,7 @@ declare const fullApi: ApiFromModules<{
   lessonEnrollments: typeof lessonEnrollments;
   memories: typeof memories;
   pdfWorksheets: typeof pdfWorksheets;
+  placementTests: typeof placementTests;
   presentations: typeof presentations;
   rbac: typeof rbac;
   scrapingJobs: typeof scrapingJobs;
