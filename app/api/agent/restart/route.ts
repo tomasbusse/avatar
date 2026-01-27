@@ -3,7 +3,13 @@ import { auth } from "@clerk/nextjs/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+function getConvexClient() {
+  const url = process.env.NEXT_PUBLIC_CONVEX_URL;
+  if (!url) {
+    throw new Error("NEXT_PUBLIC_CONVEX_URL is not set");
+  }
+  return new ConvexHttpClient(url);
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,6 +28,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Send command to Convex
+    const convex = getConvexClient();
     await convex.mutation(api.agentControl.sendCommand, {
       command: action as "start" | "stop" | "restart",
     });
@@ -42,6 +49,7 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   try {
     // Get status from Convex
+    const convex = getConvexClient();
     const status = await convex.query(api.agentControl.getStatus);
 
     return NextResponse.json({
