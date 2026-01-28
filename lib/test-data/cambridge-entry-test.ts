@@ -16,6 +16,16 @@ export const cambridgeEntryTest: PlacementTestData = {
   },
   totalQuestions: 60,
   levelDescriptions: {
+    A1: {
+      title: "Beginner (A1)",
+      description:
+        "You are at the beginning of your English learning journey. You can understand and use familiar everyday expressions and very basic phrases aimed at satisfying concrete needs.",
+      recommendations: [
+        "Start with foundational vocabulary and common phrases",
+        "Practice basic greetings and introductions",
+        "Focus on present simple tense with common verbs",
+      ],
+    },
     A2: {
       title: "Elementary (A2)",
       description:
@@ -34,16 +44,6 @@ export const cambridgeEntryTest: PlacementTestData = {
         "Develop business writing skills for emails",
         "Practice participating in meetings and discussions",
         "Work on present perfect and conditional structures",
-      ],
-    },
-    "B1+": {
-      title: "Strong Intermediate (B1+)",
-      description:
-        "You have solid B1 competence with emerging B2 abilities. You can handle more complex tense contrasts and understand abstract vocabulary in familiar contexts.",
-      recommendations: [
-        "Expand passive voice and indirect speech usage",
-        "Work on verb patterns and dependent prepositions",
-        "Practice longer reading comprehension texts",
       ],
     },
     B2: {
