@@ -47,6 +47,7 @@ export interface Question {
     explanation?: string;
   };
   metadata: {
+    band?: number; // 1-6 band grouping
     topic: string;
     difficulty: number; // 0-1
     tags: string[];
