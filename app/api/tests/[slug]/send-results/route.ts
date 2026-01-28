@@ -25,6 +25,11 @@ interface ResultsPayload {
 // Always CC this email for all tests
 const ALWAYS_CC_EMAIL = "james@englisch-lehrer.com";
 
+// Brand color
+const BRAND_GREEN = "#5D8C3D";
+const BRAND_GREEN_DARK = "#4A7030";
+const BRAND_GREEN_LIGHT = "#EBF2E7";
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
@@ -115,9 +120,9 @@ export async function POST(
     const breakdownHtml = Object.entries(levelBreakdown)
       .map(([lvl, data]) => `
         <tr>
-          <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">${lvl}</td>
-          <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0; text-align: center;">${data.correct}/${data.total}</td>
-          <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0; text-align: center;">${data.percentage}%</td>
+          <td style="padding: 8px 12px; border-bottom: 1px solid #e5e5e5;">${lvl}</td>
+          <td style="padding: 8px 12px; border-bottom: 1px solid #e5e5e5; text-align: center;">${data.correct}/${data.total}</td>
+          <td style="padding: 8px 12px; border-bottom: 1px solid #e5e5e5; text-align: center;">${data.percentage}%</td>
         </tr>
       `)
       .join("");
@@ -136,70 +141,76 @@ export async function POST(
       to: Array.from(hrEmails),
       subject: `${testTitle} Result: ${userName} - Level ${level}`,
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="background: linear-gradient(135deg, #1e40af, #3b82f6); padding: 20px; border-radius: 12px 12px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">${testTitle} Results</h1>
-          </div>
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #fafafa;">
+          <div style="background: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #e5e5e5;">
 
-          <div style="background: #ffffff; padding: 24px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 12px 12px;">
-            <h2 style="color: #333; margin-top: 0;">New Test Submission</h2>
-
-            <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-              <tr>
-                <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; color: #666; font-weight: bold; width: 140px;">Candidate Name:</td>
-                <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; font-weight: bold;">${userName}</td>
-              </tr>
-              <tr>
-                <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; color: #666; font-weight: bold;">Email:</td>
-                <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">
-                  <a href="mailto:${userEmail}" style="color: #1e40af;">${userEmail}</a>
-                </td>
-              </tr>
-              <tr>
-                <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; color: #666; font-weight: bold;">Company:</td>
-                <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${userCompany || "Not specified"}</td>
-              </tr>
-              <tr>
-                <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; color: #666; font-weight: bold;">Test Date:</td>
-                <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${formattedDate}</td>
-              </tr>
-              <tr>
-                <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; color: #666; font-weight: bold;">Time Taken:</td>
-                <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${totalTimeMinutes} minutes</td>
-              </tr>
-            </table>
-
-            <div style="background: linear-gradient(135deg, #1e40af, #1e3a8a); padding: 24px; border-radius: 12px; text-align: center; margin: 24px 0;">
-              <p style="color: rgba(255,255,255,0.8); margin: 0 0 8px 0; font-size: 14px;">CEFR Level Achieved</p>
-              <p style="color: white; font-size: 48px; font-weight: bold; margin: 0;">${level}</p>
-              <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 16px;">${levelInfo.title}</p>
+            <!-- Header -->
+            <div style="background: ${BRAND_GREEN}; padding: 24px; text-align: center;">
+              <h1 style="color: white; margin: 0; font-size: 20px; font-weight: 600;">${testTitle}</h1>
+              <p style="color: rgba(255,255,255,0.9); margin: 4px 0 0 0; font-size: 14px;">New Test Result</p>
             </div>
 
-            <div style="background: #f8fafc; padding: 16px; border-radius: 8px; margin: 20px 0;">
-              <h3 style="margin: 0 0 12px 0; color: #333;">Score Summary</h3>
-              <p style="margin: 0; font-size: 18px;">
-                <strong style="color: #1e40af;">${score}</strong> / ${totalPoints} correct
-                <span style="color: #666; margin-left: 8px;">(${percentage}%)</span>
-              </p>
-            </div>
+            <!-- Content -->
+            <div style="padding: 24px;">
 
-            <h3 style="color: #333; margin-top: 24px;">Level Breakdown</h3>
-            <table style="width: 100%; border-collapse: collapse; margin: 12px 0;">
-              <thead>
-                <tr style="background: #f0f0f0;">
-                  <th style="padding: 10px 12px; text-align: left; border-bottom: 2px solid #1e40af;">Level</th>
-                  <th style="padding: 10px 12px; text-align: center; border-bottom: 2px solid #1e40af;">Score</th>
-                  <th style="padding: 10px 12px; text-align: center; border-bottom: 2px solid #1e40af;">Percentage</th>
+              <!-- Candidate Info -->
+              <table style="width: 100%; margin-bottom: 24px;">
+                <tr>
+                  <td style="padding: 8px 0; color: #666; width: 120px;">Name:</td>
+                  <td style="padding: 8px 0; font-weight: 600;">${userName}</td>
                 </tr>
-              </thead>
-              <tbody>
-                ${breakdownHtml}
-              </tbody>
-            </table>
+                <tr>
+                  <td style="padding: 8px 0; color: #666;">Email:</td>
+                  <td style="padding: 8px 0;"><a href="mailto:${userEmail}" style="color: ${BRAND_GREEN};">${userEmail}</a></td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #666;">Company:</td>
+                  <td style="padding: 8px 0;">${userCompany || "Not specified"}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #666;">Date:</td>
+                  <td style="padding: 8px 0;">${formattedDate}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #666;">Duration:</td>
+                  <td style="padding: 8px 0;">${totalTimeMinutes} minutes</td>
+                </tr>
+              </table>
 
-            <p style="color: #666; font-size: 12px; margin-top: 24px; text-align: center;">
-              This is an automated notification from the ${testTitle} system.
-            </p>
+              <!-- Result Box -->
+              <div style="background: ${BRAND_GREEN_LIGHT}; border-radius: 8px; padding: 24px; text-align: center; margin-bottom: 24px;">
+                <p style="color: #666; margin: 0 0 8px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">CEFR Level</p>
+                <p style="color: ${BRAND_GREEN}; font-size: 48px; font-weight: bold; margin: 0; line-height: 1;">${level}</p>
+                <p style="color: ${BRAND_GREEN_DARK}; margin: 8px 0 0 0; font-size: 16px;">${levelInfo.title}</p>
+              </div>
+
+              <!-- Score -->
+              <div style="background: #f5f5f5; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+                <p style="margin: 0; font-size: 16px; color: #333;">
+                  <strong style="color: ${BRAND_GREEN};">${score}</strong> / ${totalPoints} correct
+                  <span style="color: #666; margin-left: 8px;">(${percentage}%)</span>
+                </p>
+              </div>
+
+              <!-- Breakdown -->
+              <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                  <tr style="background: #f5f5f5;">
+                    <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #333;">Level</th>
+                    <th style="padding: 10px 12px; text-align: center; font-weight: 600; color: #333;">Score</th>
+                    <th style="padding: 10px 12px; text-align: center; font-weight: 600; color: #333;">%</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${breakdownHtml}
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Footer -->
+            <div style="padding: 16px 24px; background: #f5f5f5; text-align: center;">
+              <p style="color: #999; font-size: 12px; margin: 0;">Automated notification from ${testTitle}</p>
+            </div>
           </div>
         </div>
       `,
@@ -213,81 +224,87 @@ export async function POST(
         to: [userEmail],
         subject: `Your ${testTitle} Results - Level ${level}`,
         html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="background: linear-gradient(135deg, #1e40af, #3b82f6); padding: 30px 20px; border-radius: 12px 12px 0 0; text-align: center;">
-              <h1 style="color: white; margin: 0; font-size: 28px;">Congratulations, ${userName.split(" ")[0]}!</h1>
-              <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0;">Your placement test has been completed</p>
-            </div>
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #fafafa;">
+            <div style="background: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #e5e5e5;">
 
-            <div style="background: #ffffff; padding: 24px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 12px 12px;">
-
-              <div style="background: linear-gradient(135deg, #1e40af, #1e3a8a); padding: 32px; border-radius: 12px; text-align: center; margin: 0 0 24px 0;">
-                <p style="color: rgba(255,255,255,0.8); margin: 0 0 8px 0; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Your English Level</p>
-                <p style="color: white; font-size: 64px; font-weight: bold; margin: 0; line-height: 1;">${level}</p>
-                <p style="color: rgba(255,255,255,0.95); margin: 12px 0 0 0; font-size: 20px;">${levelInfo.title}</p>
+              <!-- Header -->
+              <div style="background: ${BRAND_GREEN}; padding: 32px 24px; text-align: center;">
+                <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 600;">Congratulations, ${userName.split(" ")[0]}!</h1>
+                <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 14px;">Your placement test is complete</p>
               </div>
 
-              <p style="color: #666; line-height: 1.6; margin-bottom: 24px;">
-                ${levelInfo.description}
-              </p>
+              <!-- Content -->
+              <div style="padding: 24px;">
 
-              <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 24px 0;">
-                <h3 style="margin: 0 0 16px 0; color: #333; font-size: 16px;">Your Score Summary</h3>
-                <table style="width: 100%; text-align: center;">
-                  <tr>
-                    <td style="padding: 10px;">
-                      <p style="font-size: 32px; font-weight: bold; color: #1e40af; margin: 0;">${score}</p>
-                      <p style="color: #666; font-size: 12px; margin: 4px 0 0 0;">Correct</p>
-                    </td>
-                    <td style="padding: 10px;">
-                      <p style="font-size: 32px; font-weight: bold; color: #666; margin: 0;">${totalPoints}</p>
-                      <p style="color: #666; font-size: 12px; margin: 4px 0 0 0;">Total</p>
-                    </td>
-                    <td style="padding: 10px;">
-                      <p style="font-size: 32px; font-weight: bold; color: #f59e0b; margin: 0;">${percentage}%</p>
-                      <p style="color: #666; font-size: 12px; margin: 4px 0 0 0;">Score</p>
-                    </td>
-                  </tr>
+                <!-- Result Box -->
+                <div style="background: ${BRAND_GREEN_LIGHT}; border-radius: 8px; padding: 32px; text-align: center; margin-bottom: 24px;">
+                  <p style="color: #666; margin: 0 0 8px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">Your English Level</p>
+                  <p style="color: ${BRAND_GREEN}; font-size: 64px; font-weight: bold; margin: 0; line-height: 1;">${level}</p>
+                  <p style="color: ${BRAND_GREEN_DARK}; margin: 12px 0 0 0; font-size: 18px; font-weight: 600;">${levelInfo.title}</p>
+                </div>
+
+                <p style="color: #666; line-height: 1.6; margin-bottom: 24px; text-align: center;">
+                  ${levelInfo.description}
+                </p>
+
+                <!-- Score Summary -->
+                <div style="background: #f5f5f5; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+                  <table style="width: 100%; text-align: center;">
+                    <tr>
+                      <td style="padding: 8px;">
+                        <p style="font-size: 28px; font-weight: bold; color: ${BRAND_GREEN}; margin: 0;">${score}</p>
+                        <p style="color: #666; font-size: 12px; margin: 4px 0 0 0;">Correct</p>
+                      </td>
+                      <td style="padding: 8px;">
+                        <p style="font-size: 28px; font-weight: bold; color: #666; margin: 0;">${totalPoints}</p>
+                        <p style="color: #666; font-size: 12px; margin: 4px 0 0 0;">Total</p>
+                      </td>
+                      <td style="padding: 8px;">
+                        <p style="font-size: 28px; font-weight: bold; color: ${BRAND_GREEN_DARK}; margin: 0;">${percentage}%</p>
+                        <p style="color: #666; font-size: 12px; margin: 4px 0 0 0;">Score</p>
+                      </td>
+                    </tr>
+                  </table>
+                </div>
+
+                <!-- Breakdown -->
+                <p style="font-weight: 600; color: #333; margin-bottom: 12px;">Performance by Level</p>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+                  <thead>
+                    <tr style="background: #f5f5f5;">
+                      <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #333;">Level</th>
+                      <th style="padding: 10px 12px; text-align: center; font-weight: 600; color: #333;">Score</th>
+                      <th style="padding: 10px 12px; text-align: center; font-weight: 600; color: #333;">%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${breakdownHtml}
+                  </tbody>
                 </table>
+
+                <!-- Next Steps -->
+                <div style="background: ${BRAND_GREEN_LIGHT}; border-radius: 8px; padding: 20px; border-left: 4px solid ${BRAND_GREEN};">
+                  <p style="font-weight: 600; color: ${BRAND_GREEN_DARK}; margin: 0 0 8px 0;">What happens next?</p>
+                  <p style="color: #666; margin: 0; line-height: 1.6; font-size: 14px;">
+                    The assessment coordinator has been notified of your results. They will be in touch shortly to discuss your English training options.
+                  </p>
+                </div>
+
+                <!-- Date -->
+                <div style="text-align: center; margin-top: 24px; padding-top: 24px; border-top: 1px solid #e5e5e5;">
+                  <p style="color: #999; font-size: 13px; margin: 0;">
+                    Test completed on ${formattedDate}
+                  </p>
+                  <p style="color: #999; font-size: 12px; margin: 4px 0 0 0;">
+                    Duration: ${totalTimeMinutes} minutes
+                  </p>
+                </div>
               </div>
 
-              <h3 style="color: #333; margin-top: 24px;">Performance by Level</h3>
-              <table style="width: 100%; border-collapse: collapse; margin: 12px 0;">
-                <thead>
-                  <tr style="background: #f0f0f0;">
-                    <th style="padding: 10px 12px; text-align: left; border-bottom: 2px solid #1e40af;">Level</th>
-                    <th style="padding: 10px 12px; text-align: center; border-bottom: 2px solid #1e40af;">Score</th>
-                    <th style="padding: 10px 12px; text-align: center; border-bottom: 2px solid #1e40af;">Percentage</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${breakdownHtml}
-                </tbody>
-              </table>
-
-              <div style="background: #eff6ff; padding: 20px; border-radius: 8px; margin: 24px 0; border-left: 4px solid #1e40af;">
-                <h4 style="margin: 0 0 12px 0; color: #1e3a8a;">What happens next?</h4>
-                <p style="color: #666; margin: 0; line-height: 1.6;">
-                  The assessment coordinator has been notified of your results. They will be in touch shortly to discuss your English training options and next steps.
-                </p>
-              </div>
-
-              <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 24px 0;" />
-
-              <div style="text-align: center;">
-                <p style="color: #666; font-size: 14px; margin: 0;">
-                  Test completed on ${formattedDate}
-                </p>
-                <p style="color: #999; font-size: 12px; margin: 8px 0 0 0;">
-                  Duration: ${totalTimeMinutes} minutes
-                </p>
-              </div>
-
-              <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e0e0e0; text-align: center;">
-                <p style="color: #1e40af; font-weight: bold; margin: 0;">Cambridge English Assessment</p>
-                <p style="color: #999; font-size: 11px; margin: 8px 0 0 0;">
-                  This is an automated email from the ${testTitle} system.
-                </p>
+              <!-- Footer -->
+              <div style="padding: 16px 24px; background: #f5f5f5; text-align: center;">
+                <p style="color: ${BRAND_GREEN}; font-weight: 600; margin: 0 0 4px 0; font-size: 14px;">Cambridge English Assessment</p>
+                <p style="color: #999; font-size: 11px; margin: 0;">Automated email from ${testTitle}</p>
               </div>
             </div>
           </div>
