@@ -68,9 +68,9 @@ interface TestConfig {
 
 function LoadingScreen() {
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/20">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-white via-gray-50/30 to-stone-50/20">
       <div className="text-center">
-        <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
+        <Loader2 className="w-12 h-12 text-[#5D8C3D] animate-spin mx-auto mb-4" />
         <p className="text-gray-600">Loading test...</p>
       </div>
     </div>
@@ -144,28 +144,18 @@ function RegistrationScreen({
   };
 
   const testData = testConfig.config;
-  const bannerImage = testData.company?.logo || "/tests/cambridge/test-banner.webp";
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/20">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-white via-gray-50/30 to-stone-50/20">
       <div
         className={cn(
           "w-full max-w-lg transition-all duration-500",
           isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
         )}
       >
-        {/* Hero Image */}
-        <div className="mb-6 rounded-2xl overflow-hidden shadow-lg">
-          <img
-            src={bannerImage}
-            alt="Test banner"
-            className="w-full h-48 object-cover"
-          />
-        </div>
-
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-4 px-4 py-2 rounded-full bg-blue-100 text-blue-800">
+          <div className="inline-flex items-center gap-2 mb-4 px-4 py-2 rounded-full bg-[#5D8C3D]/10 text-[#5D8C3D]">
             <BookOpen className="w-4 h-4" />
             <span className="text-sm font-medium">Cambridge English Assessment</span>
           </div>
@@ -182,22 +172,22 @@ function RegistrationScreen({
           {/* Test Info */}
           <div className="grid grid-cols-3 gap-4 mb-8">
             <div className="text-center">
-              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-2">
-                <Target className="w-5 h-5 text-blue-700" />
+              <div className="w-10 h-10 rounded-full bg-[#5D8C3D]/10 flex items-center justify-center mx-auto mb-2">
+                <Target className="w-5 h-5 text-[#5D8C3D]" />
               </div>
               <p className="text-sm font-medium text-gray-900">{testData.totalQuestions}</p>
               <p className="text-xs text-gray-500">Questions</p>
             </div>
             <div className="text-center">
-              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-2">
-                <Clock className="w-5 h-5 text-amber-700" />
+              <div className="w-10 h-10 rounded-full bg-[#5D8C3D]/10 flex items-center justify-center mx-auto mb-2">
+                <Clock className="w-5 h-5 text-[#5D8C3D]" />
               </div>
               <p className="text-sm font-medium text-gray-900">~30 min</p>
               <p className="text-xs text-gray-500">Duration</p>
             </div>
             <div className="text-center">
-              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-2">
-                <BarChart3 className="w-5 h-5 text-green-700" />
+              <div className="w-10 h-10 rounded-full bg-[#5D8C3D]/10 flex items-center justify-center mx-auto mb-2">
+                <BarChart3 className="w-5 h-5 text-[#5D8C3D]" />
               </div>
               <p className="text-sm font-medium text-gray-900">A1-C1</p>
               <p className="text-xs text-gray-500">Levels</p>
@@ -283,7 +273,7 @@ function RegistrationScreen({
 
             <Button
               type="submit"
-              className="w-full bg-blue-700 hover:bg-blue-800 text-white py-6 text-lg"
+              className="w-full bg-[#5D8C3D] hover:bg-[#4A7030] text-white py-6 text-lg"
             >
               Start Test
               <ChevronRight className="w-5 h-5 ml-2" />
@@ -397,8 +387,8 @@ function QuestionSlide({
                   className={cn(
                     "w-full p-4 rounded-xl border-2 text-left transition-all",
                     readingAnswers[readingSubIndex] === idx
-                      ? "border-blue-600 bg-blue-50"
-                      : "border-gray-200 hover:border-blue-300 bg-white"
+                      ? "border-[#5D8C3D] bg-[#5D8C3D]/10"
+                      : "border-gray-200 hover:border-[#5D8C3D]/50 bg-white"
                   )}
                 >
                   <div className="flex items-center gap-3">
@@ -406,7 +396,7 @@ function QuestionSlide({
                       className={cn(
                         "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold",
                         readingAnswers[readingSubIndex] === idx
-                          ? "bg-blue-600 text-white"
+                          ? "bg-[#5D8C3D] text-white"
                           : "bg-gray-100 text-gray-600"
                       )}
                     >
@@ -432,7 +422,7 @@ function QuestionSlide({
                 <Button
                   onClick={onNext}
                   disabled={Object.keys(readingAnswers).length < content.questions.length}
-                  className="bg-blue-700 hover:bg-blue-800"
+                  className="bg-[#5D8C3D] hover:bg-[#4A7030]"
                 >
                   {isLast ? "Finish Test" : "Next Question"}
                   <ChevronRight className="w-4 h-4 ml-1" />
@@ -441,7 +431,7 @@ function QuestionSlide({
                 <Button
                   onClick={() => setReadingSubIndex((prev) => prev + 1)}
                   disabled={readingAnswers[readingSubIndex] === undefined}
-                  className="bg-blue-700 hover:bg-blue-800"
+                  className="bg-[#5D8C3D] hover:bg-[#4A7030]"
                 >
                   Next
                   <ChevronRight className="w-4 h-4 ml-1" />
@@ -461,9 +451,9 @@ function QuestionSlide({
             <p className="text-sm text-amber-800 mb-2">Original sentence:</p>
             <p className="text-lg font-medium text-gray-900">{content.originalSentence}</p>
           </div>
-          <div className="bg-blue-50 rounded-xl p-4 mb-6 text-center">
-            <p className="text-sm text-blue-600 mb-1">Key word (do not change):</p>
-            <p className="text-2xl font-bold text-blue-800">{content.keyWord}</p>
+          <div className="bg-[#5D8C3D]/10 rounded-xl p-4 mb-6 text-center">
+            <p className="text-sm text-[#5D8C3D] mb-1">Key word (do not change):</p>
+            <p className="text-2xl font-bold text-[#4A7030]">{content.keyWord}</p>
           </div>
           <p className="text-lg text-gray-700 mb-6">
             Complete the sentence so it has a similar meaning:
@@ -479,8 +469,8 @@ function QuestionSlide({
                 className={cn(
                   "w-full p-4 rounded-xl border-2 text-left transition-all",
                   answer === idx
-                    ? "border-blue-600 bg-blue-50"
-                    : "border-gray-200 hover:border-blue-300 bg-white"
+                    ? "border-[#5D8C3D] bg-[#5D8C3D]/10"
+                    : "border-gray-200 hover:border-[#5D8C3D]/50 bg-white"
                 )}
               >
                 <div className="flex items-center gap-3">
@@ -488,7 +478,7 @@ function QuestionSlide({
                     className={cn(
                       "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold",
                       answer === idx
-                        ? "bg-blue-600 text-white"
+                        ? "bg-[#5D8C3D] text-white"
                         : "bg-gray-100 text-gray-600"
                     )}
                   >
@@ -527,8 +517,8 @@ function QuestionSlide({
                 className={cn(
                   "w-full p-4 rounded-xl border-2 text-left transition-all",
                   answer === idx
-                    ? "border-blue-600 bg-blue-50"
-                    : "border-gray-200 hover:border-blue-300 bg-white"
+                    ? "border-[#5D8C3D] bg-[#5D8C3D]/10"
+                    : "border-gray-200 hover:border-[#5D8C3D]/50 bg-white"
                 )}
               >
                 <div className="flex items-center gap-3">
@@ -536,7 +526,7 @@ function QuestionSlide({
                     className={cn(
                       "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold",
                       answer === idx
-                        ? "bg-blue-600 text-white"
+                        ? "bg-[#5D8C3D] text-white"
                         : "bg-gray-100 text-gray-600"
                     )}
                   >
@@ -580,8 +570,8 @@ function QuestionSlide({
                 className={cn(
                   "w-full p-4 rounded-xl border-2 text-left transition-all",
                   answer === idx
-                    ? "border-blue-600 bg-blue-50"
-                    : "border-gray-200 hover:border-blue-300 bg-white"
+                    ? "border-[#5D8C3D] bg-[#5D8C3D]/10"
+                    : "border-gray-200 hover:border-[#5D8C3D]/50 bg-white"
                 )}
               >
                 <div className="flex items-center gap-3">
@@ -589,7 +579,7 @@ function QuestionSlide({
                     className={cn(
                       "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold",
                       answer === idx
-                        ? "bg-blue-600 text-white"
+                        ? "bg-[#5D8C3D] text-white"
                         : "bg-gray-100 text-gray-600"
                     )}
                   >
@@ -623,8 +613,8 @@ function QuestionSlide({
               className={cn(
                 "w-full p-4 rounded-xl border-2 text-left transition-all",
                 answer === idx
-                  ? "border-blue-600 bg-blue-50"
-                  : "border-gray-200 hover:border-blue-300 bg-white"
+                  ? "border-[#5D8C3D] bg-[#5D8C3D]/10"
+                  : "border-gray-200 hover:border-[#5D8C3D]/50 bg-white"
               )}
             >
               <div className="flex items-center gap-3">
@@ -632,7 +622,7 @@ function QuestionSlide({
                   className={cn(
                     "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold",
                     answer === idx
-                      ? "bg-blue-600 text-white"
+                      ? "bg-[#5D8C3D] text-white"
                       : "bg-gray-100 text-gray-600"
                   )}
                 >
@@ -655,17 +645,17 @@ function QuestionSlide({
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-white via-blue-50/20 to-indigo-50/10">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-white via-gray-50/20 to-stone-50/10">
       {/* Header */}
       <header className="flex-shrink-0 bg-white border-b shadow-sm">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <BookOpen className="w-6 h-6 text-blue-700" />
+              <BookOpen className="w-6 h-6 text-[#5D8C3D]" />
               <span className="font-semibold text-gray-900">{testTitle}</span>
             </div>
             <div className="flex items-center gap-4">
-              <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+              <span className="px-3 py-1 rounded-full text-xs font-medium bg-[#5D8C3D]/10 text-[#5D8C3D]">
                 {question.level}
               </span>
               <span className="text-sm text-gray-500">
@@ -707,7 +697,7 @@ function QuestionSlide({
             <Button
               onClick={onNext}
               disabled={!canProceed()}
-              className="bg-blue-700 hover:bg-blue-800"
+              className="bg-[#5D8C3D] hover:bg-[#4A7030]"
             >
               {isLast ? "Finish Test" : "Next"}
               <ChevronRight className="w-4 h-4 ml-1" />
@@ -731,7 +721,7 @@ function CalculatingScreen() {
   }, []);
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/20">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-white via-gray-50/30 to-stone-50/20">
       <div
         className={cn(
           "text-center transition-all duration-500",
@@ -739,7 +729,7 @@ function CalculatingScreen() {
         )}
       >
         <div className="relative w-24 h-24 mx-auto mb-6">
-          <Loader2 className="w-24 h-24 text-blue-600 animate-spin" />
+          <Loader2 className="w-24 h-24 text-[#5D8C3D] animate-spin" />
           <Sparkles className="absolute inset-0 m-auto w-10 h-10 text-amber-500" />
         </div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">
@@ -780,7 +770,7 @@ function ResultsScreen({
   }, []);
 
   return (
-    <div className="min-h-screen p-4 md:p-8 bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/20">
+    <div className="min-h-screen p-4 md:p-8 bg-gradient-to-br from-white via-gray-50/30 to-stone-50/20">
       <div className="max-w-3xl mx-auto">
         <div
           className={cn(
@@ -805,7 +795,7 @@ function ResultsScreen({
           {/* Main Result Card */}
           <div className="bg-white rounded-2xl shadow-xl p-8 mb-6">
             <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center w-32 h-32 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 text-white mb-4">
+              <div className="inline-flex items-center justify-center w-32 h-32 rounded-full bg-gradient-to-br from-[#5D8C3D] to-[#4A7030] text-white mb-4">
                 <div>
                   <p className="text-5xl font-bold">{results.level}</p>
                 </div>
@@ -821,7 +811,7 @@ function ResultsScreen({
             {/* Score Summary */}
             <div className="grid grid-cols-3 gap-4 mb-8">
               <div className="text-center p-4 bg-gray-50 rounded-xl">
-                <p className="text-3xl font-bold text-blue-700">{results.score}</p>
+                <p className="text-3xl font-bold text-[#5D8C3D]">{results.score}</p>
                 <p className="text-sm text-gray-500">Correct</p>
               </div>
               <div className="text-center p-4 bg-gray-50 rounded-xl">
@@ -861,14 +851,14 @@ function ResultsScreen({
             </div>
 
             {/* Recommendations */}
-            <div className="bg-blue-50 rounded-xl p-6">
-              <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+            <div className="bg-[#5D8C3D]/10 rounded-xl p-6">
+              <h3 className="font-semibold text-[#4A7030] mb-3 flex items-center gap-2">
                 <Sparkles className="w-5 h-5" />
                 Recommendations for You
               </h3>
               <ul className="space-y-2">
                 {levelDescription.recommendations.map((rec, idx) => (
-                  <li key={idx} className="flex items-start gap-2 text-blue-800">
+                  <li key={idx} className="flex items-start gap-2 text-[#5D8C3D]">
                     <Check className="w-5 h-5 mt-0.5 flex-shrink-0" />
                     <span>{rec}</span>
                   </li>
