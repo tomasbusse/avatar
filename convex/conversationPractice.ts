@@ -2,6 +2,12 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 
+// Helper to get current month in "YYYY-MM" format (UTC)
+function getCurrentMonth(): string {
+  const now = new Date();
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
 // Generate a random share token
 function generateShareToken(): string {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
@@ -716,6 +722,7 @@ export const createSession = mutation({
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
+    const isGuest = !identity;
 
     const practice = await ctx.db.get(args.practiceId);
     if (!practice) {
@@ -727,8 +734,32 @@ export const createSession = mutation({
       throw new Error("Authentication required");
     }
 
+    // Check usage limits
+    if (practice.usageLimits?.enabled) {
+      const limits = practice.usageLimits;
+      const currentMonth = getCurrentMonth();
+      const monthlyUsage = practice.monthlyUsage ?? [];
+      const currentMonthData = monthlyUsage.find((m) => m.month === currentMonth);
+
+      const totalMinutes = currentMonthData?.totalMinutes ?? 0;
+      const guestMinutes = currentMonthData?.guestMinutes ?? 0;
+
+      // Check guest-specific limit first if this is a guest session
+      if (isGuest && limits.guestMonthlyMinutesLimit) {
+        if (guestMinutes >= limits.guestMonthlyMinutesLimit && limits.limitBehavior === "block") {
+          throw new Error("Monthly usage limit reached for guest sessions");
+        }
+      }
+
+      // Check total limit
+      if (limits.monthlyMinutesLimit) {
+        if (totalMinutes >= limits.monthlyMinutesLimit && limits.limitBehavior === "block") {
+          throw new Error("Monthly usage limit reached");
+        }
+      }
+    }
+
     let studentId: Id<"students"> | undefined;
-    const isGuest = !identity;
 
     if (identity) {
       const user = await ctx.db

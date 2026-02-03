@@ -47,7 +47,12 @@ import {
   Zap,
   ChevronDown,
   ChevronUp,
+  Gauge,
+  Calculator,
+  AlertTriangle,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
 import Link from "next/link";
 
@@ -56,6 +61,73 @@ type ConversationStyle = "discussion" | "quiz" | "review" | "q_and_a" | "mixed";
 type AccessMode = "authenticated_only" | "public_link" | "both";
 type SearchDepth = "basic" | "advanced" | "detailed";
 type SearchTopic = "general" | "news" | "finance";
+type LimitBehavior = "block" | "warn" | "auto_end";
+
+type MonthlyUsageEntry = {
+  month: string;
+  totalMinutes: number;
+  authenticatedMinutes: number;
+  guestMinutes: number;
+  sessionCount: number;
+  updatedAt: number;
+};
+
+type UsageLimitsConfig = {
+  monthlyMinutesLimit?: number;
+  guestMonthlyMinutesLimit?: number;
+  limitBehavior?: LimitBehavior;
+  warningThresholdPercent?: number;
+  enabled?: boolean;
+};
+
+// Helper to get current month in "YYYY-MM" format (UTC)
+function getCurrentMonth(): string {
+  const now = new Date();
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+// Usage badge component for practice cards
+function UsageBadge({
+  monthlyUsage,
+  usageLimits,
+}: {
+  monthlyUsage?: MonthlyUsageEntry[];
+  usageLimits: UsageLimitsConfig;
+}) {
+  const currentMonth = getCurrentMonth();
+  const currentMonthData = monthlyUsage?.find((m) => m.month === currentMonth);
+  const totalMinutes = currentMonthData?.totalMinutes ?? 0;
+  const limit = usageLimits.monthlyMinutesLimit;
+
+  if (!limit) {
+    return (
+      <Badge variant="outline" className="text-xs">
+        <Gauge className="w-3 h-3 mr-1" />
+        {totalMinutes}m used
+      </Badge>
+    );
+  }
+
+  const percent = Math.round((totalMinutes / limit) * 100);
+  const isWarning = percent >= (usageLimits.warningThresholdPercent ?? 80);
+  const isLimitReached = totalMinutes >= limit;
+
+  return (
+    <Badge
+      variant="outline"
+      className={`text-xs ${
+        isLimitReached
+          ? "bg-red-100 text-red-700 border-red-200"
+          : isWarning
+            ? "bg-amber-100 text-amber-700 border-amber-200"
+            : "bg-green-100 text-green-700 border-green-200"
+      }`}
+    >
+      <Gauge className="w-3 h-3 mr-1" />
+      {totalMinutes}/{limit}m ({percent}%)
+    </Badge>
+  );
+}
 
 export default function AdminPracticePage() {
   const [isCreating, setIsCreating] = useState(false);
@@ -116,6 +188,13 @@ export default function AdminPracticePage() {
   // Knowledge base state (for knowledge_based mode)
   const [selectedKnowledgeBaseIds, setSelectedKnowledgeBaseIds] = useState<string[]>([]);
 
+  // Usage limits state
+  const [usageLimitsEnabled, setUsageLimitsEnabled] = useState(false);
+  const [monthlyMinutesLimit, setMonthlyMinutesLimit] = useState<number | undefined>(undefined);
+  const [guestMonthlyMinutesLimit, setGuestMonthlyMinutesLimit] = useState<number | undefined>(undefined);
+  const [limitBehavior, setLimitBehavior] = useState<LimitBehavior>("block");
+  const [warningThresholdPercent, setWarningThresholdPercent] = useState(80);
+
   // Queries
   const practices = useQuery(api.conversationPractice.list, {});
   const avatars = useQuery(api.avatars.listActiveAvatars);
@@ -128,6 +207,8 @@ export default function AdminPracticePage() {
   const regenerateToken = useMutation(api.conversationPractice.regenerateShareToken);
   const uploadTranscript = useMutation(api.conversationPractice.uploadTranscript);
   const storePrefetchedContent = useMutation(api.conversationPractice.storePrefetchedContent);
+  const updateUsageLimits = useMutation(api.practiceUsage.updateUsageLimits);
+  const recalculateUsage = useMutation(api.practiceUsage.recalculateMonthlyUsage);
 
   const resetForm = () => {
     setTitle("");
@@ -153,6 +234,12 @@ export default function AdminPracticePage() {
     setTranscriptFile(null);
     // Reset knowledge base
     setSelectedKnowledgeBaseIds([]);
+    // Reset usage limits
+    setUsageLimitsEnabled(false);
+    setMonthlyMinutesLimit(undefined);
+    setGuestMonthlyMinutesLimit(undefined);
+    setLimitBehavior("block");
+    setWarningThresholdPercent(80);
   };
 
   // Handle adding a domain to the list
@@ -201,6 +288,12 @@ export default function AdminPracticePage() {
     setTranscriptContent(practice.transcript?.content || "");
     // Knowledge bases
     setSelectedKnowledgeBaseIds(practice.knowledgeBaseIds || []);
+    // Usage limits
+    setUsageLimitsEnabled(practice.usageLimits?.enabled ?? false);
+    setMonthlyMinutesLimit(practice.usageLimits?.monthlyMinutesLimit);
+    setGuestMonthlyMinutesLimit(practice.usageLimits?.guestMonthlyMinutesLimit);
+    setLimitBehavior((practice.usageLimits?.limitBehavior || "block") as LimitBehavior);
+    setWarningThresholdPercent(practice.usageLimits?.warningThresholdPercent ?? 80);
 
     setIsDialogOpen(true);
   };
@@ -330,6 +423,19 @@ export default function AdminPracticePage() {
             welcomeNote: welcomeNote.trim() || undefined,
           },
         });
+
+        // Update usage limits separately
+        await updateUsageLimits({
+          practiceId: editingPracticeId,
+          usageLimits: {
+            enabled: usageLimitsEnabled,
+            monthlyMinutesLimit: monthlyMinutesLimit,
+            guestMonthlyMinutesLimit: guestMonthlyMinutesLimit,
+            limitBehavior: limitBehavior,
+            warningThresholdPercent: warningThresholdPercent,
+          },
+        });
+
         toast.success("Practice updated!");
       } else {
         // Create new practice
@@ -956,6 +1062,99 @@ export default function AdminPracticePage() {
                   )}
                 </div>
 
+                {/* Usage Limits Settings */}
+                <div className="border-t pt-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Gauge className="w-4 h-4 text-muted-foreground" />
+                      <h3 className="font-medium">Usage Limits</h3>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id="usageLimitsEnabled"
+                        checked={usageLimitsEnabled}
+                        onCheckedChange={setUsageLimitsEnabled}
+                      />
+                      <Label htmlFor="usageLimitsEnabled" className="text-sm font-normal">
+                        Enable
+                      </Label>
+                    </div>
+                  </div>
+
+                  {usageLimitsEnabled && (
+                    <div className="space-y-4 p-4 bg-orange-50/50 rounded-lg border border-orange-100">
+                      <p className="text-sm text-muted-foreground">
+                        Control monthly usage to manage costs. Limits reset on the 1st of each month (UTC).
+                      </p>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="monthlyMinutesLimit">Monthly Limit (minutes)</Label>
+                          <Input
+                            id="monthlyMinutesLimit"
+                            type="number"
+                            min={1}
+                            placeholder="Unlimited"
+                            value={monthlyMinutesLimit ?? ""}
+                            onChange={(e) => setMonthlyMinutesLimit(e.target.value ? parseInt(e.target.value) : undefined)}
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Total minutes for all users
+                          </p>
+                        </div>
+
+                        <div>
+                          <Label htmlFor="guestMonthlyMinutesLimit">Guest Limit (minutes)</Label>
+                          <Input
+                            id="guestMonthlyMinutesLimit"
+                            type="number"
+                            min={1}
+                            placeholder="Same as total"
+                            value={guestMonthlyMinutesLimit ?? ""}
+                            onChange={(e) => setGuestMonthlyMinutesLimit(e.target.value ? parseInt(e.target.value) : undefined)}
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Optional separate limit for guests
+                          </p>
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="limitBehavior">When Limit Reached</Label>
+                        <Select value={limitBehavior} onValueChange={(v) => setLimitBehavior(v as LimitBehavior)}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="block">Block new sessions</SelectItem>
+                            <SelectItem value="warn">Allow but show warning</SelectItem>
+                            <SelectItem value="auto_end">Auto-end at limit</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="warningThreshold" className="flex items-center justify-between">
+                          <span>Warning Threshold</span>
+                          <span className="text-muted-foreground font-normal">{warningThresholdPercent}%</span>
+                        </Label>
+                        <Slider
+                          id="warningThreshold"
+                          value={[warningThresholdPercent]}
+                          onValueChange={(v) => setWarningThresholdPercent(v[0])}
+                          min={50}
+                          max={95}
+                          step={5}
+                          className="mt-2"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Show warning when usage exceeds this threshold
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Actions */}
                 <div className="flex justify-end gap-2 pt-4 border-t">
                   <Button variant="outline" onClick={() => {
@@ -1032,6 +1231,12 @@ export default function AdminPracticePage() {
                             <BookOpen className="w-3 h-3 mr-1" />
                             {practice.knowledgeBaseIds.length} KB
                           </Badge>
+                        )}
+                        {practice.usageLimits?.enabled && (
+                          <UsageBadge
+                            monthlyUsage={practice.monthlyUsage}
+                            usageLimits={practice.usageLimits}
+                          />
                         )}
                       </div>
 

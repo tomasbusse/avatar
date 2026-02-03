@@ -34,6 +34,7 @@ import type * as lessonEnrollments from "../lessonEnrollments.js";
 import type * as memories from "../memories.js";
 import type * as pdfWorksheets from "../pdfWorksheets.js";
 import type * as placementTests from "../placementTests.js";
+import type * as practiceUsage from "../practiceUsage.js";
 import type * as presentations from "../presentations.js";
 import type * as rbac from "../rbac.js";
 import type * as scrapingJobs from "../scrapingJobs.js";
@@ -84,6 +85,7 @@ declare const fullApi: ApiFromModules<{
   memories: typeof memories;
   pdfWorksheets: typeof pdfWorksheets;
   placementTests: typeof placementTests;
+  practiceUsage: typeof practiceUsage;
   presentations: typeof presentations;
   rbac: typeof rbac;
   scrapingJobs: typeof scrapingJobs;

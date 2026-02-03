@@ -2450,6 +2450,37 @@ export default defineSchema({
       })
     ),
 
+    // Usage limits configuration
+    usageLimits: v.optional(
+      v.object({
+        monthlyMinutesLimit: v.optional(v.number()), // Monthly cap in minutes (null = unlimited)
+        guestMonthlyMinutesLimit: v.optional(v.number()), // Separate guest limit (null = use main limit)
+        limitBehavior: v.optional(
+          v.union(
+            v.literal("block"), // Prevent new sessions when limit reached
+            v.literal("warn"), // Allow but show warning
+            v.literal("auto_end") // Auto-end session at limit
+          )
+        ),
+        warningThresholdPercent: v.optional(v.number()), // e.g., 80 = warn at 80%
+        enabled: v.optional(v.boolean()),
+      })
+    ),
+
+    // Monthly usage rollups (updated when sessions end)
+    monthlyUsage: v.optional(
+      v.array(
+        v.object({
+          month: v.string(), // "2026-02" format
+          totalMinutes: v.number(),
+          authenticatedMinutes: v.number(),
+          guestMinutes: v.number(),
+          sessionCount: v.number(),
+          updatedAt: v.number(),
+        })
+      )
+    ),
+
     // Timestamps
     createdAt: v.number(),
     updatedAt: v.number(),

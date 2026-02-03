@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 export const createSession = mutation({
   args: {
@@ -179,6 +180,15 @@ export const endSessionByRoom = mutation({
         totalMinutesPracticed: student.totalMinutesPracticed + durationMinutes,
         lastLessonAt: now,
         updatedAt: now,
+      });
+    }
+
+    // Update monthly usage rollup for conversation practice sessions
+    if (session.conversationPracticeId && durationMinutes > 0) {
+      await ctx.scheduler.runAfter(0, internal.practiceUsage.updateMonthlyUsageRollup, {
+        practiceId: session.conversationPracticeId,
+        durationMinutes,
+        isGuest: session.isGuest ?? false,
       });
     }
 
