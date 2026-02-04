@@ -3844,6 +3844,11 @@ Example: "Perfect! You've got that. Let's see what's next. [NEXT]"
     # Pass student info for conversation practice sessions (guest name)
     # Returns tuple of (greeting, memory_ids_to_mark_as_followed_up)
     student_info_for_greeting = {"name": practice_student_name} if practice_student_name else None
+
+    # Debug: Log greeting config
+    logger.info(f"🎤 DEBUG - practice_greeting_config: {practice_greeting_config}")
+    logger.info(f"🎤 DEBUG - practice_student_name: {practice_student_name}")
+
     opening_greeting, memory_ids_to_followup = get_opening_greeting(
         avatar_config,
         student_info=student_info_for_greeting,
