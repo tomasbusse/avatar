@@ -252,6 +252,9 @@ export const getForAgent = query({
         behaviorConfig: practice.behaviorConfig,
         webSearchEnabled: practice.webSearchEnabled,
         webSearchConfig: practice.webSearchConfig,
+        greetingConfig: practice.greetingConfig,
+        contentUrls: practice.contentUrls,
+        prefetchedContent: practice.prefetchedContent,
       },
       avatar,
       knowledgeContent,
@@ -311,6 +314,16 @@ export const create = mutation({
     ),
     knowledgeBaseIds: v.optional(v.array(v.id("knowledgeBases"))),
     knowledgeContentIds: v.optional(v.array(v.id("knowledgeContent"))),
+    // Avatar greeting configuration
+    greetingConfig: v.optional(
+      v.object({
+        openingGreeting: v.optional(v.string()),
+        greetingVariations: v.optional(v.array(v.string())),
+        personalizeWithName: v.optional(v.boolean()),
+      })
+    ),
+    // Specific URLs to extract content from
+    contentUrls: v.optional(v.array(v.string())),
     // Entry flow config
     entryFlowConfig: v.optional(
       v.object({
@@ -411,6 +424,8 @@ export const create = mutation({
       webSearchConfig: args.webSearchConfig,
       knowledgeBaseIds: args.knowledgeBaseIds,
       knowledgeContentIds: args.knowledgeContentIds,
+      greetingConfig: args.greetingConfig,
+      contentUrls: args.contentUrls,
       entryFlowConfig: args.entryFlowConfig,
       accessMode: args.accessMode ?? "both",
       guestSettings: args.guestSettings,
@@ -552,6 +567,14 @@ export const update = mutation({
         refreshIntervalMinutes: v.optional(v.number()),
       })
     ),
+    greetingConfig: v.optional(
+      v.object({
+        openingGreeting: v.optional(v.string()),
+        greetingVariations: v.optional(v.array(v.string())),
+        personalizeWithName: v.optional(v.boolean()),
+      })
+    ),
+    contentUrls: v.optional(v.array(v.string())),
     entryFlowConfig: v.optional(v.any()),
     accessMode: v.optional(
       v.union(
@@ -594,6 +617,10 @@ export const update = mutation({
       updates.webSearchEnabled = args.webSearchEnabled;
     if (args.webSearchConfig !== undefined)
       updates.webSearchConfig = args.webSearchConfig;
+    if (args.greetingConfig !== undefined)
+      updates.greetingConfig = args.greetingConfig;
+    if (args.contentUrls !== undefined)
+      updates.contentUrls = args.contentUrls;
     if (args.entryFlowConfig !== undefined)
       updates.entryFlowConfig = args.entryFlowConfig;
     if (args.accessMode !== undefined) updates.accessMode = args.accessMode;

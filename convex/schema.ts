@@ -2308,6 +2308,21 @@ export default defineSchema({
       targetDurationMinutes: v.optional(v.number()),
     }),
 
+    // Avatar greeting configuration - what the avatar says when conversation starts
+    greetingConfig: v.optional(
+      v.object({
+        // The greeting the avatar will speak when the conversation starts
+        openingGreeting: v.optional(v.string()),
+        // Optional variations for variety (one is randomly chosen if multiple provided)
+        greetingVariations: v.optional(v.array(v.string())),
+        // Whether to personalize greeting with guest name (uses {name} placeholder)
+        personalizeWithName: v.optional(v.boolean()),
+      })
+    ),
+
+    // Specific URLs to extract content from (instead of searching)
+    contentUrls: v.optional(v.array(v.string())),
+
     // Web search capability (optional) - uses Tavily
     webSearchEnabled: v.optional(v.boolean()),
     webSearchConfig: v.optional(

@@ -1862,7 +1862,7 @@ You can reference this information naturally in conversation when relevant to th
         return ""
 
 
-async def fetch_conversation_practice_context(session_data: Optional[Dict[str, Any]], convex_url: str) -> tuple[str, Optional[str]]:
+async def fetch_conversation_practice_context(session_data: Optional[Dict[str, Any]], convex_url: str) -> tuple[str, Optional[str], Optional[Dict[str, Any]]]:
     """
     Fetch conversation practice materials (transcript, knowledge content) for the prompt.
 
@@ -1871,16 +1871,16 @@ async def fetch_conversation_practice_context(session_data: Optional[Dict[str, A
         convex_url: Convex deployment URL
 
     Returns:
-        Tuple of (prompt_context, student_name) - context string for LLM prompt and guest name if available
+        Tuple of (prompt_context, student_name, greeting_config) - context string for LLM prompt, guest name, and greeting config
     """
     if not session_data:
-        return "", None
+        return "", None, None
 
     session_type = session_data.get("type")
     practice_id = session_data.get("conversationPracticeId")
 
     if session_type != "conversation_practice" or not practice_id:
-        return "", None
+        return "", None, None
 
     try:
         convex = ConvexClient(convex_url)
@@ -1895,7 +1895,7 @@ async def fetch_conversation_practice_context(session_data: Optional[Dict[str, A
 
         if not practice_data:
             logger.info("📝 No practice data found")
-            return "", None
+            return "", None, None
 
         practice = practice_data.get("practice", {})
         session_info = practice_data.get("session", {})
@@ -1905,6 +1905,9 @@ async def fetch_conversation_practice_context(session_data: Optional[Dict[str, A
         student_name = session_info.get("guestName")
         mode = practice.get("mode", "free_conversation")
         subject = practice.get("subject", "")
+
+        # Get greeting config from conversation practice
+        greeting_config = practice.get("greetingConfig")
 
         prompt_parts = []
 
@@ -1982,32 +1985,58 @@ Use these materials to guide the conversation. Help the student understand and d
 
         if len(prompt_parts) > 1:  # More than just the header
             combined_context = "\n".join(prompt_parts)
-            logger.info(f"📝 Added conversation practice context ({len(combined_context)} chars, mode: {mode}, student: {student_name})")
-            return combined_context, student_name
+            logger.info(f"📝 Added conversation practice context ({len(combined_context)} chars, mode: {mode}, student: {student_name}, greeting: {bool(greeting_config)})")
+            return combined_context, student_name, greeting_config
         else:
-            return "", student_name
+            return "", student_name, greeting_config
 
     except Exception as e:
         logger.warning(f"⚠️ Failed to fetch conversation practice context: {e}")
-        return "", None
+        return "", None, None
 
 
 def get_opening_greeting(
     avatar_config: Dict[str, Any],
     student_info: Optional[Dict[str, Any]] = None,
-    memory_context: Optional[Dict[str, Any]] = None
+    memory_context: Optional[Dict[str, Any]] = None,
+    conversation_practice_greeting: Optional[Dict[str, Any]] = None
 ) -> tuple[Optional[str], list[str]]:
     """
-    Build the avatar's opening greeting based on sessionStartConfig.
+    Build the avatar's opening greeting based on sessionStartConfig or conversation practice greeting.
 
     Uses memory context to personalize greetings for returning students.
     Checks for past-due events (like completed holidays) to ask about.
+    For conversation practice sessions, uses the custom greeting config if provided.
 
     Returns:
         tuple of (greeting_text, list of memory IDs to mark as followed up)
     """
-    session_config = avatar_config.get("sessionStartConfig", {})
     memory_ids_to_followup = []
+
+    # Check for conversation practice greeting first (takes priority)
+    if conversation_practice_greeting:
+        greeting = conversation_practice_greeting.get("openingGreeting")
+        variations = conversation_practice_greeting.get("greetingVariations", [])
+        personalize = conversation_practice_greeting.get("personalizeWithName", True)
+
+        # Choose from variations if no main greeting but variations exist
+        if not greeting and variations:
+            greeting = random.choice(variations)
+
+        if greeting:
+            # Replace {name} placeholder with student name if personalization is enabled
+            if personalize and student_info:
+                student_name = student_info.get("name", student_info.get("firstName", ""))
+                if student_name:
+                    greeting = greeting.replace("{name}", student_name)
+                else:
+                    # Remove placeholder if no name available
+                    greeting = greeting.replace("{name}", "").replace("  ", " ").strip()
+
+            logger.info(f"🎤 Using conversation practice greeting: {greeting[:50]}...")
+            return greeting, []
+
+    session_config = avatar_config.get("sessionStartConfig", {})
 
     # Check if avatar should speak first
     behavior = session_config.get("behavior", "speak_first")
@@ -3516,9 +3545,9 @@ The game will appear on the student's screen. Encourage them to try it and offer
             logger.info(f"📚 Added material context to prompt ({slide_count} slides, game: {'yes' if game else 'no'})")
 
     # ==========================================================================
-    # CONVERSATION PRACTICE CONTEXT - Transcript, KB content, student name
+    # CONVERSATION PRACTICE CONTEXT - Transcript, KB content, student name, greeting
     # ==========================================================================
-    practice_context, practice_student_name = await fetch_conversation_practice_context(session_data, config.convex_url)
+    practice_context, practice_student_name, practice_greeting_config = await fetch_conversation_practice_context(session_data, config.convex_url)
     if practice_context:
         final_prompt = final_prompt + practice_context
         logger.info(f"📝 Added conversation practice context to prompt")
@@ -3818,7 +3847,8 @@ Example: "Perfect! You've got that. Let's see what's next. [NEXT]"
     opening_greeting, memory_ids_to_followup = get_opening_greeting(
         avatar_config,
         student_info=student_info_for_greeting,
-        memory_context=student_memory_context
+        memory_context=student_memory_context,
+        conversation_practice_greeting=practice_greeting_config
     )
     logger.info(f"🎤 Opening greeting: {opening_greeting[:80] if opening_greeting else 'None'}...")
     if memory_ids_to_followup:

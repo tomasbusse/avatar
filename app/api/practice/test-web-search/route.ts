@@ -287,10 +287,80 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { searchConfig, subject } = body as {
+    const { searchConfig, subject, contentUrls } = body as {
       searchConfig?: SearchConfig;
       subject?: string;
+      contentUrls?: string[];
     };
+
+    // If specific URLs are provided, use Tavily Extract API to get their content
+    if (contentUrls && contentUrls.length > 0) {
+      console.log(`[Tavily Extract] Extracting content from ${contentUrls.length} URLs`);
+
+      const extractResponse = await fetch("https://api.tavily.com/extract", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          api_key: TAVILY_API_KEY,
+          urls: contentUrls,
+        }),
+      });
+
+      if (!extractResponse.ok) {
+        const error = await extractResponse.text();
+        console.error("Tavily Extract API error:", error);
+        return NextResponse.json(
+          { error: `Tavily Extract API error: ${extractResponse.status}` },
+          { status: extractResponse.status }
+        );
+      }
+
+      const extractData = await extractResponse.json();
+      console.log(`[Tavily Extract] Got ${extractData.results?.length || 0} results`);
+
+      // Process extracted content
+      const processedResults = (extractData.results || []).map((r: { url: string; raw_content?: string }) => {
+        const cleanedContent = r.raw_content ? cleanArticleContent(r.raw_content) : "";
+        // Extract title from URL or content
+        const urlParts = new URL(r.url);
+        const pathTitle = urlParts.pathname.split("/").filter(Boolean).pop()?.replace(/-/g, " ") || "";
+
+        return {
+          title: pathTitle.charAt(0).toUpperCase() + pathTitle.slice(1) || "Content from " + urlParts.hostname,
+          url: r.url,
+          content: cleanedContent.slice(0, 500) + (cleanedContent.length > 500 ? "..." : ""),
+          rawContent: cleanedContent,
+        };
+      });
+
+      // Rewrite with LLM if we have content
+      let llmRewrittenContent: string | undefined;
+      if (processedResults.length > 0) {
+        const articlesToRewrite = processedResults.map((r: { title: string; rawContent?: string; content: string; url: string }) => ({
+          title: r.title,
+          content: r.rawContent || r.content,
+          url: r.url,
+        }));
+        llmRewrittenContent = await rewriteWithLLM(articlesToRewrite, subject || "extracted content");
+      }
+
+      const webSearchResults = {
+        fetchedAt: Date.now(),
+        query: `Extracted from ${contentUrls.length} URL(s)`,
+        searchDepth: "detailed",
+        llmRewrittenContent,
+        results: processedResults,
+      };
+
+      console.log(`[Tavily Extract] Final: ${webSearchResults.results.length} results extracted`);
+
+      return NextResponse.json({
+        success: true,
+        webSearchResults,
+      });
+    }
 
     // Build query based on subject and topic
     let query = "latest news today";

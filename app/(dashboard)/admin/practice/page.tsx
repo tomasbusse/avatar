@@ -134,6 +134,7 @@ export default function AdminPracticePage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPracticeId, setEditingPracticeId] = useState<Id<"conversationPractice"> | null>(null);
   const [isTestingWebSearch, setIsTestingWebSearch] = useState<string | null>(null);
+  const [isExtractingUrls, setIsExtractingUrls] = useState<string | null>(null);
 
   // Web search preview state
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
@@ -171,6 +172,14 @@ export default function AdminPracticePage() {
   const [collectName, setCollectName] = useState(true);
   const [collectEmail, setCollectEmail] = useState(false);
   const [welcomeNote, setWelcomeNote] = useState("");
+
+  // Avatar greeting state (what the avatar says first)
+  const [openingGreeting, setOpeningGreeting] = useState("");
+  const [personalizeGreeting, setPersonalizeGreeting] = useState(true);
+
+  // Content URLs state (specific URLs to extract content from)
+  const [contentUrls, setContentUrls] = useState<string[]>([]);
+  const [newContentUrl, setNewContentUrl] = useState("");
 
   // Web search state
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
@@ -222,6 +231,12 @@ export default function AdminPracticePage() {
     setCollectName(true);
     setCollectEmail(false);
     setWelcomeNote("");
+    // Reset greeting
+    setOpeningGreeting("");
+    setPersonalizeGreeting(true);
+    // Reset content URLs
+    setContentUrls([]);
+    setNewContentUrl("");
     // Reset web search
     setWebSearchEnabled(false);
     setSearchDepth("basic");
@@ -278,6 +293,11 @@ export default function AdminPracticePage() {
     setCollectName(practice.guestSettings?.collectName ?? true);
     setCollectEmail(practice.guestSettings?.collectEmail ?? false);
     setWelcomeNote(practice.guestSettings?.welcomeNote || "");
+    // Avatar greeting
+    setOpeningGreeting(practice.greetingConfig?.openingGreeting || "");
+    setPersonalizeGreeting(practice.greetingConfig?.personalizeWithName ?? true);
+    // Content URLs
+    setContentUrls(practice.contentUrls || []);
     // Web search
     setWebSearchEnabled(practice.webSearchEnabled || false);
     setSearchDepth((practice.webSearchConfig?.searchDepth || "basic") as SearchDepth);
@@ -370,6 +390,58 @@ export default function AdminPracticePage() {
     }
   };
 
+  // Extract content from specific URLs
+  const extractContentFromUrls = async (
+    practiceId: Id<"conversationPractice">,
+    practiceTitle: string,
+    urls: string[],
+    subject?: string
+  ) => {
+    if (urls.length === 0) {
+      toast.error("No URLs to extract content from");
+      return;
+    }
+
+    setIsExtractingUrls(practiceId);
+    try {
+      const response = await fetch("/api/practice/test-web-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contentUrls: urls,
+          subject,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to extract content");
+      }
+
+      if (data.webSearchResults && data.webSearchResults.results.length > 0) {
+        // Store results in practice record
+        await storePrefetchedContent({
+          practiceId,
+          prefetchedContent: data.webSearchResults,
+        });
+
+        // Update preview dialog
+        setPreviewResults(data.webSearchResults);
+        setPreviewPracticeTitle(practiceTitle);
+        setPreviewPracticeId(practiceId);
+        setPreviewDialogOpen(true);
+        toast.success(`Extracted content from ${data.webSearchResults.results.length} URL(s)`);
+      } else {
+        toast.warning("No content could be extracted from the URLs");
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to extract content");
+    } finally {
+      setIsExtractingUrls(null);
+    }
+  };
+
   // Handle save (create or update)
   const handleSave = async () => {
     if (!title.trim()) {
@@ -416,6 +488,13 @@ export default function AdminPracticePage() {
                 includeDomains: includeDomains.length > 0 ? includeDomains : undefined,
               }
             : undefined,
+          greetingConfig: openingGreeting.trim()
+            ? {
+                openingGreeting: openingGreeting.trim(),
+                personalizeWithName: personalizeGreeting,
+              }
+            : undefined,
+          contentUrls: contentUrls.length > 0 ? contentUrls : undefined,
           accessMode,
           guestSettings: {
             collectName,
@@ -520,6 +599,13 @@ export default function AdminPracticePage() {
               includeDomains: includeDomains.length > 0 ? includeDomains : undefined,
             }
           : undefined,
+        greetingConfig: openingGreeting.trim()
+          ? {
+              openingGreeting: openingGreeting.trim(),
+              personalizeWithName: personalizeGreeting,
+            }
+          : undefined,
+        contentUrls: contentUrls.length > 0 ? contentUrls : undefined,
         // Include knowledge base IDs for knowledge_based mode
         knowledgeBaseIds: mode === "knowledge_based" && selectedKnowledgeBaseIds.length > 0
           ? selectedKnowledgeBaseIds.map((id) => id as Id<"knowledgeBases">)
@@ -878,6 +964,96 @@ export default function AdminPracticePage() {
                       value={targetDuration}
                       onChange={(e) => setTargetDuration(parseInt(e.target.value) || 15)}
                     />
+                  </div>
+                </div>
+
+                {/* Avatar Greeting */}
+                <div className="border-t pt-4 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4 text-muted-foreground" />
+                    <h3 className="font-medium">Avatar Greeting</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    What should the avatar say when starting the conversation? Use {"{name}"} to include the guest&apos;s name.
+                  </p>
+                  <div className="space-y-3">
+                    <div>
+                      <Label htmlFor="openingGreeting">Opening Greeting</Label>
+                      <Textarea
+                        id="openingGreeting"
+                        placeholder="Hi {name}! I'm Emma, your English conversation partner. What would you like to talk about today?"
+                        value={openingGreeting}
+                        onChange={(e) => setOpeningGreeting(e.target.value)}
+                        rows={3}
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="personalizeGreeting"
+                        checked={personalizeGreeting}
+                        onCheckedChange={(c) => setPersonalizeGreeting(c === true)}
+                      />
+                      <Label htmlFor="personalizeGreeting" className="text-sm font-normal">
+                        Replace {"{name}"} with guest name (if collected)
+                      </Label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Content URLs (specific pages to extract) */}
+                <div className="border-t pt-4 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <LinkIcon className="w-4 h-4 text-muted-foreground" />
+                    <h3 className="font-medium">Content URLs</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Add specific URLs to extract content from. The avatar will use this content during the conversation.
+                  </p>
+                  <div className="space-y-3">
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="https://example.com/article"
+                        value={newContentUrl}
+                        onChange={(e) => setNewContentUrl(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && newContentUrl.trim()) {
+                            e.preventDefault();
+                            if (!contentUrls.includes(newContentUrl.trim())) {
+                              setContentUrls([...contentUrls, newContentUrl.trim()]);
+                            }
+                            setNewContentUrl("");
+                          }
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          if (newContentUrl.trim() && !contentUrls.includes(newContentUrl.trim())) {
+                            setContentUrls([...contentUrls, newContentUrl.trim()]);
+                            setNewContentUrl("");
+                          }
+                        }}
+                      >
+                        Add
+                      </Button>
+                    </div>
+                    {contentUrls.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {contentUrls.map((url) => (
+                          <Badge key={url} variant="secondary" className="gap-1">
+                            <span className="max-w-[200px] truncate">{url}</span>
+                            <button
+                              type="button"
+                              onClick={() => setContentUrls(contentUrls.filter((u) => u !== url))}
+                              className="ml-1 hover:text-destructive"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1327,6 +1503,28 @@ export default function AdminPracticePage() {
                             <Loader2 className="w-4 h-4 animate-spin" />
                           ) : (
                             <Search className="w-4 h-4" />
+                          )}
+                        </Button>
+                      )}
+                      {/* Extract Content from URLs Button */}
+                      {practice.contentUrls && practice.contentUrls.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-green-600 hover:text-green-700"
+                          onClick={() => extractContentFromUrls(
+                            practice._id,
+                            practice.title,
+                            practice.contentUrls || [],
+                            practice.subject
+                          )}
+                          disabled={isExtractingUrls === practice._id}
+                          title={`Extract content from ${practice.contentUrls.length} URL(s)`}
+                        >
+                          {isExtractingUrls === practice._id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <LinkIcon className="w-4 h-4" />
                           )}
                         </Button>
                       )}
