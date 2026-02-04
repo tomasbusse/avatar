@@ -222,7 +222,6 @@ export default function AdminPracticePage() {
   const [isUploadingTranscript, setIsUploadingTranscript] = useState(false);
 
   // Audio transcription state
-  const [transcriptInputMode, setTranscriptInputMode] = useState<"paste" | "audio">("paste");
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcriptionResult, setTranscriptionResult] = useState<{
@@ -295,7 +294,6 @@ export default function AdminPracticePage() {
     setTranscriptContent("");
     setTranscriptFile(null);
     // Reset audio transcription
-    setTranscriptInputMode("paste");
     setAudioFile(null);
     setIsTranscribing(false);
     setTranscriptionResult(null);
@@ -362,23 +360,18 @@ export default function AdminPracticePage() {
     setMaxResults(practice.webSearchConfig?.maxResults || 5);
     // Transcript
     setTranscriptContent(practice.transcript?.content || "");
-    // Set transcript input mode based on source type
-    if (practice.transcript?.sourceType === "audio_transcription") {
-      setTranscriptInputMode("audio");
-      // Set transcription result for display
-      if (practice.transcript.sourceMetadata) {
-        setTranscriptionResult({
-          transcript: practice.transcript.content,
-          confidence: practice.transcript.sourceMetadata.transcriptionConfidence || 0,
-          duration: practice.transcript.sourceMetadata.duration || "0:00",
-          durationSeconds: 0,
-          detectedLanguage: "unknown",
-          wordCount: practice.transcript.content.split(/\s+/).filter(Boolean).length,
-        });
-        setAudioStorageId(practice.transcript.sourceMetadata.audioStorageId || null);
-      }
+    // Load audio transcription data if available
+    if (practice.transcript?.sourceType === "audio_transcription" && practice.transcript.sourceMetadata) {
+      setTranscriptionResult({
+        transcript: practice.transcript.content,
+        confidence: practice.transcript.sourceMetadata.transcriptionConfidence || 0,
+        duration: practice.transcript.sourceMetadata.duration || "0:00",
+        durationSeconds: 0,
+        detectedLanguage: "unknown",
+        wordCount: practice.transcript.content.split(/\s+/).filter(Boolean).length,
+      });
+      setAudioStorageId(practice.transcript.sourceMetadata.audioStorageId || null);
     } else {
-      setTranscriptInputMode("paste");
       setTranscriptionResult(null);
       setAudioStorageId(null);
     }
@@ -763,33 +756,32 @@ export default function AdminPracticePage() {
 
       // Upload transcript if in transcript_based mode
       if (mode === "transcript_based" && transcriptContent.trim()) {
-        if (transcriptInputMode === "audio" && transcriptionResult) {
-          // Audio transcription - use the specialized mutation
-          await uploadAudioTranscript({
-            practiceId: result.practiceId,
-            content: transcriptContent.trim(),
-            originalFileName: audioFile?.name || "audio_recording",
-            lessonDate: useLessonDate && lessonDate ? lessonDate : undefined,
-            transcriptionConfidence: transcriptionResult.confidence,
-            audioStorageId: audioStorageId as Id<"_storage"> | undefined,
-            duration: transcriptionResult.duration,
-          });
-        } else {
-          // Text/file input - use existing mutation
-          await uploadTranscript({
-            practiceId: result.practiceId,
-            content: transcriptContent.trim(),
-            sourceType: transcriptFile ? "file_upload" : "paste",
-            sourceMetadata: transcriptFile
-              ? {
-                  originalFileName: transcriptFile.name,
-                  ...(useLessonDate && lessonDate ? { lessonDate } : {}),
-                }
-              : useLessonDate && lessonDate
-                ? { lessonDate }
-                : undefined,
-          });
-        }
+        await uploadTranscript({
+          practiceId: result.practiceId,
+          content: transcriptContent.trim(),
+          sourceType: transcriptFile ? "file_upload" : "paste",
+          sourceMetadata: transcriptFile
+            ? {
+                originalFileName: transcriptFile.name,
+                ...(useLessonDate && lessonDate ? { lessonDate } : {}),
+              }
+            : useLessonDate && lessonDate
+              ? { lessonDate }
+              : undefined,
+        });
+      }
+
+      // Upload audio transcription if available (works with any mode)
+      if (transcriptionResult) {
+        await uploadAudioTranscript({
+          practiceId: result.practiceId,
+          content: transcriptionResult.transcript,
+          originalFileName: audioFile?.name || "audio_recording",
+          lessonDate: useLessonDate && lessonDate ? lessonDate : undefined,
+          transcriptionConfidence: transcriptionResult.confidence,
+          audioStorageId: audioStorageId as Id<"_storage"> | undefined,
+          duration: transcriptionResult.duration,
+        });
       }
 
       toast.success("Practice created!", {
@@ -974,235 +966,62 @@ export default function AdminPracticePage() {
 
                   {/* Transcript Input (for transcript_based mode) */}
                   {mode === "transcript_based" && (
-                    <div className="space-y-4 p-4 bg-amber-50/50 rounded-lg border border-amber-200">
+                    <div className="space-y-3 p-4 bg-amber-50/50 rounded-lg border border-amber-200">
                       <div className="flex items-center gap-2">
                         <FileText className="w-4 h-4 text-amber-600" />
                         <p className="text-sm font-medium text-amber-800">Transcript Content</p>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        Enter text, upload a text file, or transcribe an audio recording for the avatar to discuss.
+                        Enter or upload a transcript for the avatar to discuss with the student.
                       </p>
 
-                      {/* Input Mode Toggle */}
-                      <div className="flex items-center gap-4 p-2 bg-white rounded-md border">
-                        <label className="flex items-center gap-2 cursor-pointer">
+                      {/* File Upload */}
+                      <div className="flex items-center gap-2">
+                        <label htmlFor="transcript-file" className="cursor-pointer">
+                          <div className="flex items-center gap-2 px-3 py-2 bg-white border rounded-md hover:bg-gray-50 transition-colors">
+                            <Upload className="w-4 h-4" />
+                            <span className="text-sm">
+                              {transcriptFile ? transcriptFile.name : "Upload file"}
+                            </span>
+                          </div>
                           <input
-                            type="radio"
-                            name="transcriptInputMode"
-                            value="paste"
-                            checked={transcriptInputMode === "paste"}
-                            onChange={() => setTranscriptInputMode("paste")}
-                            className="w-4 h-4 text-amber-600"
+                            id="transcript-file"
+                            type="file"
+                            accept=".txt,.md,text/plain,text/markdown"
+                            onChange={handleTranscriptFileChange}
+                            className="hidden"
                           />
-                          <FileText className="w-4 h-4 text-muted-foreground" />
-                          <span className="text-sm">Paste / Upload Text</span>
                         </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="transcriptInputMode"
-                            value="audio"
-                            checked={transcriptInputMode === "audio"}
-                            onChange={() => setTranscriptInputMode("audio")}
-                            className="w-4 h-4 text-amber-600"
-                          />
-                          <Mic className="w-4 h-4 text-muted-foreground" />
-                          <span className="text-sm">Audio File</span>
-                        </label>
-                      </div>
-
-                      {/* Text/File Input Mode */}
-                      {transcriptInputMode === "paste" && (
-                        <div className="space-y-3">
-                          {/* File Upload */}
-                          <div className="flex items-center gap-2">
-                            <label htmlFor="transcript-file" className="cursor-pointer">
-                              <div className="flex items-center gap-2 px-3 py-2 bg-white border rounded-md hover:bg-gray-50 transition-colors">
-                                <Upload className="w-4 h-4" />
-                                <span className="text-sm">
-                                  {transcriptFile ? transcriptFile.name : "Upload text file"}
-                                </span>
-                              </div>
-                              <input
-                                id="transcript-file"
-                                type="file"
-                                accept=".txt,.md,text/plain,text/markdown"
-                                onChange={handleTranscriptFileChange}
-                                className="hidden"
-                              />
-                            </label>
-                            {transcriptFile && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setTranscriptFile(null);
-                                  setTranscriptContent("");
-                                }}
-                              >
-                                Clear
-                              </Button>
-                            )}
-                          </div>
-
-                          {/* Or paste directly */}
-                          <div className="text-center text-xs text-muted-foreground">or paste directly</div>
-
-                          <Textarea
-                            value={transcriptContent}
-                            onChange={(e) => setTranscriptContent(e.target.value)}
-                            placeholder="Paste your transcript here..."
-                            rows={6}
-                            className="font-mono text-sm"
-                          />
-                          {transcriptContent && (
-                            <p className="text-xs text-muted-foreground">
-                              {transcriptContent.split(/\s+/).filter(Boolean).length} words
-                            </p>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Audio Upload Mode */}
-                      {transcriptInputMode === "audio" && (
-                        <div className="space-y-3">
-                          {/* Audio File Upload */}
-                          <div className="border-2 border-dashed border-amber-300 rounded-lg p-4 text-center bg-white hover:bg-amber-50/50 transition-colors">
-                            <label htmlFor="audio-file" className="cursor-pointer block">
-                              <Mic className="w-8 h-8 mx-auto mb-2 text-amber-500" />
-                              <p className="text-sm font-medium">
-                                {audioFile ? audioFile.name : "Drop audio file here or click to browse"}
-                              </p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Supports MP3, WAV, M4A, WebM (max 100MB)
-                              </p>
-                              <input
-                                id="audio-file"
-                                type="file"
-                                accept="audio/*,.mp3,.wav,.m4a,.webm,.ogg,.flac"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) {
-                                    setAudioFile(file);
-                                    setTranscriptionResult(null);
-                                    setTranscriptContent("");
-                                  }
-                                }}
-                                className="hidden"
-                              />
-                            </label>
-                          </div>
-
-                          {/* Transcribe Button */}
-                          {audioFile && !transcriptionResult && (
-                            <Button
-                              type="button"
-                              onClick={handleTranscribeAudio}
-                              disabled={isTranscribing}
-                              className="w-full bg-amber-600 hover:bg-amber-700"
-                            >
-                              {isTranscribing ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                  Transcribing...
-                                </>
-                              ) : (
-                                <>
-                                  <Mic className="w-4 h-4 mr-2" />
-                                  Transcribe Audio
-                                </>
-                              )}
-                            </Button>
-                          )}
-
-                          {/* Transcription Result */}
-                          {transcriptionResult && (
-                            <div className="space-y-3 p-3 bg-green-50 rounded-lg border border-green-200">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <CheckCircle2 className="w-4 h-4 text-green-600" />
-                                  <span className="text-sm font-medium text-green-800">Transcription Complete</span>
-                                </div>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setAudioFile(null);
-                                    setTranscriptionResult(null);
-                                    setTranscriptContent("");
-                                    setAudioStorageId(null);
-                                  }}
-                                >
-                                  Clear
-                                </Button>
-                              </div>
-
-                              {/* Metadata badges */}
-                              <div className="flex flex-wrap gap-2">
-                                <Badge variant="outline" className="text-xs bg-white">
-                                  Confidence: {Math.round(transcriptionResult.confidence * 100)}%
-                                </Badge>
-                                <Badge variant="outline" className="text-xs bg-white">
-                                  Duration: {transcriptionResult.duration}
-                                </Badge>
-                                <Badge variant="outline" className="text-xs bg-white">
-                                  {transcriptionResult.wordCount} words
-                                </Badge>
-                                <Badge variant="outline" className="text-xs bg-white">
-                                  Language: {transcriptionResult.detectedLanguage === "en" ? "English" : transcriptionResult.detectedLanguage === "de" ? "German" : transcriptionResult.detectedLanguage}
-                                </Badge>
-                              </div>
-
-                              {/* Audio playback if available */}
-                              {audioStorageId && (
-                                <AudioPlayer storageId={audioStorageId} />
-                              )}
-
-                              {/* Transcript preview/edit */}
-                              <div>
-                                <Label className="text-xs text-green-700">Transcript (editable)</Label>
-                                <Textarea
-                                  value={transcriptContent}
-                                  onChange={(e) => setTranscriptContent(e.target.value)}
-                                  rows={6}
-                                  className="font-mono text-sm mt-1"
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Lesson Date (optional metadata) */}
-                      <div className="border-t border-amber-200 pt-4 mt-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Checkbox
-                            id="useLessonDate"
-                            checked={useLessonDate}
-                            onCheckedChange={(c) => setUseLessonDate(c === true)}
-                          />
-                          <Label htmlFor="useLessonDate" className="text-sm font-normal flex items-center gap-2">
-                            <Calendar className="w-4 h-4 text-muted-foreground" />
-                            Associate with specific date
-                          </Label>
-                        </div>
-
-                        {useLessonDate && (
-                          <div className="ml-6 space-y-2">
-                            <Input
-                              type="date"
-                              value={lessonDate}
-                              onChange={(e) => setLessonDate(e.target.value)}
-                              className="w-auto"
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              For your reference - helps organize content. Avatar always has access regardless of date.
-                            </p>
-                          </div>
+                        {transcriptFile && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setTranscriptFile(null);
+                              setTranscriptContent("");
+                            }}
+                          >
+                            Clear
+                          </Button>
                         )}
                       </div>
+
+                      {/* Or paste directly */}
+                      <div className="text-center text-xs text-muted-foreground">or paste directly</div>
+
+                      <Textarea
+                        value={transcriptContent}
+                        onChange={(e) => setTranscriptContent(e.target.value)}
+                        placeholder="Paste your transcript here..."
+                        rows={6}
+                        className="font-mono text-sm"
+                      />
+                      {transcriptContent && (
+                        <p className="text-xs text-muted-foreground">
+                          {transcriptContent.split(/\s+/).filter(Boolean).length} words
+                        </p>
+                      )}
                     </div>
                   )}
 
@@ -1275,6 +1094,163 @@ export default function AdminPracticePage() {
                       )}
                     </div>
                   )}
+
+                  {/* Audio Content Upload (works with any mode) */}
+                  <div className="space-y-3 p-4 bg-orange-50/50 rounded-lg border border-orange-200">
+                    <div className="flex items-center gap-2">
+                      <Mic className="w-4 h-4 text-orange-600" />
+                      <p className="text-sm font-medium text-orange-800">Audio Content (Optional)</p>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Upload an audio recording to transcribe. The avatar can use this content in addition to other sources.
+                    </p>
+
+                    {/* Audio File Upload */}
+                    {!transcriptionResult ? (
+                      <>
+                        <div className="border-2 border-dashed border-orange-300 rounded-lg p-4 text-center bg-white hover:bg-orange-50/50 transition-colors">
+                          <label htmlFor="audio-file" className="cursor-pointer block">
+                            <Mic className="w-8 h-8 mx-auto mb-2 text-orange-500" />
+                            <p className="text-sm font-medium">
+                              {audioFile ? audioFile.name : "Drop audio file here or click to browse"}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Supports MP3, WAV, M4A, WebM (max 100MB)
+                            </p>
+                            <input
+                              id="audio-file"
+                              type="file"
+                              accept="audio/*,.mp3,.wav,.m4a,.webm,.ogg,.flac"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  setAudioFile(file);
+                                  setTranscriptionResult(null);
+                                }
+                              }}
+                              className="hidden"
+                            />
+                          </label>
+                        </div>
+
+                        {/* Transcribe Button */}
+                        {audioFile && (
+                          <Button
+                            type="button"
+                            onClick={handleTranscribeAudio}
+                            disabled={isTranscribing}
+                            className="w-full bg-orange-600 hover:bg-orange-700"
+                          >
+                            {isTranscribing ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Transcribing...
+                              </>
+                            ) : (
+                              <>
+                                <Mic className="w-4 h-4 mr-2" />
+                                Transcribe Audio
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </>
+                    ) : (
+                      /* Transcription Result */
+                      <div className="space-y-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4 text-green-600" />
+                            <span className="text-sm font-medium text-green-800">Transcription Complete</span>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setAudioFile(null);
+                              setTranscriptionResult(null);
+                              setAudioStorageId(null);
+                            }}
+                          >
+                            Clear
+                          </Button>
+                        </div>
+
+                        {/* Metadata badges */}
+                        <div className="flex flex-wrap gap-2">
+                          <Badge variant="outline" className="text-xs bg-white">
+                            Confidence: {Math.round(transcriptionResult.confidence * 100)}%
+                          </Badge>
+                          <Badge variant="outline" className="text-xs bg-white">
+                            Duration: {transcriptionResult.duration}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs bg-white">
+                            {transcriptionResult.wordCount} words
+                          </Badge>
+                          <Badge variant="outline" className="text-xs bg-white">
+                            Language: {transcriptionResult.detectedLanguage === "en" ? "English" : transcriptionResult.detectedLanguage === "de" ? "German" : transcriptionResult.detectedLanguage}
+                          </Badge>
+                        </div>
+
+                        {/* Audio playback if available */}
+                        {audioStorageId && (
+                          <AudioPlayer storageId={audioStorageId} />
+                        )}
+
+                        {/* Transcript preview/edit */}
+                        <div>
+                          <Label className="text-xs text-green-700">Transcript (editable)</Label>
+                          <Textarea
+                            value={transcriptionResult.transcript}
+                            onChange={(e) => setTranscriptionResult({
+                              ...transcriptionResult,
+                              transcript: e.target.value,
+                              wordCount: e.target.value.split(/\s+/).filter(Boolean).length,
+                            })}
+                            rows={4}
+                            className="font-mono text-sm mt-1"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Lesson Date (works with any mode) */}
+                  <div className="space-y-3 p-4 bg-blue-50/50 rounded-lg border border-blue-200">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-blue-600" />
+                      <p className="text-sm font-medium text-blue-800">Lesson Date (Optional)</p>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Associate this practice with a specific date for organization purposes.
+                    </p>
+
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="useLessonDate"
+                        checked={useLessonDate}
+                        onCheckedChange={(c) => setUseLessonDate(c === true)}
+                      />
+                      <Label htmlFor="useLessonDate" className="text-sm font-normal">
+                        Set a lesson date
+                      </Label>
+                    </div>
+
+                    {useLessonDate && (
+                      <div className="space-y-2">
+                        <Input
+                          type="date"
+                          value={lessonDate}
+                          onChange={(e) => setLessonDate(e.target.value)}
+                          className="w-auto"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          For your reference - helps organize content. Avatar always has access regardless of date.
+                        </p>
+                      </div>
+                    )}
+                  </div>
 
                   <div>
                     <Label htmlFor="duration">Target Duration (minutes)</Label>
