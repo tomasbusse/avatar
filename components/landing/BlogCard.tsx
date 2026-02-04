@@ -41,13 +41,13 @@ export function BlogCard({
   return (
     <article className={cn("group", className)}>
       <Link href={`/${locale}/blog/${slug}`} className="block">
-        {/* Image */}
-        <div className="aspect-[16/9] rounded-2xl overflow-hidden bg-sls-beige mb-4">
+        {/* Image - Sharp corners, no hover scale */}
+        <div className="aspect-[16/9] rounded-sm overflow-hidden bg-sls-beige mb-4">
           {featuredImageUrl ? (
             <img
               src={featuredImageUrl}
               alt={title}
-              className="w-full h-full object-cover transition-transform group-hover:scale-105"
+              className="w-full h-full object-cover"
             />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-sls-teal/10 to-sls-chartreuse/10 flex items-center justify-center">
@@ -58,8 +58,8 @@ export function BlogCard({
 
         {/* Content */}
         <div>
-          {/* Category */}
-          <span className="inline-block px-3 py-1 rounded-full bg-sls-teal/10 text-sls-teal text-xs font-semibold mb-3">
+          {/* Category - Professional badge style */}
+          <span className="inline-block px-2.5 py-1 bg-sls-teal text-white text-xs font-semibold uppercase tracking-wider mb-3">
             {category}
           </span>
 

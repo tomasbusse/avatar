@@ -2366,6 +2366,166 @@ async def capture_screen_frame(room: rtc.Room) -> Optional[rtc.VideoFrame]:
     return None
 
 
+class VideoReaderAgent(Agent):
+    """
+    Minimal agent for video recording - only speaks pre-written scripts.
+    No conversation, no RAG, no vision - just reads text with avatar.
+    """
+
+    def __init__(self, script: str, **kwargs):
+        super().__init__(
+            instructions="You are a news reader. Read the provided script exactly as written.",
+            **kwargs
+        )
+        self._script = script
+        self._session = None
+
+    def set_session(self, session: AgentSession):
+        """Store reference to the agent session."""
+        self._session = session
+
+
+async def run_video_recording_agent(ctx: JobContext, room_name: str, config: Config):
+    """Run the video recording agent - reads a script without interaction."""
+    logger.info(f"🎬 Starting video recording agent for room: {room_name}")
+
+    # Initialize Convex client
+    convex = ConvexClient(config.convex_url)
+
+    try:
+        # Get video creation record by room name
+        video_data = await convex.query(
+            "videoCreation:getForRecording",
+            {"roomName": room_name}
+        )
+
+        if not video_data:
+            logger.error(f"❌ No video creation found for room: {room_name}")
+            await convex.close()
+            return
+
+        video = video_data.get("video", {})
+        avatar_config = video_data.get("avatar", {})
+
+        script_content = video.get("scriptContent") or ""
+        processed_content = video.get("processedContent", {})
+
+        # Use processed content if no script content
+        if not script_content and processed_content:
+            script_content = processed_content.get("content", "")
+
+        if not script_content:
+            logger.error("❌ No script content found for video recording")
+            await convex.close()
+            return
+
+        logger.info(f"📜 Script length: {len(script_content)} chars")
+        logger.info(f"🎭 Avatar: {avatar_config.get('name', 'Unknown')}")
+
+        # Get voice configuration
+        voice_provider = avatar_config.get("voiceProvider", {})
+        voice_id = voice_provider.get("voiceId") or "a0e99841-438c-4a64-b679-ae501e7d6091"
+
+        # Get avatar provider configuration
+        avatar_provider = avatar_config.get("avatarProvider", {})
+        bey_avatar_id = avatar_provider.get("avatarId") or os.environ.get("BEY_AVATAR_ID")
+
+        # Also check video-level overrides
+        video_avatar_config = video.get("avatarProviderConfig", {})
+        video_voice_config = video.get("voiceProviderConfig", {})
+
+        if video_avatar_config.get("beyAvatarId"):
+            bey_avatar_id = video_avatar_config["beyAvatarId"]
+        if video_voice_config.get("cartesiaVoiceId"):
+            voice_id = video_voice_config["cartesiaVoiceId"]
+
+        logger.info(f"🔊 Voice ID: {voice_id}")
+        logger.info(f"🎭 Beyond Presence Avatar ID: {bey_avatar_id}")
+
+        # Set up TTS
+        tts = cartesia.TTS(
+            model="sonic-2",
+            voice=voice_id,
+        )
+
+        # Set up Beyond Presence avatar
+        bey_api_key = os.environ.get("BEY_API_KEY")
+        if not bey_api_key or not bey_avatar_id:
+            logger.error("❌ Beyond Presence not configured (BEY_API_KEY or BEY_AVATAR_ID missing)")
+            await convex.close()
+            return
+
+        avatar_session = bey.AvatarSession(
+            avatar_id=bey_avatar_id,
+            avatar_participant_name="NewsReader",
+        )
+
+        # Connect to room
+        await ctx.connect(auto_subscribe=AutoSubscribe.SUBSCRIBE_ALL)
+
+        # Create the video reader agent (minimal agent just for TTS)
+        video_agent = VideoReaderAgent(script=script_content)
+
+        # Create an agent session for TTS (no STT or LLM needed)
+        agent_session = AgentSession(
+            tts=tts,
+            stt=None,  # No STT needed for video recording
+            llm=None,  # No LLM needed
+        )
+
+        # Link agent to session
+        video_agent.set_session(agent_session)
+
+        # Register avatar cleanup on exit
+        global _active_avatar_sessions
+        _active_avatar_sessions.append(avatar_session)
+
+        # Start avatar session with the agent session
+        logger.info("🎬 Starting Beyond Presence avatar session...")
+        await avatar_session.start(agent_session, room=ctx.room)
+
+        # Wait for avatar to be ready
+        logger.info("⏳ Waiting for avatar video track...")
+        await asyncio.sleep(3)  # Give avatar time to initialize
+
+        # Start the agent session with the agent
+        logger.info("🎙️ Starting agent session...")
+        await agent_session.start(room=ctx.room, agent=video_agent)
+
+        # Wait for everything to connect
+        await asyncio.sleep(2)
+
+        # Start speaking the script using session.say()
+        logger.info(f"🎙️ Starting script narration ({len(script_content)} chars)...")
+
+        # Use session.say() to speak the entire script with avatar
+        try:
+            await agent_session.say(script_content, allow_interruptions=False)
+            logger.info("✅ Script narration complete!")
+        except Exception as e:
+            logger.error(f"❌ Script narration error: {e}")
+
+        # Wait a moment for final audio to play
+        await asyncio.sleep(3)
+
+        # Clean up
+        try:
+            await agent_session.aclose()
+            await avatar_session.aclose()
+            if avatar_session in _active_avatar_sessions:
+                _active_avatar_sessions.remove(avatar_session)
+        except Exception as e:
+            logger.warning(f"Cleanup warning: {e}")
+
+    except Exception as e:
+        logger.error(f"❌ Video recording error: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        await convex.close()
+        logger.info("🎬 Video recording agent finished")
+
+
 async def run_entry_test_agent(ctx: JobContext, session_id: str, config: Config):
     """Run the entry test agent for a test session."""
     logger.info(f"📝 Starting entry test agent for session: {session_id}")
@@ -2513,6 +2673,39 @@ async def entrypoint(ctx: JobContext):
             await run_entry_test_agent(ctx, entry_test_session_id, config)
         else:
             logger.error("❌ Entry test session ID not found!")
+        return
+
+    # ==========================================================================
+    # VIDEO RECORDING DETECTION - Check metadata for explicit video_recording mode
+    # ==========================================================================
+    # Check dispatch metadata first, then room metadata for video recording mode
+    job_metadata_str = ctx.job.metadata if hasattr(ctx, 'job') and ctx.job else None
+    room_metadata_str = ctx.room.metadata
+
+    # Parse metadata to check for video recording mode
+    is_video_recording = False
+    video_creation_id = None
+
+    for metadata_str in [job_metadata_str, room_metadata_str]:
+        if metadata_str:
+            try:
+                parsed = json.loads(metadata_str)
+                if parsed.get("mode") == "video_recording" or parsed.get("isRecordingSession"):
+                    is_video_recording = True
+                    video_creation_id = parsed.get("videoCreationId")
+                    logger.info(f"🎬 Video recording mode detected from metadata! videoCreationId: {video_creation_id}")
+                    break
+            except json.JSONDecodeError:
+                pass
+
+    # Also detect by room name as fallback
+    if not is_video_recording and room_name.startswith("video-"):
+        is_video_recording = True
+        logger.info("🎬 Video recording detected by room name prefix")
+
+    if is_video_recording:
+        logger.info("🎬 Starting video recording agent - script reader mode")
+        await run_video_recording_agent(ctx, room_name, config)
         return
 
     # First try to get avatar config from dispatch metadata (ctx.job.metadata)

@@ -21,12 +21,27 @@ const ClientAvatarWrapper = dynamic(
   }
 );
 
+interface HeroContent {
+  badge?: string;
+  title?: string;
+  subtitle?: string;
+  features?: string[];
+  testimonial?: {
+    quote: string;
+    author: string;
+    role?: string;
+  };
+  ctaButton?: string;
+  ctaButtonSecondary?: string;
+}
+
 interface HeroSectionProps {
   avatarId?: string;
   showAvatar?: boolean;
+  content?: HeroContent;
 }
 
-export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
+export function HeroSection({ avatarId, showAvatar = true, content }: HeroSectionProps) {
   const locale = useLocale();
   const [showContactForm, setShowContactForm] = useState(false);
   const [isAvatarActivated, setIsAvatarActivated] = useState(false);
@@ -36,6 +51,21 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
   const avatarName = landingAvatar?.name || "AI Coach";
   // Use persona.role for short title, fallback to default
   const avatarTitle = (landingAvatar?.persona as { role?: string } | undefined)?.role || (locale === "de" ? "KI Englisch Coach" : "AI English Coach");
+
+  // Use provided content or fall back to defaults
+  const badge = content?.badge || (locale === "de" ? "Seit über 20 Jahren" : "Over 20 years of excellence");
+  const subtitle = content?.subtitle || (locale === "de"
+    ? "Business und Professional English für echte Arbeitssituationen. Maßgeschneidertes Training statt Standardprogramme — mit modernster KI-Technologie als digitaler Übungspartner."
+    : "Business and Professional English for real workplace situations. Tailored training instead of standard programs — with cutting-edge AI technology as your digital practice partner.");
+  const features = content?.features || (locale === "de"
+    ? ["Hannover & Berlin", "Online & Präsenz", "Einzel & Gruppen"]
+    : ["Hannover & Berlin", "Online & In-person", "Individual & Groups"]);
+  const testimonialQuote = content?.testimonial?.quote || (locale === "de"
+    ? "Das Training ist genau auf meine Bedürfnisse im Job zugeschnitten. Endlich echte Fortschritte!"
+    : "The training is tailored exactly to my job needs. Finally real progress!");
+  const testimonialAuthor = content?.testimonial?.author || "Thomas M., Project Manager";
+  const ctaButton = content?.ctaButton || (locale === "de" ? `Mit ${avatarName} sprechen` : `Talk to ${avatarName}`);
+  const ctaButtonSecondary = content?.ctaButtonSecondary || (locale === "de" ? "Kontakt aufnehmen" : "Get in touch");
 
   // Contact form state
   const [contactForm, setContactForm] = useState({
@@ -344,20 +374,22 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
       <div className="max-w-xl text-center lg:text-left flex flex-col gap-5">
         {/* Brand tagline */}
         <p className="text-[#b3592d] text-sm font-semibold uppercase tracking-widest">
-          {locale === "de" ? "Seit über 20 Jahren" : "Over 20 years of excellence"}
+          {badge}
         </p>
 
         <h1 className="text-[#1a3c34] text-4xl lg:text-6xl font-serif leading-tight">
-          {locale === "de" ? "Treffen Sie" : "Meet"} {avatarName}, <br />
-          {locale === "de" ? "Ihre" : "your"}{" "}
-          <span className="text-[#b3592d]">AI</span>{" "}
-          {locale === "de" ? "Sprachpartnerin" : "Practice Partner"}
+          {content?.title || (
+            <>
+              {locale === "de" ? "Treffen Sie" : "Meet"} {avatarName}, <br />
+              {locale === "de" ? "Ihre" : "your"}{" "}
+              <span className="text-[#b3592d]">AI</span>{" "}
+              {locale === "de" ? "Sprachpartnerin" : "Practice Partner"}
+            </>
+          )}
         </h1>
 
         <p className="text-[#4a4a4a] text-lg leading-relaxed max-w-lg">
-          {locale === "de"
-            ? "Business und Professional English für echte Arbeitssituationen. Maßgeschneidertes Training statt Standardprogramme — mit modernster KI-Technologie als digitaler Übungspartner."
-            : "Business and Professional English for real workplace situations. Tailored training instead of standard programs — with cutting-edge AI technology as your digital practice partner."}
+          {subtitle}
         </p>
 
         {/* CTA Buttons */}
@@ -366,7 +398,7 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
             onClick={handleStartClick}
             className="bg-[#003F37] text-white px-8 py-4 rounded-xl text-lg font-semibold hover:bg-[#002a25] transition-all shadow-md active:scale-95"
           >
-            {locale === "de" ? `Mit ${avatarName} sprechen` : `Talk to ${avatarName}`}
+            {ctaButton}
           </button>
           <button
             onClick={() => {
@@ -378,24 +410,18 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
             }}
             className="bg-transparent border-2 border-[#003F37] text-[#003F37] px-8 py-4 rounded-xl text-lg font-semibold hover:bg-[#003F37]/10 transition-all active:scale-95"
           >
-            {locale === "de" ? "Kontakt aufnehmen" : "Get in touch"}
+            {ctaButtonSecondary}
           </button>
         </div>
 
         {/* Features list */}
         <div className="flex flex-wrap gap-4 justify-center lg:justify-start pt-2 text-sm text-[#4a4a4a]">
-          <span className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#b3592d]" />
-            {locale === "de" ? "Hannover & Berlin" : "Hannover & Berlin"}
-          </span>
-          <span className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#b3592d]" />
-            {locale === "de" ? "Online & Präsenz" : "Online & In-person"}
-          </span>
-          <span className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#b3592d]" />
-            {locale === "de" ? "Einzel & Gruppen" : "Individual & Groups"}
-          </span>
+          {features.map((feature, index) => (
+            <span key={index} className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#b3592d]" />
+              {feature}
+            </span>
+          ))}
         </div>
 
         {/* Decorative Separator */}
@@ -416,12 +442,10 @@ export function HeroSection({ avatarId, showAvatar = true }: HeroSectionProps) {
             ))}
           </div>
           <p className="text-[#1a3c34] text-xl font-serif mb-2 leading-snug">
-            {locale === "de"
-              ? "Das Training ist genau auf meine Bedürfnisse im Job zugeschnitten. Endlich echte Fortschritte!"
-              : "The training is tailored exactly to my job needs. Finally real progress!"}
+            {testimonialQuote}
           </p>
           <p className="text-sm font-bold text-gray-700 uppercase tracking-tighter not-italic">
-            — Thomas M., Project Manager
+            — {testimonialAuthor}
           </p>
         </div>
       </div>

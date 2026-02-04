@@ -3,9 +3,14 @@ import { Composition, Folder, CalculateMetadataFunction } from "remotion";
 import { NewsBroadcast } from "./compositions/NewsBroadcast";
 import { GrammarLesson } from "./compositions/GrammarLesson";
 import { NewsLesson } from "./compositions/NewsLesson";
+import { EducationalVideoV2 } from "./compositions/EducationalVideoV2";
 import type { NewsVideoProps } from "./types";
-import type { GrammarLessonProps, NewsLessonProps } from "./types/educational";
-import { EDUCATIONAL_TIMING } from "./types/educational";
+import type {
+  GrammarLessonProps,
+  NewsLessonProps,
+  EducationalVideoV2Props,
+} from "./types/educational";
+import { EDUCATIONAL_TIMING, TIMING_V2, DEFAULT_COLORS_V2 } from "./types/educational";
 import { SLS_BRAND } from "./lib/brand-config";
 
 // ============================================
@@ -386,6 +391,139 @@ const defaultNewsLessonProps: NewsLessonProps = {
   },
 };
 
+// ============================================
+// EDUCATIONAL VIDEO V2 (Timestamp-synced)
+// ============================================
+
+// Metadata calculator for V2
+const calculateEducationalV2Metadata: CalculateMetadataFunction<EducationalVideoV2Props> = async ({
+  props,
+}) => {
+  const fps = 30;
+  const introDuration = props.includeIntro ? TIMING_V2.introDuration * fps : 0;
+  const outroDuration = props.includeOutro ? TIMING_V2.outroDuration * fps : 0;
+  const mainDuration = Math.ceil(props.totalDuration * fps);
+  return {
+    durationInFrames: introDuration + mainDuration + outroDuration,
+    fps,
+  };
+};
+
+// Default V2 props for preview
+const defaultEducationalV2Props: EducationalVideoV2Props = {
+  title: "Present Perfect Tense",
+  subtitle: "Connecting Past to Present",
+  level: "B1",
+  audioUrl:
+    "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+  totalDuration: 60,
+  avatarVideoUrl:
+    "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+  slides: [
+    {
+      id: "1",
+      type: "title",
+      title: "Present Perfect Tense",
+      content: ["Connecting Past to Present"],
+      narration: "Welcome to today's lesson on the present perfect tense.",
+      startTime: 0,
+      endTime: 5,
+      wordTimestamps: [],
+    },
+    {
+      id: "2",
+      type: "content",
+      title: "When to Use Present Perfect",
+      content: [
+        "Past actions with present relevance",
+        "Life experiences",
+        "Unfinished time periods",
+        "Recent events with 'just'",
+      ],
+      narration: "We use the present perfect in several situations.",
+      startTime: 5,
+      endTime: 18,
+      wordTimestamps: [],
+    },
+    {
+      id: "3",
+      type: "grammar_rule",
+      title: "The Formula",
+      content: ["Subject + have/has + past participle"],
+      narration: "The formula is simple: subject, plus have or has, plus the past participle.",
+      grammarFormula: "Subject + have/has + past participle",
+      examples: [
+        { correct: "I have visited Paris.", incorrect: "I have visit Paris." },
+        { correct: "She has eaten lunch.", incorrect: "She have eaten lunch." },
+      ],
+      startTime: 18,
+      endTime: 32,
+      wordTimestamps: [],
+    },
+    {
+      id: "4",
+      type: "quiz",
+      title: "Quick Quiz",
+      content: [],
+      narration: "Let's test your understanding with a quick quiz.",
+      quizQuestion: "Which sentence is correct?",
+      quizOptions: [
+        "I have went to school.",
+        "I have gone to school.",
+        "I have go to school.",
+        "I has gone to school.",
+      ],
+      quizCorrectIndex: 1,
+      quizExplanation: "We use 'gone' as the past participle of 'go', and 'have' with 'I'.",
+      startTime: 32,
+      endTime: 48,
+      wordTimestamps: [],
+    },
+    {
+      id: "5",
+      type: "summary",
+      title: "Key Takeaways",
+      content: [
+        "Present perfect connects past to present",
+        "Formula: have/has + past participle",
+        "Use for experiences and recent events",
+      ],
+      narration: "Let's review what we learned today.",
+      startTime: 48,
+      endTime: 60,
+      wordTimestamps: [],
+    },
+  ],
+  captions: [
+    { text: "Welcome to today's lesson on the present perfect tense.", start: 0, end: 4 },
+    { text: "We use the present perfect in several situations.", start: 5, end: 9 },
+    { text: "Past actions with present relevance.", start: 9, end: 12 },
+    { text: "Life experiences and unfinished time periods.", start: 12, end: 16 },
+    { text: "The formula is simple.", start: 18, end: 21 },
+    { text: "Subject, plus have or has, plus the past participle.", start: 21, end: 26 },
+    { text: "Let's test your understanding.", start: 32, end: 35 },
+    { text: "Which sentence is correct?", start: 35, end: 38 },
+    { text: "The answer is: I have gone to school.", start: 42, end: 46 },
+    { text: "Let's review what we learned today.", start: 48, end: 52 },
+  ],
+  showCaptions: true,
+  layout: "avatar-side",
+  avatarPosition: "bottom-right",
+  avatarSize: "medium",
+  slideStyle: "modern",
+  transitions: "fade",
+  colors: DEFAULT_COLORS_V2,
+  includeIntro: true,
+  includeOutro: true,
+  includeProgressBar: true,
+  includeLowerThird: true,
+  lowerThird: {
+    name: "Emma",
+    title: "English Teacher",
+  },
+  brandName: "Sweet Language School",
+};
+
 export const RemotionRoot: React.FC = () => {
   return (
     <>
@@ -470,6 +608,58 @@ export const RemotionRoot: React.FC = () => {
               ...defaultNewsLessonProps.config,
               aspectRatio: "9:16" as const,
             },
+          }}
+        />
+      </Folder>
+
+      {/* ============================================
+          EDUCATIONAL VIDEO V2 (Timestamp-synced)
+          ============================================ */}
+      <Folder name="V2">
+        <Composition
+          id="EducationalVideoV2"
+          component={EducationalVideoV2}
+          calculateMetadata={calculateEducationalV2Metadata}
+          width={1920}
+          height={1080}
+          defaultProps={defaultEducationalV2Props}
+        />
+
+        <Composition
+          id="EducationalVideoV2-Vertical"
+          component={EducationalVideoV2}
+          calculateMetadata={calculateEducationalV2Metadata}
+          width={1080}
+          height={1920}
+          defaultProps={{
+            ...defaultEducationalV2Props,
+            layout: "avatar-full",
+          }}
+        />
+
+        <Composition
+          id="EducationalVideoV2-PIP"
+          component={EducationalVideoV2}
+          calculateMetadata={calculateEducationalV2Metadata}
+          width={1920}
+          height={1080}
+          defaultProps={{
+            ...defaultEducationalV2Props,
+            layout: "avatar-pip",
+            avatarPosition: "bottom-right",
+            avatarSize: "medium",
+          }}
+        />
+
+        <Composition
+          id="EducationalVideoV2-SlidesOnly"
+          component={EducationalVideoV2}
+          calculateMetadata={calculateEducationalV2Metadata}
+          width={1920}
+          height={1080}
+          defaultProps={{
+            ...defaultEducationalV2Props,
+            layout: "slides-only",
           }}
         />
       </Folder>

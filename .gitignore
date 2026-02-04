@@ -54,3 +54,10 @@ coverage/
 .env.sentry-build-plugin
 api-registry.json
 packages/rlm/
+
+# Video Generator (moved to separate project)
+my-video/
+lib/video-generator/
+app/api/video-generator/
+.vercel
+.env*.local

@@ -948,6 +948,7 @@ export const createBlogPost = mutation({
     author: v.string(),
     authorImageUrl: v.optional(v.string()),
     category: v.string(),
+    categoryId: v.optional(v.id("blogCategories")),
     tags: v.array(v.string()),
     featuredImageUrl: v.optional(v.string()),
     readTimeMinutes: v.optional(v.number()),
@@ -958,6 +959,20 @@ export const createBlogPost = mutation({
   handler: async (ctx, args) => {
     const now = Date.now();
     const status = (args.status ?? "draft") as "draft" | "published" | "archived";
+
+    // Look up categoryId if not provided, by matching category name (EN or DE)
+    let categoryId = args.categoryId;
+    if (!categoryId && args.category) {
+      const categories = await ctx.db.query("blogCategories").collect();
+      const matchedCategory = categories.find(
+        (c) =>
+          c.name.en.toLowerCase() === args.category.toLowerCase() ||
+          c.name.de.toLowerCase() === args.category.toLowerCase()
+      );
+      if (matchedCategory) {
+        categoryId = matchedCategory._id;
+      }
+    }
 
     const id = await ctx.db.insert("blogPosts", {
       locale: args.locale,
@@ -970,6 +985,7 @@ export const createBlogPost = mutation({
       author: args.author,
       authorImageUrl: args.authorImageUrl,
       category: args.category,
+      categoryId,
       tags: args.tags,
       featuredImageUrl: args.featuredImageUrl,
       readTimeMinutes: args.readTimeMinutes,

@@ -37,40 +37,35 @@ export function HeroBlock({ config, locale }: HeroBlockProps) {
 
   return (
     <section className="relative py-16 lg:py-24 bg-sls-cream overflow-hidden">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 opacity-30">
+      {/* Clean background - subtle pattern only */}
+      <div className="absolute inset-0 opacity-20">
         <div
           className="absolute inset-0"
           style={{
-            backgroundImage: `radial-gradient(circle at 1px 1px, rgba(0, 63, 55, 0.08) 1px, transparent 0)`,
-            backgroundSize: "32px 32px",
+            backgroundImage: `radial-gradient(circle at 1px 1px, rgba(0, 63, 55, 0.06) 1px, transparent 0)`,
+            backgroundSize: "40px 40px",
           }}
         />
       </div>
-
-      {/* Decorative Gradient Blobs */}
-      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-br from-sls-chartreuse/20 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
-      <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-gradient-to-tr from-sls-teal/10 to-transparent rounded-full blur-3xl translate-y-1/2 -translate-x-1/3" />
 
       <div className={cn(
         "relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8",
         isCentered && "text-center"
       )}>
-        {/* Badge */}
+        {/* Badge - Professional, no animation */}
         {badge && (
           <div className={cn(
             "mb-6",
             isCentered && "flex justify-center"
           )}>
-            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-sls-teal/10 text-sls-teal text-sm font-semibold">
-              <span className="w-2 h-2 rounded-full bg-sls-chartreuse animate-pulse" />
+            <span className="inline-flex items-center px-3 py-1.5 bg-sls-teal text-white text-xs font-semibold uppercase tracking-wider">
               {badge}
             </span>
           </div>
         )}
 
-        {/* Title */}
-        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-sls-teal leading-tight mb-6">
+        {/* Title - Serif font for journalistic feel */}
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-sls-teal leading-tight mb-6 font-serif">
           {title}
         </h1>
 
@@ -128,9 +123,9 @@ export function HeroBlock({ config, locale }: HeroBlockProps) {
           </div>
         )}
 
-        {/* Featured Image */}
+        {/* Featured Image - Sharp corners */}
         {featuredImageUrl && (
-          <div className="mt-12 rounded-2xl overflow-hidden shadow-2xl shadow-sls-teal/10">
+          <div className="mt-12 rounded-sm overflow-hidden shadow-lg">
             <img
               src={featuredImageUrl}
               alt={title}

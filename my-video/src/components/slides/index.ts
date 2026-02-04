@@ -17,6 +17,7 @@ export { KeyConceptSlide } from "./KeyConceptSlide";
 export { BulletPointsSlide } from "./BulletPointsSlide";
 export { VocabularySlide } from "./VocabularySlide";
 export { QuestionSlide } from "./QuestionSlide";
+export { QuizSlideV2 } from "./QuizSlideV2";
 export { ComparisonSlide } from "./ComparisonSlide";
 export { GrammarRuleSlide } from "./GrammarRuleSlide";
 export { PracticeSlide } from "./PracticeSlide";

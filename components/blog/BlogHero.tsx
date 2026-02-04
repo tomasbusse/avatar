@@ -11,6 +11,73 @@ interface BlogHeroProps {
   className?: string;
 }
 
+/**
+ * Lego-style building block component
+ */
+function LegoBlock({
+  className,
+  color,
+  size = "md",
+  studs = 2,
+  style,
+}: {
+  className?: string;
+  color: "teal" | "olive" | "chartreuse" | "orange" | "beige" | "cream";
+  size?: "sm" | "md" | "lg";
+  studs?: 1 | 2 | 4;
+  style?: React.CSSProperties;
+}) {
+  const colorMap = {
+    teal: "bg-sls-teal",
+    olive: "bg-sls-olive",
+    chartreuse: "bg-sls-chartreuse",
+    orange: "bg-sls-orange",
+    beige: "bg-sls-beige",
+    cream: "bg-sls-cream",
+  };
+
+  const sizeMap = {
+    sm: { block: "w-12 h-8", stud: "w-3 h-2" },
+    md: { block: "w-16 h-10", stud: "w-4 h-2.5" },
+    lg: { block: "w-24 h-14", stud: "w-5 h-3" },
+  };
+
+  const studCount = studs === 1 ? 1 : studs === 4 ? 4 : 2;
+
+  return (
+    <div className={cn("relative", className)} style={style}>
+      {/* Main block body */}
+      <div
+        className={cn(
+          "rounded-sm shadow-lg relative",
+          colorMap[color],
+          sizeMap[size].block
+        )}
+        style={{
+          boxShadow: "inset 0 -3px 0 rgba(0,0,0,0.2), 0 4px 8px rgba(0,0,0,0.15)",
+        }}
+      >
+        {/* Studs on top */}
+        <div className="absolute -top-2 left-0 right-0 flex justify-center gap-1">
+          {Array.from({ length: studCount }).map((_, i) => (
+            <div
+              key={i}
+              className={cn(
+                "rounded-full",
+                colorMap[color],
+                sizeMap[size].stud
+              )}
+              style={{
+                boxShadow: "inset 0 -1px 0 rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2)",
+              }}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function BlogHero({
   headline = "Learn English with Interactive Games",
   subheadline = "Master grammar, expand your vocabulary, and excel in business English through engaging articles and interactive exercises designed for German speakers.",
@@ -24,35 +91,34 @@ export function BlogHero({
       )}
     >
       {/* Gradient Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-sls-teal via-sls-teal/90 to-sls-olive" />
+      <div className="absolute inset-0 bg-gradient-to-br from-sls-teal via-sls-teal/95 to-sls-olive" />
 
-      {/* Decorative Pattern - Dots Grid */}
-      <div className="absolute inset-0 opacity-10">
+      {/* Subtle grid pattern */}
+      <div className="absolute inset-0 opacity-5">
         <div
           className="absolute inset-0"
           style={{
-            backgroundImage: `radial-gradient(circle at 2px 2px, rgba(255, 255, 255, 0.3) 1px, transparent 0)`,
+            backgroundImage: `
+              linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)
+            `,
             backgroundSize: "40px 40px",
           }}
         />
       </div>
-
-      {/* Decorative Gradient Orbs */}
-      <div className="absolute top-20 left-10 w-64 h-64 bg-sls-chartreuse/20 rounded-full blur-3xl" />
-      <div className="absolute bottom-10 right-1/4 w-96 h-96 bg-sls-olive/30 rounded-full blur-3xl" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
           {/* Left Content */}
           <div className="text-center lg:text-left">
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm text-white/90 text-sm font-medium mb-6">
-              <span className="w-2 h-2 rounded-full bg-sls-chartreuse animate-pulse" />
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-white/10 backdrop-blur-sm text-white/90 text-sm font-medium mb-6">
+              <span className="w-2 h-2 rounded-full bg-sls-chartreuse" />
               Free Learning Resources
             </div>
 
             {/* Headline */}
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight mb-6">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight mb-6 font-serif">
               {headline}
             </h1>
 
@@ -65,7 +131,7 @@ export function BlogHero({
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
               <Button
                 size="lg"
-                className="bg-sls-orange hover:bg-sls-orange/90 text-white font-semibold px-8 py-6 text-base rounded-lg shadow-lg shadow-sls-orange/25 transition-all hover:shadow-xl hover:shadow-sls-orange/30 hover:-translate-y-0.5"
+                className="bg-sls-orange hover:bg-sls-orange/90 text-white font-semibold px-8 py-6 text-base rounded-sm shadow-lg transition-all hover:shadow-xl hover:-translate-y-0.5"
                 onClick={() => {
                   const articlesSection = document.getElementById("articles-section");
                   if (articlesSection) {
@@ -113,42 +179,73 @@ export function BlogHero({
             </div>
           </div>
 
-          {/* Right Side - Decorative Illustration */}
+          {/* Right Side - Lego Building Blocks Illustration */}
           <div className="hidden lg:flex items-center justify-center relative">
-            {/* Abstract decorative elements */}
             <div className="relative w-full max-w-md aspect-square">
-              {/* Main circle with book/learning icon */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-72 h-72 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center">
-                  <div className="w-56 h-56 rounded-full bg-white/10 border border-white/20 flex items-center justify-center">
-                    <div className="w-40 h-40 rounded-full bg-gradient-to-br from-sls-chartreuse/30 to-sls-orange/30 flex items-center justify-center">
-                      {/* Book/Learning Icon */}
-                      <svg
-                        className="w-20 h-20 text-white"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={1.5}
-                          d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                        />
-                      </svg>
-                    </div>
-                  </div>
+              {/* Stacked Lego blocks - main structure */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                {/* Bottom row */}
+                <div className="flex gap-1 mb-1">
+                  <LegoBlock color="teal" size="lg" studs={2} />
+                  <LegoBlock color="olive" size="lg" studs={2} />
+                </div>
+                {/* Second row */}
+                <div className="flex gap-1 mb-1 ml-4">
+                  <LegoBlock color="chartreuse" size="lg" studs={2} />
+                  <LegoBlock color="orange" size="lg" studs={2} />
+                </div>
+                {/* Third row */}
+                <div className="flex gap-1 mb-1">
+                  <LegoBlock color="beige" size="lg" studs={2} />
+                  <LegoBlock color="teal" size="lg" studs={2} />
+                </div>
+                {/* Top row */}
+                <div className="flex gap-1 ml-4">
+                  <LegoBlock color="olive" size="lg" studs={2} />
+                  <LegoBlock color="chartreuse" size="lg" studs={2} />
                 </div>
               </div>
 
-              {/* Floating elements */}
-              <div className="absolute top-4 right-8 w-16 h-16 rounded-xl bg-sls-orange/80 shadow-lg flex items-center justify-center animate-bounce" style={{ animationDuration: "3s" }}>
-                <span className="text-2xl font-bold text-white">A+</span>
+              {/* Floating blocks around */}
+              <LegoBlock
+                color="orange"
+                size="md"
+                className="absolute top-8 right-12"
+                style={{ transform: "rotate(-15deg)" }}
+              />
+              <LegoBlock
+                color="chartreuse"
+                size="sm"
+                className="absolute top-20 left-8"
+                style={{ transform: "rotate(10deg)" }}
+              />
+              <LegoBlock
+                color="teal"
+                size="md"
+                className="absolute bottom-16 left-12"
+                style={{ transform: "rotate(-8deg)" }}
+              />
+              <LegoBlock
+                color="beige"
+                size="sm"
+                className="absolute bottom-24 right-8"
+                style={{ transform: "rotate(20deg)" }}
+              />
+              <LegoBlock
+                color="olive"
+                size="sm"
+                className="absolute top-1/3 right-4"
+                style={{ transform: "rotate(-25deg)" }}
+              />
+
+              {/* Decorative elements - icons in circles */}
+              <div className="absolute top-4 right-4 w-14 h-14 rounded-sm bg-sls-orange shadow-lg flex items-center justify-center">
+                <span className="text-xl font-bold text-white">A+</span>
               </div>
 
-              <div className="absolute bottom-8 left-4 w-14 h-14 rounded-xl bg-sls-chartreuse/80 shadow-lg flex items-center justify-center animate-bounce" style={{ animationDuration: "2.5s", animationDelay: "0.5s" }}>
+              <div className="absolute bottom-8 left-0 w-12 h-12 rounded-sm bg-sls-chartreuse shadow-lg flex items-center justify-center">
                 <svg
-                  className="w-7 h-7 text-sls-teal"
+                  className="w-6 h-6 text-sls-teal"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -162,9 +259,9 @@ export function BlogHero({
                 </svg>
               </div>
 
-              <div className="absolute top-1/3 -left-4 w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center animate-pulse">
+              <div className="absolute top-1/4 -left-2 w-10 h-10 rounded-sm bg-white/20 backdrop-blur-sm flex items-center justify-center">
                 <svg
-                  className="w-6 h-6 text-white"
+                  className="w-5 h-5 text-white"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -178,7 +275,7 @@ export function BlogHero({
                 </svg>
               </div>
 
-              <div className="absolute bottom-1/4 -right-2 w-10 h-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center animate-pulse" style={{ animationDelay: "1s" }}>
+              <div className="absolute bottom-1/3 -right-2 w-10 h-10 rounded-sm bg-white/15 backdrop-blur-sm flex items-center justify-center">
                 <svg
                   className="w-5 h-5 text-white"
                   fill="none"
@@ -189,14 +286,10 @@ export function BlogHero({
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                    d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
                   />
                 </svg>
               </div>
-
-              {/* Decorative rings */}
-              <div className="absolute inset-0 rounded-full border border-white/10 scale-110" />
-              <div className="absolute inset-0 rounded-full border border-white/5 scale-125" />
             </div>
           </div>
         </div>

@@ -32,7 +32,7 @@ export function FeaturedPost({
   return (
     <article
       className={cn(
-        "group relative rounded-2xl shadow-xl overflow-hidden transition-transform hover:scale-[1.02]",
+        "group relative rounded-sm shadow-lg overflow-hidden",
         className
       )}
     >
@@ -56,8 +56,8 @@ export function FeaturedPost({
 
           {/* Content Overlay */}
           <div className="absolute inset-0 flex flex-col justify-end p-6 md:p-8">
-            {/* Category Badge */}
-            <span className="inline-flex w-fit px-3 py-1 rounded-full bg-sls-orange text-white text-xs font-semibold mb-3">
+            {/* Category Badge - Sharp, professional */}
+            <span className="inline-flex w-fit px-2.5 py-1 bg-sls-orange text-white text-xs font-semibold uppercase tracking-wider mb-3">
               {category}
             </span>
 

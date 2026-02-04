@@ -8,12 +8,51 @@ import {
   Target,
   Languages,
   HeartHandshake,
+  LucideIcon,
+  Presentation,
+  Mail,
+  MessageSquare,
+  Phone,
+  Book,
 } from "lucide-react";
 
-export function USPSection() {
+interface USPItem {
+  icon?: string;
+  title: string;
+  description: string;
+}
+
+interface USPContent {
+  badge?: string;
+  title?: string;
+  subtitle?: string;
+  items?: USPItem[];
+}
+
+interface USPSectionProps {
+  content?: USPContent;
+}
+
+// Icon mapping for string-based icons from database
+const iconMap: Record<string, LucideIcon> = {
+  clock: Clock,
+  users: Users,
+  award: Award,
+  target: Target,
+  languages: Languages,
+  heartHandshake: HeartHandshake,
+  presentation: Presentation,
+  mail: Mail,
+  messageSquare: MessageSquare,
+  phone: Phone,
+  book: Book,
+};
+
+export function USPSection({ content }: USPSectionProps) {
   const t = useTranslations("usp");
 
-  const usps = [
+  // Default USPs from translations
+  const defaultUsps = [
     {
       icon: <Clock className="w-7 h-7" />,
       titleKey: "flexibility.title",
@@ -46,6 +85,25 @@ export function USPSection() {
     },
   ];
 
+  // Use provided content items or default to translations
+  const usps = content?.items?.map((item) => {
+    const IconComponent = item.icon ? iconMap[item.icon] || Clock : Clock;
+    return {
+      icon: <IconComponent className="w-7 h-7" />,
+      title: item.title,
+      description: item.description,
+    };
+  }) || defaultUsps.map((usp) => ({
+    icon: usp.icon,
+    title: t(usp.titleKey),
+    description: t(usp.descriptionKey),
+  }));
+
+  // Use provided content or fall back to translations
+  const badge = content?.badge || t("badge");
+  const headline = content?.title || t("headline");
+  const subheadline = content?.subtitle || t("subheadline");
+
   return (
     <section className="py-24 bg-sls-teal relative overflow-hidden">
       {/* Background Pattern */}
@@ -67,13 +125,13 @@ export function USPSection() {
         {/* Section Header */}
         <div className="text-center mb-16">
           <span className="inline-block px-4 py-2 rounded-full bg-white/10 text-sls-chartreuse text-sm font-semibold mb-4">
-            {t("badge")}
+            {badge}
           </span>
           <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-            {t("headline")}
+            {headline}
           </h2>
           <p className="text-lg text-sls-beige/80 max-w-2xl mx-auto">
-            {t("subheadline")}
+            {subheadline}
           </p>
         </div>
 
@@ -91,10 +149,10 @@ export function USPSection() {
 
               {/* Content */}
               <h3 className="text-xl font-bold text-white mb-2">
-                {t(usp.titleKey)}
+                {usp.title}
               </h3>
               <p className="text-sls-beige/70 leading-relaxed">
-                {t(usp.descriptionKey)}
+                {usp.description}
               </p>
             </div>
           ))}

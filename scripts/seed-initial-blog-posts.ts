@@ -1,20 +1,14 @@
 #!/usr/bin/env npx tsx
 /**
- * Seed script for initial blog posts with game integration
+ * Seed script for initial blog posts with professional journalistic content
  *
  * Creates 3 engaging blog posts for the SLS blog:
- * 1. "Fun Ways to Master English Prepositions" (Grammar)
- * 2. "10 Business English Phrases Every Professional Needs" (Business English)
- * 3. "Interactive Games: The Fun Way to Learn English" (Interactive Learning)
+ * 1. "Understanding English Prepositions" (Grammar)
+ * 2. "The Language of International Business" (Business English)
+ * 3. "Game-Based Language Acquisition" (Interactive Learning)
  *
- * Each post uses the block-based content system with:
- * - Hero sections
- * - Rich text with tips
- * - Callout boxes
- * - FAQ sections
- * - CTA blocks
- *
- * Game blocks can be added later via the CMS once games are created.
+ * Each post uses the block-based content system with professional,
+ * essay-style content following journalistic best practices.
  *
  * Usage: npx tsx scripts/seed-initial-blog-posts.ts
  */
@@ -50,18 +44,18 @@ function generateFaqId(): string {
 }
 
 /**
- * Blog posts to seed
+ * Blog posts to seed - Professional journalistic content
  */
 const blogPosts = [
   // ============================================
-  // POST 1: Fun Ways to Master English Prepositions
+  // POST 1: Understanding English Prepositions
   // ============================================
   {
     locale: "en",
     slug: "master-english-prepositions",
-    title: "Fun Ways to Master English Prepositions",
+    title: "Understanding English Prepositions: A Guide for German Speakers",
     excerpt:
-      "Struggling with in, on, and at? You're not alone. German speakers find English prepositions tricky because they work differently. Discover fun and effective strategies to finally master them.",
+      "English prepositions present a persistent challenge for German speakers precisely because they resist direct translation. This guide explores the systematic patterns that govern their usage.",
     author: "Emma AI",
     category: "Grammar",
     tags: ["grammar", "prepositions", "german-speakers", "beginner-friendly", "interactive"],
@@ -75,10 +69,10 @@ const blogPosts = [
         order: 0,
         config: {
           type: "hero",
-          title: "Fun Ways to Master English Prepositions",
+          title: "Understanding English Prepositions: A Guide for German Speakers",
           subtitle:
-            "Struggling with in, on, and at? You're not alone. German speakers find English prepositions tricky because they work differently. Discover fun and effective strategies to finally master them.",
-          badge: "Grammar Guide",
+            "English prepositions present a persistent challenge for German speakers precisely because they resist direct translation. This guide explores the systematic patterns that govern their usage.",
+          badge: "Grammar",
           showAuthor: true,
           showDate: true,
           showReadTime: true,
@@ -93,30 +87,21 @@ const blogPosts = [
         order: 1,
         config: {
           type: "rich_text",
-          content: `## Why Are Prepositions So Tricky for German Speakers?
+          content: `## The Challenge of Cross-Linguistic Transfer
 
-In German, you might say "Ich bin **in** der Arbeit" (I am at work) — but wait, in English it's "at" not "in"! That's because prepositions don't translate directly between languages.
+German speakers learning English encounter a particular difficulty with prepositions that stems from a fundamental difference in how the two languages conceptualize spatial and temporal relationships. In German, one might say "Ich bin in der Arbeit" to indicate being at work, yet English requires "at work" rather than "in work." This discrepancy arises not from arbitrary convention but from deeper semantic distinctions in how each language carves up conceptual space.
 
-The good news? Once you understand the patterns, it becomes much easier. Let's break it down.
+The encouraging news for learners is that English prepositions, despite their apparent irregularity, follow discernible patterns. Understanding these patterns transforms what seems like endless memorization into a more systematic acquisition process.
 
-## The Big Three: In, On, At
+## Spatial and Temporal Prepositions
 
-These three prepositions cover most situations, but they follow specific patterns:
+The three most frequently used prepositions in English are in, on, and at. Each operates according to specific semantic principles that, once understood, apply consistently across numerous contexts.
 
-### **IN** - Think "inside" or "within"
-- **In** a box, room, car, building
-- **In** Munich, Germany, Europe (cities, countries, continents)
-- **In** the morning, **in** April, **in** 2024 (times of day, months, years)
+Consider "in" as the preposition of enclosure or containment. We use it when something exists within boundaries, whether physical or conceptual. This applies to enclosed spaces such as rooms, buildings, and vehicles one sits inside. It extends to geographical regions including cities, countries, and continents. For time expressions, "in" denotes periods with duration, namely parts of the day, months, and years.
 
-### **ON** - Think "surface" or "specific day"
-- **On** the table, floor, wall (surfaces)
-- **On** Monday, **on** Christmas Day, **on** my birthday (specific days)
-- **On** the first floor (British English!)
+The preposition "on" functions differently, indicating contact with a surface or specificity of time. Physically, it describes objects resting on tables, floors, or walls. Temporally, "on" marks specific days, whether named days of the week, holidays, or personal anniversaries such as birthdays.
 
-### **AT** - Think "precise point"
-- **At** the bus stop, **at** the corner, **at** the office (locations)
-- **At** 9 o'clock, **at** noon, **at** night (specific times)
-- **At** the weekend (British) vs **On** the weekend (American)`,
+Where "in" implies enclosure and "on" suggests surface contact, "at" denotes a precise point in either space or time. We use it for specific locations like bus stops, corners, and addresses. For time, "at" marks exact moments: at nine o'clock, at noon, at midnight. The preposition implies precision rather than duration or extent.`,
           variant: "default",
         },
       },
@@ -127,8 +112,8 @@ These three prepositions cover most situations, but they follow specific pattern
         config: {
           type: "callout",
           variant: "tip",
-          title: "German Speaker Tip",
-          content: "German uses 'am' for days (am Montag) and 'um' for times (um 9 Uhr). In English, it's always 'on' for days and 'at' for times. Create a mental note: Day = ON, Time = AT.",
+          title: "A Note on German-English Differences",
+          content: "German uses distinct prepositions for days (am) and times (um), while English consistently employs 'on' for days and 'at' for specific times. This consistent pairing simplifies the English system once the pattern is recognized.",
           icon: "Lightbulb",
         },
       },
@@ -138,29 +123,19 @@ These three prepositions cover most situations, but they follow specific pattern
         order: 3,
         config: {
           type: "rich_text",
-          content: `## Common Mistakes German Speakers Make
+          content: `## Common Transfer Errors and Their Corrections
 
-Let's look at the most frequent errors and how to fix them:
+German speakers frequently produce certain characteristic errors when using English prepositions. Understanding why these errors occur helps in avoiding them.
 
-| ❌ Incorrect | ✅ Correct | Why? |
-|-------------|-----------|------|
-| I am in the work | I am **at** work | "At" for workplaces |
-| On the weekend | **At** the weekend (UK) | British preference |
-| In Monday | **On** Monday | Specific days use "on" |
-| At the morning | **In** the morning | Parts of day use "in" |
-| I'm sitting in the table | I'm sitting **at** the table | Position relative to table |
+The phrase "I am in the work" represents a direct translation from German that fails in English, which requires "at work." The distinction lies in English treating "work" as a point of activity rather than a containing space. Similarly, "on the weekend" versus "at the weekend" reflects dialectal variation between American and British English rather than error, though learners should be aware of this difference.
 
-## The "Transportation" Rule
+Saying "in Monday" instead of "on Monday" applies the German pattern for days to English, where specific days consistently take "on." The opposite error occurs with parts of the day: "at the morning" should be "in the morning" because morning represents a period rather than a point in time.
 
-This one confuses everyone! Here's the pattern:
+## The Transportation Distinction
 
-**IN** = You're inside a small, private vehicle
-- **In** a car, taxi, helicopter
+One domain where English prepositions seem particularly counterintuitive involves vehicles. The governing principle relates to physical capacity: "in" describes vehicles where passengers are enclosed in a seated position, while "on" applies to conveyances where one could theoretically stand and move about.
 
-**ON** = You're on public transport or large vehicles
-- **On** a bus, train, plane, ship, bicycle
-
-*Think of it this way: If you can stand up and walk around inside it, use "on"!*`,
+Thus we say "in a car" or "in a taxi" because passengers sit enclosed within a small space. For buses, trains, planes, and ships, English prefers "on" because these vehicles are large enough to walk around inside. The same principle explains "on a bicycle" where the rider sits atop the frame rather than enclosed within it.`,
           variant: "default",
         },
       },
@@ -171,8 +146,8 @@ This one confuses everyone! Here's the pattern:
         config: {
           type: "callout",
           variant: "info",
-          title: "Practice Makes Perfect",
-          content: "Want to practice prepositions interactively? Try our Preposition Matching Game! It takes just 5 minutes and helps cement these rules in your memory. Look for the 'Play Game' button in the Materials section of your next lesson.",
+          title: "Developing Automaticity",
+          content: "Interactive practice accelerates the development of intuitive preposition use. Our preposition matching activities, available during lessons, help cement these patterns through active engagement rather than passive study.",
           icon: "Gamepad2",
         },
       },
@@ -182,38 +157,17 @@ This one confuses everyone! Here's the pattern:
         order: 5,
         config: {
           type: "rich_text",
-          content: `## Quick Reference Chart
+          content: `## Reference Patterns
 
-### Time Expressions
-| Use IN | Use ON | Use AT |
-|--------|--------|--------|
-| in the morning | on Monday | at 9 AM |
-| in April | on 1st April | at noon |
-| in 2024 | on my birthday | at night |
-| in summer | on the weekend (US) | at the weekend (UK) |
+For temporal expressions, the following patterns apply consistently. Use "in" for parts of the day such as morning, afternoon, and evening. Use "in" for months, seasons, and years. Use "on" for specific named days and dates. Use "at" for precise clock times, noon, midnight, and night.
 
-### Place Expressions
-| Use IN | Use ON | Use AT |
-|--------|--------|--------|
-| in Munich | on the street | at the corner |
-| in Germany | on the 2nd floor | at school |
-| in the office | on the bus | at the bus stop |
-| in bed | on the table | at work |
+For spatial expressions, "in" designates enclosed locations including cities, countries, rooms, and buildings. "On" indicates surfaces such as tables, floors, and streets, as well as floors of buildings in British usage. "At" marks specific addresses, institutions treated as points of contact, and precise locations like corners and bus stops.
 
-## Memory Tricks That Work
+## Cognitive Strategies for Retention
 
-1. **The Container Rule**: If something is fully enclosed (like a container), use **IN**
-2. **The Surface Rule**: If something is touching a surface, use **ON**
-3. **The Point Rule**: If you're at a specific point or place, use **AT**
+Three mental models prove helpful for remembering preposition usage. First, the container model: if the location could be conceived as enclosing something, "in" likely applies. Second, the surface model: if something rests upon or touches a surface, "on" is appropriate. Third, the point model: if the location or time represents a precise, specific point, "at" fits best.
 
-## Your Action Plan
-
-1. ✅ Practice with the preposition game in your next session
-2. ✅ Notice prepositions while reading English content
-3. ✅ When you make a mistake, note it down and look for the pattern
-4. ✅ Start with the most common combinations and build from there
-
-Remember: Even native English speakers sometimes debate which preposition is "correct"! The goal is communication, not perfection.`,
+It bears noting that even native English speakers occasionally debate preposition choices, and regional variations exist. The goal of language learning is communication, not the achievement of a perhaps unattainable perfection. Developing a working understanding of these core patterns enables effective communication while continued exposure refines intuitions over time.`,
           variant: "default",
         },
       },
@@ -226,22 +180,22 @@ Remember: Even native English speakers sometimes debate which preposition is "co
           items: [
             {
               id: generateFaqId(),
-              question: "Why is it 'at night' but 'in the morning'?",
-              answer: "Great question! Night is treated as a point in time (at night), while morning/afternoon/evening are periods (in the morning). This is simply a quirk of English that must be memorized.",
+              question: "Why does English use 'at night' but 'in the morning'?",
+              answer: "This apparent inconsistency reflects how English conceptualizes these time periods differently. Night is treated as a point in the daily cycle, while morning, afternoon, and evening are conceived as periods with duration. This distinction must simply be learned as a feature of English.",
             },
             {
               id: generateFaqId(),
-              question: "Do Americans and British use different prepositions?",
-              answer: "Yes, sometimes! The most common difference is 'at the weekend' (British) vs 'on the weekend' (American). Both are correct depending on which dialect you're learning.",
+              question: "Do British and American English differ in preposition usage?",
+              answer: "Yes, certain variations exist. The most commonly encountered difference involves weekends: British English prefers 'at the weekend' while American English uses 'on the weekend.' Both are correct within their respective dialects.",
             },
             {
               id: generateFaqId(),
-              question: "How can I remember all these rules?",
-              answer: "Focus on learning phrases rather than individual prepositions. Instead of memorizing 'at + work', learn 'I am at work.' Phrases stick better than isolated rules.",
+              question: "What is the most effective approach to learning prepositions?",
+              answer: "Research in second language acquisition suggests learning prepositions within phrases rather than in isolation. Instead of memorizing that 'at' goes with 'work,' learn the complete phrase 'I am at work.' Phrases are retained more effectively than isolated grammatical rules.",
             },
           ],
           showHeader: true,
-          headerTitle: "Frequently Asked Questions",
+          headerTitle: "Common Questions",
           variant: "default",
         },
       },
@@ -252,25 +206,25 @@ Remember: Even native English speakers sometimes debate which preposition is "co
         config: {
           type: "cta",
           variant: "accent",
-          headline: "Ready to Practice?",
-          subheadline: "Book a session with Emma and practice prepositions in real conversation. Interactive games included!",
-          primaryButton: { text: "Start Learning", href: "/contact" },
-          secondaryButton: { text: "View Lessons", href: "/lessons" },
-          trustBadge: "First lesson free",
+          headline: "Develop Your Grammar Intuition",
+          subheadline: "Practice preposition usage through conversation with Emma, incorporating interactive exercises designed for German speakers.",
+          primaryButton: { text: "Begin Learning", href: "/contact" },
+          secondaryButton: { text: "Explore Lessons", href: "/lessons" },
+          trustBadge: "Complimentary first session",
         },
       },
     ],
   },
 
   // ============================================
-  // POST 2: 10 Business English Phrases
+  // POST 2: The Language of International Business
   // ============================================
   {
     locale: "en",
     slug: "business-english-phrases-professionals",
-    title: "10 Business English Phrases Every Professional Needs",
+    title: "The Language of International Business: Essential Phrases for German Professionals",
     excerpt:
-      "Master the essential business English phrases for meetings, emails, and negotiations. Perfect for German professionals working in international environments.",
+      "In international business communication, how one expresses an idea often matters as much as the idea itself. Understanding the conventions of English business discourse helps German professionals navigate cross-cultural expectations.",
     author: "Emma AI",
     category: "Business English",
     tags: ["business-english", "professional", "meetings", "email", "phrases"],
@@ -284,9 +238,9 @@ Remember: Even native English speakers sometimes debate which preposition is "co
         order: 0,
         config: {
           type: "hero",
-          title: "10 Business English Phrases Every Professional Needs",
+          title: "The Language of International Business: Essential Phrases for German Professionals",
           subtitle:
-            "Master the essential business English phrases for meetings, emails, and negotiations. Perfect for German professionals working in international environments.",
+            "In international business communication, how one expresses an idea often matters as much as the idea itself. Understanding the conventions of English business discourse helps German professionals navigate cross-cultural expectations.",
           badge: "Business English",
           showAuthor: true,
           showDate: true,
@@ -302,47 +256,21 @@ Remember: Even native English speakers sometimes debate which preposition is "co
         order: 1,
         config: {
           type: "rich_text",
-          content: `## Why These Phrases Matter
+          content: `## The Culture of Corporate Communication
 
-In international business, how you say something is often as important as what you say. German business communication tends to be direct and efficient — but English-speaking cultures often expect more diplomatic language.
+German business communication is characterised by directness and efficiency, qualities valued within German professional culture. English-speaking business environments, particularly those influenced by Anglo-American norms, often expect more diplomatic language that maintains relationship alongside task completion. This difference is not a matter of one approach being superior but of understanding and adapting to differing cultural expectations.
 
-These 10 phrases will help you sound professional, build rapport, and get things done.
-
----
-
-## 1. "I'd like to touch base with you about..."
-
-**Usage**: Starting a conversation or checking in
-**German equivalent**: "Ich möchte mich bei Ihnen erkundigen über..."
-
-**Example**:
-> "Hi Sarah, I'd like to touch base with you about the Q3 projections. Do you have 10 minutes this week?"
-
-**Why it works**: It's friendly, non-threatening, and signals you want to connect rather than demand.
+The following phrases represent common conventions in English business communication. Used appropriately, they facilitate smoother interactions across cultural boundaries.
 
 ---
 
-## 2. "Could we circle back to that?"
+## Initiating Contact and Following Up
 
-**Usage**: Returning to a previous topic
-**German equivalent**: "Können wir darauf zurückkommen?"
+The phrase "I'd like to touch base with you" serves as an informal way to request a brief conversation or check-in. Its German equivalent might be rendered as wanting to coordinate briefly on a matter. For example, one might write: "I'd like to touch base with you about the quarterly projections when you have a moment this week." The expression conveys friendly professionalism without undue formality.
 
-**Example**:
-> "That's a great point about the budget. Could we circle back to that after we discuss the timeline?"
+When a topic requires revisiting, "Could we circle back to that?" allows graceful navigation between discussion points. This proves useful in meetings where multiple subjects compete for attention. It acknowledges the value of a point while deferring its full discussion.
 
-**Why it works**: It shows you're organized and value the other person's input.
-
----
-
-## 3. "I think we're on the same page"
-
-**Usage**: Confirming mutual understanding
-**German equivalent**: "Ich glaube, wir sind uns einig"
-
-**Example**:
-> "So we'll deliver by Friday and you'll handle the client call? Great, I think we're on the same page."
-
-**Why it works**: It builds consensus and prevents misunderstandings.`,
+To confirm mutual understanding, "I think we're on the same page" summarizes agreement reached. It creates a moment of explicit consensus that prevents later misunderstandings about what was decided.`,
           variant: "default",
         },
       },
@@ -353,8 +281,8 @@ These 10 phrases will help you sound professional, build rapport, and get things
         config: {
           type: "callout",
           variant: "tip",
-          title: "Pro Tip",
-          content: "German directness is valued in Germany but can seem abrupt in Anglo-American business culture. Adding phrases like 'I think' or 'Perhaps we could' softens your message without weakening it.",
+          title: "On Directness",
+          content: "German directness is valued in Germany but may appear abrupt in Anglo-American business contexts. Phrases like 'I think' or 'Perhaps we could' soften communication without weakening substantive content. These are rhetorical conventions rather than signs of uncertainty.",
           icon: "Lightbulb",
         },
       },
@@ -364,51 +292,27 @@ These 10 phrases will help you sound professional, build rapport, and get things
         order: 3,
         config: {
           type: "rich_text",
-          content: `## 4. "Let me push back on that a little"
+          content: `## Expressing Disagreement Professionally
 
-**Usage**: Disagreeing politely
-**German equivalent**: "Da muss ich etwas widersprechen"
-
-**Example**:
-> "I appreciate the suggestion, but let me push back on that a little. I'm concerned about the timeline."
-
-**Why it works**: It shows you're engaged and thinking critically without creating conflict.
+Diplomatic disagreement represents perhaps the greatest difference between German and English business communication. The phrase "Let me push back on that a little" introduces a contrary view while maintaining collegial tone. It signals thoughtful engagement rather than conflict.
 
 ---
 
-## 5. "Going forward, we should..."
+## Planning and Coordination
 
-**Usage**: Suggesting future actions
-**German equivalent**: "Künftig sollten wir..."
+"Going forward, we should..." introduces future-oriented proposals. It implicitly treats past issues as concluded while directing attention toward solutions. The phrase proves useful when discussing process improvements or changes arising from lessons learned.
 
-**Example**:
-> "This was a great learning experience. Going forward, we should document our process better."
-
-**Why it works**: It's forward-looking and action-oriented.
+Communication management employs phrases like "I'll loop you in on the email," indicating that relevant parties will be included in ongoing correspondence. "Let's take this offline" gracefully moves detailed technical discussions out of larger meetings where they might consume time better spent on matters relevant to all participants.
 
 ---
 
-## 6. "I'll loop you in on the email"
+## Commitment and Capacity
 
-**Usage**: Including someone in communication
-**German equivalent**: "Ich setze Sie in CC"
+When accepting responsibility for a task, "I'll action that and get back to you" combines commitment with a promise of follow-up. Including a specific timeframe strengthens the commitment and aids accountability.
 
-**Example**:
-> "I'll loop you in on the email with the client so you have all the context."
+Enquiring about colleagues' availability requires tact. "What's the bandwidth on your end?" asks about capacity in a way that invites honest response about competing demands. It acknowledges that workloads vary and respects colleagues' need to manage their time.
 
-**Why it works**: It shows you're thinking about keeping people informed.
-
----
-
-## 7. "Let's take this offline"
-
-**Usage**: Moving a detailed discussion out of a meeting
-**German equivalent**: "Das besprechen wir separat"
-
-**Example**:
-> "This is getting quite technical. Let's take this offline and schedule a separate call."
-
-**Why it works**: It respects everyone's time while promising to address the issue.`,
+The closing phrase "Let's align on next steps" ensures meetings conclude productively with clear responsibilities assigned. It prevents the common problem of productive discussions that nonetheless end without clarity about who will do what.`,
           variant: "default",
         },
       },
@@ -419,8 +323,8 @@ These 10 phrases will help you sound professional, build rapport, and get things
         config: {
           type: "callout",
           variant: "warning",
-          title: "Watch Out!",
-          content: "Don't overuse these phrases! If every sentence includes corporate jargon, you'll sound insincere. Use them strategically at key moments.",
+          title: "A Word of Caution",
+          content: "These phrases should be deployed strategically rather than constantly. Excessive use of corporate idiom can create the impression of insincerity or lack of substance. The most effective communicators blend conventional phrases with straightforward language.",
           icon: "AlertCircle",
         },
       },
@@ -430,56 +334,11 @@ These 10 phrases will help you sound professional, build rapport, and get things
         order: 5,
         config: {
           type: "rich_text",
-          content: `## 8. "I'll action that and get back to you"
+          content: `## Summary Reference
 
-**Usage**: Committing to a task
-**German equivalent**: "Ich kümmere mich darum und melde mich"
+The following phrases serve the indicated functions. "Touch base" initiates informal contact or check-ins. "Circle back" returns discussion to a prior topic. "On the same page" confirms mutual understanding. "Push back" introduces diplomatic disagreement. "Going forward" frames future planning. "Loop in" indicates including others in communication. "Take offline" moves discussions to separate forums. "Action" indicates accepting task responsibility. "Bandwidth" enquires about capacity. "Align" means reaching agreement on plans.
 
-**Example**:
-> "Good point about the vendor contract. I'll action that and get back to you by Wednesday."
-
-**Why it works**: It shows accountability and gives a clear timeline.
-
----
-
-## 9. "What's the bandwidth on your end?"
-
-**Usage**: Checking if someone has capacity
-**German equivalent**: "Haben Sie Kapazitäten?"
-
-**Example**:
-> "We need someone for the Shanghai project. What's the bandwidth on your end this quarter?"
-
-**Why it works**: It's respectful of people's workloads and invites honest responses.
-
----
-
-## 10. "Let's align on next steps"
-
-**Usage**: Wrapping up with clear actions
-**German equivalent**: "Lassen Sie uns die nächsten Schritte abstimmen"
-
-**Example**:
-> "Great meeting everyone. Before we wrap up, let's align on next steps. Who's doing what?"
-
-**Why it works**: It ensures meetings end productively with clear responsibilities.
-
----
-
-## Quick Reference Card
-
-| Phrase | When to Use |
-|--------|-------------|
-| Touch base | Starting informal check-ins |
-| Circle back | Returning to a topic |
-| On the same page | Confirming understanding |
-| Push back | Polite disagreement |
-| Going forward | Future planning |
-| Loop you in | Including in communication |
-| Take this offline | Moving discussions |
-| Action that | Committing to tasks |
-| Bandwidth | Checking capacity |
-| Align | Agreeing on plans |`,
+Learning to use these phrases appropriately develops through practice in realistic contexts. Many find that incorporating one new phrase at a time into actual work communications allows natural integration into their professional vocabulary.`,
           variant: "default",
         },
       },
@@ -492,22 +351,22 @@ These 10 phrases will help you sound professional, build rapport, and get things
           items: [
             {
               id: generateFaqId(),
-              question: "Are these phrases used in British and American English?",
-              answer: "Yes, these phrases are widely used in both British and American business contexts. Some (like 'touch base') originated in American English but are now used globally.",
+              question: "Are these phrases used in both British and American business English?",
+              answer: "Yes, these expressions circulate widely in international business English and are understood in both British and American contexts. Some, such as 'touch base,' originated in American English but have become standard in global business communication.",
             },
             {
               id: generateFaqId(),
-              question: "Is it okay to use German-style directness in emails?",
-              answer: "It depends on your audience. With German colleagues, yes. With American or British colleagues, adding softening phrases like 'I was wondering if...' or 'Would it be possible to...' is often appreciated.",
+              question: "Should German directness be avoided entirely in English business communication?",
+              answer: "Not necessarily. The appropriate register depends on your audience and relationship. With German colleagues, directness remains appropriate. With American or British colleagues, particularly in initial interactions, softening phrases often smooth communication. Experienced professionals adapt their register to context.",
             },
             {
               id: generateFaqId(),
-              question: "How can I practice these phrases?",
-              answer: "Start using one phrase per week in your real work. Our vocabulary matching games also include business English modules that help cement these phrases through interactive practice.",
+              question: "What is the best way to practice these phrases?",
+              answer: "Active use in real professional situations proves most effective. Consider focusing on one phrase per week, consciously using it in appropriate contexts. Our business English modules also provide structured practice opportunities through scenario-based exercises.",
             },
           ],
           showHeader: true,
-          headerTitle: "Questions About Business English",
+          headerTitle: "Common Questions",
           variant: "default",
         },
       },
@@ -518,24 +377,24 @@ These 10 phrases will help you sound professional, build rapport, and get things
         config: {
           type: "cta",
           variant: "gradient",
-          headline: "Elevate Your Professional English",
-          subheadline: "Practice business English with Emma in realistic meeting and email scenarios. Get personalized feedback on your language.",
-          primaryButton: { text: "Book Business English Session", href: "/contact" },
-          secondaryButton: { text: "Browse Business Courses", href: "/lessons" },
+          headline: "Develop Your Professional English",
+          subheadline: "Practice business English in realistic meeting and email scenarios with personalised feedback on register and appropriateness.",
+          primaryButton: { text: "Schedule a Session", href: "/contact" },
+          secondaryButton: { text: "View Business Courses", href: "/lessons" },
         },
       },
     ],
   },
 
   // ============================================
-  // POST 3: Interactive Games - The Fun Way to Learn English
+  // POST 3: Game-Based Language Acquisition
   // ============================================
   {
     locale: "en",
     slug: "interactive-games-learn-english",
-    title: "Interactive Games: The Fun Way to Learn English",
+    title: "Game-Based Language Acquisition: The Research Behind Interactive Learning",
     excerpt:
-      "Discover how interactive games can transform your English learning. From vocabulary matching to sentence building, explore our engaging learning tools.",
+      "Contemporary research in second language acquisition increasingly supports what learners have long intuited: engagement accelerates learning. Interactive games leverage this principle through immediate feedback and reduced anxiety.",
     author: "Emma AI",
     category: "Interactive Learning",
     tags: ["games", "interactive", "vocabulary", "learning-tips", "motivation"],
@@ -549,10 +408,10 @@ These 10 phrases will help you sound professional, build rapport, and get things
         order: 0,
         config: {
           type: "hero",
-          title: "Interactive Games: The Fun Way to Learn English",
+          title: "Game-Based Language Acquisition: The Research Behind Interactive Learning",
           subtitle:
-            "Discover how interactive games can transform your English learning. From vocabulary matching to sentence building, explore our engaging learning tools.",
-          badge: "Interactive Learning",
+            "Contemporary research in second language acquisition increasingly supports what learners have long intuited: engagement accelerates learning. Interactive games leverage this principle through immediate feedback and reduced anxiety.",
+          badge: "Learning Science",
           showAuthor: true,
           showDate: true,
           showReadTime: true,
@@ -567,48 +426,23 @@ These 10 phrases will help you sound professional, build rapport, and get things
         order: 1,
         config: {
           type: "rich_text",
-          content: `## Why Games Work for Language Learning
+          content: `## The Cognitive Case for Interactive Learning
 
-Remember how easily you learned as a child? Through play! Research shows that game-based learning:
+The effectiveness of game-based learning rests on well-established principles from cognitive science and educational psychology. Research consistently demonstrates several advantages of interactive approaches over passive study methods.
 
-- **Increases retention by 40%** compared to passive learning
-- **Reduces anxiety** around making mistakes
-- **Builds automaticity** — you start using words without thinking
-- **Provides instant feedback** so you learn faster
+Studies show retention improvements of approximately forty percent compared to passive learning when information is processed through active engagement. Games reduce the affective filter, the psychological barrier that anxiety creates against language acquisition. Through repeated active use, learners develop automaticity, the ability to produce language without conscious rule application. Immediate feedback allows rapid error correction and prevents incorrect patterns from becoming entrenched.
 
-At Swiss Language School, we've integrated interactive games directly into our lessons. Here's how they work and why they're so effective.
+At Swiss Language School, interactive games are integrated directly into conversational lessons, creating a seamless connection between structured practice and authentic communication.
 
 ---
 
-## Our Game Types
+## Categories of Interactive Practice
 
-### 🎯 Vocabulary Matching
+Vocabulary matching activities require learners to connect English words with their German translations, visual representations, or definitional descriptions. This format employs spaced repetition principles and provides immediate feedback. Correct matches strengthen neural connections while errors trigger immediate correction. This approach proves particularly effective for building vocabulary, preparing for assessments, and developing word associations.
 
-**What is it?** Match English words with their German translations, images, or definitions.
+Sentence construction activities present learners with word tiles to arrange into grammatically correct sequences. Unlike recognition-based exercises, construction requires productive language use, a crucial distinction for developing speaking fluency. These activities address grammar practice, word order challenges, and understanding of syntactic structure.
 
-**Why it works**: This classic format uses spaced repetition and immediate feedback. When you match correctly, your brain strengthens the connection. When you don't, you learn immediately.
-
-**Best for**: Learning new vocabulary, reviewing before exams, building word associations.
-
----
-
-### 🧩 Sentence Builder
-
-**What is it?** Arrange word tiles to form grammatically correct sentences.
-
-**Why it works**: You actively construct language rather than passively recognizing it. This "productive practice" is crucial for speaking fluency.
-
-**Best for**: Grammar practice, word order challenges, understanding sentence structure.
-
----
-
-### 🔤 Fill in the Blank
-
-**What is it?** Complete sentences with the correct word, preposition, or verb form.
-
-**Why it works**: It mimics real communication where you need to produce language in context. You can't just recognize the answer — you must recall it.
-
-**Best for**: Preposition practice, verb tenses, phrasal verbs.`,
+Gap-fill exercises require learners to complete sentences with appropriate words, prepositions, or verb forms. This format mirrors the demands of real communication where language must be produced in context rather than merely recognised. Particularly valuable for preposition practice, verb tense usage, and phrasal verb mastery.`,
           variant: "default",
         },
       },
@@ -618,7 +452,7 @@ At Swiss Language School, we've integrated interactive games directly into our l
         order: 2,
         config: {
           type: "quote",
-          text: "I used to dread grammar exercises. Now I actually look forward to the game part of my lessons. It doesn't feel like studying!",
+          text: "I used to approach grammar exercises with reluctance. The game components of my lessons changed that entirely. Learning no longer feels like studying.",
           attribution: "Maria K.",
           role: "Student",
           company: "B2 Level",
@@ -631,51 +465,25 @@ At Swiss Language School, we've integrated interactive games directly into our l
         order: 3,
         config: {
           type: "rich_text",
-          content: `### 🎲 Word Scramble
+          content: `Word unscrambling activities require reconstructing correct spelling from disordered letters. This format develops attention to orthographic patterns, improving written accuracy alongside recognition. Useful for spelling practice, vocabulary consolidation, and visual pattern memory.
 
-**What is it?** Unscramble letters to form the correct word.
-
-**Why it works**: It forces you to focus on spelling and letter patterns, which improves writing accuracy.
-
-**Best for**: Spelling practice, vocabulary retention, visual memory.
+Multiple choice exercises test knowledge by requiring selection of correct answers from several options. The design of incorrect options, known as distractors, is crucial; they are carefully constructed to highlight common errors and misconceptions. This format serves well for knowledge review, comprehension testing, and confidence building.
 
 ---
 
-### ❓ Multiple Choice
+## Integration Within Conversational Lessons
 
-**What is it?** Choose the correct answer from several options.
+When learning with Emma, games are not isolated activities but components of a conversational flow. A typical progression begins with discussion of a topic, proceeds to Emma introducing relevant vocabulary with contextual explanation, presents an appropriate game in the Materials panel, allows play with supportive feedback, and concludes with review of what was learned and identification of areas for further practice.
 
-**Why it works**: Perfect for reviewing and testing knowledge. The wrong options (distractors) are carefully designed to highlight common errors.
-
-**Best for**: Quick reviews, testing understanding, building confidence.
+This integrated approach ensures that structured practice connects to meaningful communication rather than existing in isolation.
 
 ---
 
-## How Games Fit Into Your Lessons
+## Research Evidence
 
-When you learn with Emma, games aren't separate — they're woven into your conversation:
+Cognitive science provides clear evidence for the effectiveness of different learning approaches. Passive exposure through listening or reading alone yields retention rates of roughly ten to twenty percent after one week. Interactive practice improves this to fifty to seventy percent. Game-based learning with immediate feedback achieves retention rates of seventy-five to ninety percent.
 
-1. **You discuss a topic** (e.g., prepositions of place)
-2. **Emma introduces new vocabulary** with explanations
-3. **A game appears** in your Materials panel
-4. **You play** while Emma provides encouragement and tips
-5. **Emma reviews** what you learned and notes areas to practice
-
-This integrated approach means you're never just "drilling" — you're learning in context.
-
----
-
-## The Science Behind It
-
-Research from cognitive science shows:
-
-| Learning Method | Retention After 1 Week |
-|----------------|------------------------|
-| Listening/Reading Only | 10-20% |
-| Interactive Practice | 50-70% |
-| Game-Based Learning | 75-90% |
-
-Games add **challenge**, **immediate feedback**, and **fun** — the three ingredients that make learning stick.`,
+The key factors are challenge at an appropriate level, immediate corrective feedback, and engagement that sustains attention and motivation. Games provide all three elements in combination.`,
           variant: "default",
         },
       },
@@ -686,8 +494,8 @@ Games add **challenge**, **immediate feedback**, and **fun** — the three ingre
         config: {
           type: "callout",
           variant: "success",
-          title: "Ready to Try?",
-          content: "In your next lesson with Emma, ask to try a vocabulary game! Simply say 'Can we play a game?' or 'I'd like to practice with games' and Emma will open the Materials panel with available games.",
+          title: "Getting Started",
+          content: "During any lesson with Emma, request game-based practice by indicating your interest. The Materials panel will display appropriate activities based on your current topic and level.",
           icon: "Gamepad2",
         },
       },
@@ -697,32 +505,19 @@ Games add **challenge**, **immediate feedback**, and **fun** — the three ingre
         order: 5,
         config: {
           type: "rich_text",
-          content: `## Tips for Maximizing Game-Based Learning
+          content: `## Maximising Learning Outcomes
 
-### 1. **Don't Rush**
-The goal isn't to finish fastest — it's to learn. Take time to read each option and think about why answers are correct or incorrect.
+Several principles enhance the effectiveness of game-based practice. Avoid rushing; the objective is learning rather than speed. Take time to consider why answers are correct or incorrect, building understanding rather than merely memorising patterns.
 
-### 2. **Review Mistakes**
-After each game, note the words or patterns you missed. These are your learning opportunities!
+Review errors after each session. The items answered incorrectly represent the most valuable learning opportunities, indicating knowledge gaps ready to be filled. Return to games after intervals; spaced repetition dramatically improves long-term retention. Playing the same game one day later, then again after a week, consolidates learning more effectively than concentrated practice.
 
-### 3. **Come Back to Games**
-Spaced repetition is powerful. Playing the same game a day later, then a week later, dramatically improves retention.
-
-### 4. **Speak as You Play**
-Say the words out loud! Combining reading, speaking, and game mechanics engages more of your brain.
-
-### 5. **Compete With Yourself**
-Try to beat your previous score or time. This adds motivation without stress.
+Vocalise during play. Speaking words aloud while reading and responding engages multiple cognitive channels, enhancing encoding and recall. Self-competition against previous scores adds motivational element without external pressure.
 
 ---
 
-## What Students Say
+## Learner Perspectives
 
-> "The games make all the difference. I finally understand when to use 'make' vs 'do'!" — Thomas R.
-
-> "My vocabulary has grown so much since we started using the matching games." — Lisa M.
-
-> "I used to hate grammar. Now it's my favorite part!" — Stefan B.`,
+Students consistently report that game integration transforms their experience of language learning. The shift from passive study to active engagement makes practice sustainable and even enjoyable. Difficult topics like preposition usage or confusing word pairs become manageable when approached through interactive formats that provide immediate feedback and low-stakes opportunity for error correction.`,
           variant: "default",
         },
       },
@@ -735,22 +530,22 @@ Try to beat your previous score or time. This adds motivation without stress.
           items: [
             {
               id: generateFaqId(),
-              question: "Are the games available outside of lessons?",
-              answer: "Many games are accessible through our lesson materials. During lessons, Emma can open games directly. We're also working on a standalone practice mode for independent study.",
+              question: "Are games accessible outside of scheduled lessons?",
+              answer: "Many game activities are available through lesson materials. During lessons, Emma can open games directly. Standalone practice modes for independent study are under development.",
             },
             {
               id: generateFaqId(),
-              question: "What if I don't like games?",
-              answer: "No problem! Games are one tool among many. Emma adapts to your preferences. If you prefer conversation-based learning, just let her know. The important thing is finding what works for you.",
+              question: "What if games are not my preferred learning style?",
+              answer: "Games represent one tool among many available approaches. Emma adapts to learner preferences. If conversation-based learning without game elements suits you better, simply indicate this preference. The important consideration is finding approaches that sustain your engagement and progress.",
             },
             {
               id: generateFaqId(),
-              question: "Are the games designed for German speakers?",
-              answer: "Yes! Our games include German translations and are designed around the specific challenges German speakers face with English — like prepositions, articles, and word order.",
+              question: "Are games designed specifically for German speakers?",
+              answer: "Yes. Games include German translations where appropriate and are designed around the specific challenges German speakers face with English, including preposition usage, article systems, and word order differences.",
             },
           ],
           showHeader: true,
-          headerTitle: "Game Learning FAQ",
+          headerTitle: "Common Questions",
           variant: "default",
         },
       },
@@ -764,7 +559,7 @@ Try to beat your previous score or time. This adds motivation without stress.
           category: "games",
           limit: 2,
           showHeader: true,
-          headerTitle: "More Interactive Learning",
+          headerTitle: "Further Reading",
           variant: "cards",
         },
       },
@@ -775,11 +570,11 @@ Try to beat your previous score or time. This adds motivation without stress.
         config: {
           type: "cta",
           variant: "accent",
-          headline: "Start Learning Through Play",
-          subheadline: "Experience interactive learning with Emma. Your first lesson includes access to our full game library.",
-          primaryButton: { text: "Try Your First Game", href: "/contact" },
-          secondaryButton: { text: "See All Games", href: "/lessons" },
-          trustBadge: "100+ interactive games available",
+          headline: "Experience Interactive Learning",
+          subheadline: "Your first session with Emma includes access to our complete library of interactive learning activities.",
+          primaryButton: { text: "Begin Your First Session", href: "/contact" },
+          secondaryButton: { text: "View All Resources", href: "/lessons" },
+          trustBadge: "Over 100 interactive activities available",
         },
       },
     ],
@@ -787,12 +582,12 @@ Try to beat your previous score or time. This adds motivation without stress.
 ];
 
 async function seedBlogPosts() {
-  console.log("\n📝 Starting blog posts seeding...\n");
+  console.log("\n📝 Starting blog posts seeding (Professional content)...\n");
 
   let successCount = 0;
 
   for (const post of blogPosts) {
-    console.log(`📄 Creating post: "${post.title}"...`);
+    console.log(`📄 Processing: "${post.title}"...`);
 
     try {
       // Check if post already exists
@@ -802,8 +597,11 @@ async function seedBlogPosts() {
       });
 
       if (existingPost) {
-        console.log(`   ⏭️  Post "${post.slug}" already exists, skipping.`);
-        continue;
+        // Delete existing post to update with new content
+        console.log(`   🔄 Updating existing post "${post.slug}"...`);
+        await convex.mutation(api.landing.deleteBlogPost, {
+          id: existingPost._id,
+        });
       }
 
       // Create the blog post

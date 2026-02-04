@@ -4,13 +4,29 @@ import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
 import { ArrowRight, Phone } from "lucide-react";
 
-interface CTASectionProps {
-  variant?: "default" | "dark" | "accent";
+interface CTAContent {
+  title?: string;
+  subtitle?: string;
+  trustBadge?: string;
+  buttonPrimary?: string;
+  buttonSecondary?: string;
 }
 
-export function CTASection({ variant = "default" }: CTASectionProps) {
+interface CTASectionProps {
+  variant?: "default" | "dark" | "accent";
+  content?: CTAContent;
+}
+
+export function CTASection({ variant = "default", content }: CTASectionProps) {
   const t = useTranslations("cta");
   const locale = useLocale();
+
+  // Use provided content or fall back to translations
+  const headline = content?.title || t("headline");
+  const subheadline = content?.subtitle || t("subheadline");
+  const trustBadge = content?.trustBadge || t("trustBadge");
+  const buttonPrimary = content?.buttonPrimary || t("buttonPrimary");
+  const buttonSecondary = content?.buttonSecondary || t("buttonSecondary");
 
   const bgClass = {
     default: "bg-sls-cream",
@@ -35,10 +51,10 @@ export function CTASection({ variant = "default" }: CTASectionProps) {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         {/* Content */}
         <h2 className={`text-3xl sm:text-4xl font-bold ${textClass} mb-4`}>
-          {t("headline")}
+          {headline}
         </h2>
         <p className={`text-lg ${subtextClass} mb-8 max-w-2xl mx-auto`}>
-          {t("subheadline")}
+          {subheadline}
         </p>
 
         {/* CTA Buttons */}
@@ -53,7 +69,7 @@ export function CTASection({ variant = "default" }: CTASectionProps) {
                 : "bg-white text-sls-orange hover:bg-sls-cream"
             }`}
           >
-            {t("buttonPrimary")}
+            {buttonPrimary}
             <ArrowRight className="w-5 h-5" />
           </Link>
           <a
@@ -65,13 +81,13 @@ export function CTASection({ variant = "default" }: CTASectionProps) {
             }`}
           >
             <Phone className="w-5 h-5" />
-            {t("buttonSecondary")}
+            {buttonSecondary}
           </a>
         </div>
 
         {/* Trust Badge */}
         <p className={`mt-8 text-sm ${subtextClass}`}>
-          {t("trustBadge")}
+          {trustBadge}
         </p>
       </div>
     </section>
