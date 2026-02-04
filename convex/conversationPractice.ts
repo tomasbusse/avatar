@@ -464,6 +464,7 @@ export const uploadTranscript = mutation({
         recordingPlatform: v.optional(v.string()),
         duration: v.optional(v.string()),
         speakerCount: v.optional(v.number()),
+        lessonDate: v.optional(v.string()), // "YYYY-MM-DD" for dated lessons (metadata only)
       })
     ),
   },
@@ -485,6 +486,53 @@ export const uploadTranscript = mutation({
         content: args.content,
         sourceType: args.sourceType,
         sourceMetadata: args.sourceMetadata,
+        processingStatus: "raw",
+      },
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Upload audio transcription to a conversation practice
+ * Handles transcripts from audio file uploads with metadata like confidence, duration, and lesson date
+ */
+export const uploadAudioTranscript = mutation({
+  args: {
+    practiceId: v.id("conversationPractice"),
+    content: v.string(), // Transcribed text
+    originalFileName: v.string(),
+    lessonDate: v.optional(v.string()), // "YYYY-MM-DD" for dated lessons (metadata only)
+    transcriptionConfidence: v.optional(v.number()), // Deepgram confidence score (0-1)
+    audioStorageId: v.optional(v.id("_storage")), // Convex storage ID for original audio playback
+    duration: v.optional(v.string()), // Formatted duration string (e.g., "3:45")
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const practice = await ctx.db.get(args.practiceId);
+    if (!practice) {
+      throw new Error("Practice not found");
+    }
+
+    // Update the practice with audio transcript
+    await ctx.db.patch(args.practiceId, {
+      mode: "transcript_based",
+      transcript: {
+        content: args.content,
+        sourceType: "audio_transcription",
+        sourceMetadata: {
+          originalFileName: args.originalFileName,
+          lessonDate: args.lessonDate,
+          transcriptionConfidence: args.transcriptionConfidence,
+          audioStorageId: args.audioStorageId,
+          duration: args.duration,
+        },
         processingStatus: "raw",
       },
       updatedAt: Date.now(),
@@ -988,5 +1036,36 @@ export const getPrefetchedContent = query({
     }
 
     return practice.prefetchedContent ?? null;
+  },
+});
+
+// ============================================
+// AUDIO FILE STORAGE
+// ============================================
+
+/**
+ * Generate an upload URL for storing audio files in Convex storage
+ * Used for storing original audio files that were transcribed
+ */
+export const generateAudioUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/**
+ * Get a URL for playing back a stored audio file
+ */
+export const getAudioUrl = query({
+  args: {
+    storageId: v.id("_storage"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.storage.getUrl(args.storageId);
   },
 });

@@ -2261,7 +2261,8 @@ export default defineSchema({
         sourceType: v.union(
           v.literal("paste"), // Pasted text
           v.literal("file_upload"), // Uploaded .txt/.vtt/.srt
-          v.literal("auto_generated") // From platform recording
+          v.literal("auto_generated"), // From platform recording
+          v.literal("audio_transcription") // Transcribed from audio upload
         ),
         sourceMetadata: v.optional(
           v.object({
@@ -2270,6 +2271,10 @@ export default defineSchema({
             recordingPlatform: v.optional(v.string()), // "zoom", "teams", "meet"
             duration: v.optional(v.string()),
             speakerCount: v.optional(v.number()),
+            // Audio transcription fields
+            lessonDate: v.optional(v.string()), // "YYYY-MM-DD" for dated lessons (metadata only)
+            transcriptionConfidence: v.optional(v.number()), // Deepgram confidence score (0-1)
+            audioStorageId: v.optional(v.id("_storage")), // Convex storage ID for original audio playback
           })
         ),
         processingStatus: v.union(
