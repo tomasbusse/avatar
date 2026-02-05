@@ -69,7 +69,7 @@ export function ContactInfo() {
       {
         icon: <MapPin className="w-6 h-6" />,
         title: locale === "de" ? "Büro Berlin" : "Berlin Office",
-        content: "Friedrichstraße 123, 10117 Berlin",
+        content: "Business Centers, Kurfürstendamm 30, 10719 Berlin",
       },
       {
         icon: <Phone className="w-6 h-6" />,

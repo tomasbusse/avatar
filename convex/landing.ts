@@ -85,7 +85,7 @@ export const getContactInfo = query({
         },
         {
           name: { en: "Berlin Office", de: "Büro Berlin" },
-          address: "Friedrichstraße 123, 10117 Berlin",
+          address: "Business Centers, Kurfürstendamm 30, 10719 Berlin",
           isPrimary: false,
         },
       ],
@@ -1353,7 +1353,7 @@ export const seedPageContent = mutation({
           headline: "Our Locations",
           items: [
             { name: "Hannover Office", address: "Im Werkhof, Schaufelder Straße 11, 30167 Hannover" },
-            { name: "Berlin Office", address: "Friedrichstraße 123, 10117 Berlin" },
+            { name: "Berlin Office", address: "Business Centers, Kurfürstendamm 30, 10719 Berlin" },
             { name: "Online Worldwide", address: "Video call sessions available anywhere" },
           ],
         },
@@ -1398,7 +1398,7 @@ export const seedPageContent = mutation({
           headline: "Contact Information",
           items: [
             { title: "Hannover", content: "Im Werkhof, Schaufelder Straße 11, 30167 Hannover", icon: "MapPin" },
-            { title: "Berlin", content: "Friedrichstraße 123, 10117 Berlin", icon: "MapPin" },
+            { title: "Berlin", content: "Business Centers, Kurfürstendamm 30, 10719 Berlin", icon: "MapPin" },
             { title: "Phone", content: "+49 511 47 39 339", href: "tel:+495114739339", icon: "Phone" },
             { title: "Email", content: "james@englisch-lehrer.com", href: "mailto:james@englisch-lehrer.com", icon: "Mail" },
             { title: "Hours", content: "Monday – Friday: 9:00 – 18:00", icon: "Clock" },
@@ -1479,7 +1479,7 @@ export const seedPageContent = mutation({
           headline: "Unsere Standorte",
           items: [
             { name: "Büro Hannover", address: "Im Werkhof, Schaufelder Straße 11, 30167 Hannover" },
-            { name: "Büro Berlin", address: "Friedrichstraße 123, 10117 Berlin" },
+            { name: "Büro Berlin", address: "Business Centers, Kurfürstendamm 30, 10719 Berlin" },
             { name: "Online Weltweit", address: "Videositzungen überall verfügbar" },
           ],
         },
@@ -1524,7 +1524,7 @@ export const seedPageContent = mutation({
           headline: "Kontaktinformationen",
           items: [
             { title: "Hannover", content: "Im Werkhof, Schaufelder Straße 11, 30167 Hannover", icon: "MapPin" },
-            { title: "Berlin", content: "Friedrichstraße 123, 10117 Berlin", icon: "MapPin" },
+            { title: "Berlin", content: "Business Centers, Kurfürstendamm 30, 10719 Berlin", icon: "MapPin" },
             { title: "Telefon", content: "+49 511 47 39 339", href: "tel:+495114739339", icon: "Phone" },
             { title: "E-Mail", content: "james@englisch-lehrer.com", href: "mailto:james@englisch-lehrer.com", icon: "Mail" },
             { title: "Öffnungszeiten", content: "Montag – Freitag: 9:00 – 18:00", icon: "Clock" },

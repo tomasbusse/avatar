@@ -145,7 +145,7 @@ export default async function AboutPage({ params }: PageProps) {
           <div className="grid md:grid-cols-3 gap-8">
             {[
               { name: t("hannover"), address: "Im Werkhof, Schaufelder Stra\u00dfe 11" },
-              { name: t("berlin"), address: "Friedrichstra\u00dfe 123" },
+              { name: t("berlin"), address: "Business Centers, Kurfürstendamm 30" },
               { name: t("online"), address: locale === "de" ? "Weltweit per Videoanruf" : "Worldwide via Video Call" },
             ].map((location) => (
               <div
