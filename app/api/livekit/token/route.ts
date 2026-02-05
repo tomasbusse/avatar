@@ -101,6 +101,7 @@ export async function POST(req: NextRequest) {
         // System prompts and behavior
         systemPrompts: avatar.systemPrompts,
         behaviorRules: avatar.behaviorRules,
+        sessionStartConfig: avatar.sessionStartConfig,
         bilingualConfig: avatar.bilingualConfig,
 
         // Knowledge and memory configuration
