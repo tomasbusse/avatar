@@ -51,6 +51,54 @@ export const listGames = query({
 });
 
 /**
+ * List games created by a specific user (for teacher dashboard)
+ */
+export const listGamesByCreator = query({
+  args: {
+    type: v.optional(v.string()),
+    level: v.optional(v.string()),
+    status: v.optional(v.string()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) return [];
+
+    let games = await ctx.db
+      .query("wordGames")
+      .withIndex("by_creator", (q) => q.eq("createdBy", user._id))
+      .collect();
+
+    // Apply filters
+    if (args.type) {
+      games = games.filter((g) => g.type === args.type);
+    }
+    if (args.level) {
+      games = games.filter((g) => g.level === args.level);
+    }
+    if (args.status) {
+      games = games.filter((g) => g.status === args.status);
+    }
+
+    // Sort by newest first
+    games.sort((a, b) => b.createdAt - a.createdAt);
+
+    if (args.limit) {
+      games = games.slice(0, args.limit);
+    }
+
+    return games;
+  },
+});
+
+/**
  * Get single game by ID
  */
 export const getGame = query({

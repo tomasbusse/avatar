@@ -390,6 +390,28 @@ export const isAdmin = query({
   },
 });
 
+export const isTeacher = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return false;
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!user) return false;
+
+    const teacher = await ctx.db
+      .query("teachers")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .first();
+
+    return teacher !== null && teacher.status === "active";
+  },
+});
+
 export const listUsers = query({
   args: {
     paginationOpts: v.optional(

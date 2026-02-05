@@ -57,6 +57,7 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const isAdmin = useQuery(api.users.isAdmin);
+  const isTeacher = useQuery(api.users.isTeacher);
 
   // Auto-collapse on lesson pages
   const isLessonPage = pathname.startsWith("/lesson/");
@@ -119,6 +120,25 @@ export function Sidebar() {
               </li>
             );
           })}
+
+          {isTeacher && (
+            <li>
+              <Link
+                href="/teacher"
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
+                  pathname.startsWith("/teacher")
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                  isCollapsed && "justify-center px-2"
+                )}
+                title={isCollapsed ? "Teacher Panel" : undefined}
+              >
+                <GraduationCap className="w-5 h-5 flex-shrink-0" />
+                {!isCollapsed && "Teacher Panel"}
+              </Link>
+            </li>
+          )}
 
           {isAdmin && (
             <>

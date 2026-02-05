@@ -1,121 +1,572 @@
 "use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import {
   ArrowLeft,
   Eye,
+  MessageSquare,
+  Gamepad2,
+  ClipboardCheck,
   Users,
-  BookOpen,
-  TrendingUp,
+  Bot,
+  Plus,
+  Copy,
+  ExternalLink,
+  Trash2,
   Clock,
-  Calendar,
-  MoreVertical,
-  Play,
-  CheckCircle2,
-  AlertCircle,
   GraduationCap,
+  Pencil,
+  CheckCircle2,
 } from "lucide-react";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
+import {
+  getGameTypeDisplayName,
+  getGameTypeIcon,
+} from "@/types/word-games";
 
-// Sample data for teacher view
-const sampleStudents = [
+// ============================================
+// SAMPLE DATA
+// ============================================
+
+const sampleProfile = {
+  user: {
+    firstName: "Dr. Sarah",
+    lastName: "Johnson",
+    email: "sarah.johnson@school.de",
+    imageUrl: null,
+  },
+  company: { name: "Berlitz Language School", slug: "berlitz" },
+  avatars: [
+    { _id: "av-1", name: "Emma", slug: "emma", profileImage: null, description: "Friendly English teacher, B1-B2 focused" },
+    { _id: "av-2", name: "James", slug: "james", profileImage: null, description: "Business English specialist" },
+    { _id: "av-3", name: "Sophia", slug: "sophia", profileImage: null, description: "Cambridge exam preparation" },
+  ],
+};
+
+const sampleStats = {
+  practicesCount: 12,
+  gamesCount: 8,
+  testsCount: 3,
+  totalSessions: 47,
+  avatarsCount: 3,
+};
+
+const samplePractices = [
   {
-    id: "student-1",
-    name: "Maria Schmidt",
-    email: "maria.schmidt@example.com",
-    level: "B1",
-    progress: 72,
-    lastActive: "2 hours ago",
-    lessonsCompleted: 8,
-    streak: 5,
-    status: "active",
+    _id: "p-1",
+    title: "Business Meeting Roleplay",
+    description: "Practice professional meeting vocabulary and etiquette",
+    mode: "topic_guided",
+    avatarName: "Emma",
+    shareToken: "abc12345",
+    totalSessions: 15,
+    isPublic: true,
+    createdAt: Date.now() - 86400000 * 2,
   },
   {
-    id: "student-2",
-    name: "Hans Weber",
-    email: "hans.weber@example.com",
-    level: "A2",
-    progress: 45,
-    lastActive: "1 day ago",
-    lessonsCompleted: 4,
-    streak: 0,
-    status: "inactive",
+    _id: "p-2",
+    title: "Team Meeting Transcript Review",
+    description: "Review and discuss vocabulary from the Siemens Q4 meeting",
+    mode: "transcript_based",
+    avatarName: "James",
+    shareToken: "def67890",
+    totalSessions: 8,
+    isPublic: true,
+    createdAt: Date.now() - 86400000 * 5,
   },
   {
-    id: "student-3",
-    name: "Anna Müller",
-    email: "anna.mueller@example.com",
-    level: "B2",
-    progress: 89,
-    lastActive: "30 minutes ago",
-    lessonsCompleted: 15,
-    streak: 12,
-    status: "active",
+    _id: "p-3",
+    title: "Free Conversation - Daily Life",
+    description: null,
+    mode: "free_conversation",
+    avatarName: "Emma",
+    shareToken: "ghi11223",
+    totalSessions: 24,
+    isPublic: false,
+    createdAt: Date.now() - 86400000 * 10,
   },
   {
-    id: "student-4",
-    name: "Peter Braun",
-    email: "peter.braun@example.com",
-    level: "B1",
-    progress: 34,
-    lastActive: "3 days ago",
-    lessonsCompleted: 3,
-    streak: 0,
-    status: "needs_attention",
+    _id: "p-4",
+    title: "Job Interview Preparation",
+    description: "Practice common interview questions and confident answers",
+    mode: "topic_guided",
+    avatarName: "Sophia",
+    shareToken: "jkl44556",
+    totalSessions: 0,
+    isPublic: true,
+    createdAt: Date.now() - 86400000 * 1,
   },
 ];
 
-const sampleLessons = [
+const sampleGames = [
   {
-    id: "lesson-1",
-    title: "Present Perfect Tense",
-    level: "B1",
-    enrolledStudents: 12,
-    completionRate: 65,
-    averageScore: 78,
-    status: "active",
+    _id: "g-1",
+    title: "Business Phrasal Verbs",
+    type: "matching_pairs" as const,
+    level: "B2" as const,
+    category: "vocabulary" as const,
+    status: "published" as const,
+    slug: "business-phrasal-verbs",
+    stats: { totalPlays: 34, completionRate: 78, averageStars: 2.4, averageTimeSeconds: 120 },
+    createdAt: Date.now() - 86400000 * 3,
   },
   {
-    id: "lesson-2",
-    title: "Business Email Writing",
-    level: "B2",
-    enrolledStudents: 8,
-    completionRate: 42,
-    averageScore: 82,
-    status: "active",
+    _id: "g-2",
+    title: "Present Perfect vs Past Simple",
+    type: "fill_in_blank" as const,
+    level: "B1" as const,
+    category: "grammar" as const,
+    status: "published" as const,
+    slug: "present-perfect-past-simple",
+    stats: { totalPlays: 51, completionRate: 65, averageStars: 2.1, averageTimeSeconds: 180 },
+    createdAt: Date.now() - 86400000 * 7,
   },
   {
-    id: "lesson-3",
-    title: "Common Phrasal Verbs",
-    level: "B1",
-    enrolledStudents: 15,
-    completionRate: 88,
-    averageScore: 75,
-    status: "completed",
+    _id: "g-3",
+    title: "Medical English Vocabulary",
+    type: "flashcards" as const,
+    level: "C1" as const,
+    category: "vocabulary" as const,
+    status: "draft" as const,
+    slug: "medical-english-vocab",
+    stats: undefined,
+    createdAt: Date.now() - 86400000 * 1,
+  },
+  {
+    _id: "g-4",
+    title: "Email Sentence Builder",
+    type: "sentence_builder" as const,
+    level: "B1" as const,
+    category: "grammar" as const,
+    status: "published" as const,
+    slug: "email-sentence-builder",
+    stats: { totalPlays: 22, completionRate: 88, averageStars: 2.8, averageTimeSeconds: 95 },
+    createdAt: Date.now() - 86400000 * 14,
   },
 ];
 
-const sampleUpcomingSessions = [
+const sampleTests = [
   {
-    id: "session-1",
-    studentName: "Maria Schmidt",
-    lessonTitle: "Present Perfect Practice",
-    scheduledFor: "Today, 3:00 PM",
-    type: "1-on-1",
+    _id: "t-1",
+    title: "Berlitz B2 Placement Test",
+    slug: "berlitz-b2-placement",
+    companyName: "Berlitz Language School",
+    status: "published" as const,
+    createdAt: Date.now() - 86400000 * 20,
   },
   {
-    id: "session-2",
-    studentName: "Group Session",
-    lessonTitle: "Business Communication",
-    scheduledFor: "Tomorrow, 10:00 AM",
-    type: "group",
+    _id: "t-2",
+    title: "General English Level Check",
+    slug: "general-english-check",
+    companyName: null,
+    status: "published" as const,
+    createdAt: Date.now() - 86400000 * 15,
   },
+  {
+    _id: "t-3",
+    title: "Siemens Technical English Assessment",
+    slug: "siemens-tech-english",
+    companyName: "Siemens AG",
+    status: "draft" as const,
+    createdAt: Date.now() - 86400000 * 2,
+  },
+];
+
+const levelColors: Record<string, string> = {
+  A1: "bg-green-100 text-green-800",
+  A2: "bg-lime-100 text-lime-800",
+  B1: "bg-yellow-100 text-yellow-800",
+  B2: "bg-orange-100 text-orange-800",
+  C1: "bg-red-100 text-red-800",
+  C2: "bg-purple-100 text-purple-800",
+};
+
+const statusColors: Record<string, string> = {
+  draft: "bg-yellow-100 text-yellow-800",
+  published: "bg-green-100 text-green-800",
+  archived: "bg-gray-100 text-gray-800",
+};
+
+// ============================================
+// TAB CONTENT COMPONENTS
+// ============================================
+
+function OverviewTab() {
+  const statCards = [
+    { title: "Active Practices", value: sampleStats.practicesCount, icon: MessageSquare, href: "#", color: "text-blue-500" },
+    { title: "Games Created", value: sampleStats.gamesCount, icon: Gamepad2, href: "#", color: "text-green-500" },
+    { title: "Entry Tests", value: sampleStats.testsCount, icon: ClipboardCheck, href: "#", color: "text-purple-500" },
+    { title: "Total Sessions", value: sampleStats.totalSessions, icon: Users, color: "text-orange-500" },
+  ];
+
+  return (
+    <div className="space-y-8">
+      {/* Stats Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {statCards.map((stat) => (
+          <Card key={stat.title}>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">{stat.title}</p>
+                  <p className="text-3xl font-bold mt-1">{stat.value}</p>
+                </div>
+                <stat.icon className={`w-8 h-8 ${stat.color}`} />
+              </div>
+              {stat.href && (
+                <span className="text-xs text-primary hover:underline mt-2 inline-block cursor-pointer">
+                  View all
+                </span>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Recent Practices */}
+        <div className="lg:col-span-2 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Recent Practices</h2>
+            <Button size="sm">
+              <Plus className="w-4 h-4 mr-1" />
+              New Practice
+            </Button>
+          </div>
+          <div className="space-y-3">
+            {samplePractices.slice(0, 4).map((practice) => (
+              <Card key={practice._id}>
+                <CardContent className="py-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-medium truncate">{practice.title}</h3>
+                        <Badge variant="secondary" className="text-xs">
+                          {practice.mode.replace(/_/g, " ")}
+                        </Badge>
+                      </div>
+                      {practice.description && (
+                        <p className="text-sm text-muted-foreground truncate mt-1">
+                          {practice.description}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 ml-4">
+                      <Button variant="ghost" size="sm">
+                        <Copy className="w-4 h-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm">
+                        <ExternalLink className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+
+        {/* Assigned Avatars + Quick Actions */}
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">Your Avatars</h2>
+          <div className="space-y-3">
+            {sampleProfile.avatars.map((avatar) => (
+              <Card key={avatar._id}>
+                <CardContent className="py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Bot className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{avatar.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {avatar.description}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <div className="space-y-2 pt-4">
+            <h3 className="text-sm font-medium text-muted-foreground">Quick Actions</h3>
+            <div className="grid gap-2">
+              <Button variant="outline" className="justify-start">
+                <MessageSquare className="w-4 h-4 mr-2" />
+                New Practice Session
+              </Button>
+              <Button variant="outline" className="justify-start">
+                <Gamepad2 className="w-4 h-4 mr-2" />
+                Create Game
+              </Button>
+              <Button variant="outline" className="justify-start">
+                <ClipboardCheck className="w-4 h-4 mr-2" />
+                New Entry Test
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PracticeTab() {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Practice Sessions</h2>
+          <p className="text-muted-foreground">
+            Create and manage conversation practice sessions for your students.
+          </p>
+        </div>
+        <Button>
+          <Plus className="w-4 h-4 mr-2" />
+          New Practice
+        </Button>
+      </div>
+
+      <div className="grid gap-4">
+        {samplePractices.map((practice) => (
+          <Card key={practice._id}>
+            <CardContent className="py-4">
+              <div className="flex items-start justify-between">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-semibold">{practice.title}</h3>
+                    <Badge variant="secondary" className="text-xs">
+                      {practice.mode.replace(/_/g, " ")}
+                    </Badge>
+                    {practice.isPublic && (
+                      <Badge variant="outline" className="text-xs">Public</Badge>
+                    )}
+                  </div>
+                  {practice.description && (
+                    <p className="text-sm text-muted-foreground mb-2">
+                      {practice.description}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Bot className="w-3 h-3" />
+                      {practice.avatarName}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {new Date(practice.createdAt).toLocaleDateString()}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Users className="w-3 h-3" />
+                      {practice.totalSessions} sessions
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 ml-4">
+                  <Button variant="ghost" size="sm" title="Copy share link">
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm" title="Open">
+                    <ExternalLink className="w-4 h-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" title="Delete">
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function GamesTab() {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Games</h2>
+          <p className="text-muted-foreground">
+            Manage your word games and interactive exercises.
+          </p>
+        </div>
+        <Button>
+          <Plus className="w-4 h-4 mr-2" />
+          Create Game
+        </Button>
+      </div>
+
+      {/* Filter chips */}
+      <div className="flex gap-2">
+        <Badge variant="outline" className="cursor-pointer hover:bg-muted px-3 py-1">All types</Badge>
+        <Badge variant="outline" className="cursor-pointer hover:bg-muted px-3 py-1">All levels</Badge>
+        <Badge variant="outline" className="cursor-pointer hover:bg-muted px-3 py-1">All statuses</Badge>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {sampleGames.map((game) => (
+          <Card key={game._id} className="hover:shadow-md transition-shadow">
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">{getGameTypeIcon(game.type)}</span>
+                  <div>
+                    <CardTitle className="text-lg">{game.title}</CardTitle>
+                    <CardDescription className="text-sm">
+                      {getGameTypeDisplayName(game.type)}
+                    </CardDescription>
+                  </div>
+                </div>
+                <div className="flex gap-1">
+                  <span className={`px-2 py-0.5 rounded text-xs font-medium ${levelColors[game.level]}`}>
+                    {game.level}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded text-xs font-medium capitalize ${statusColors[game.status]}`}>
+                    {game.status}
+                  </span>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {game.stats && game.stats.totalPlays > 0 && (
+                <div className="grid grid-cols-3 gap-2 mb-4 text-center text-sm">
+                  <div className="bg-muted rounded p-2">
+                    <div className="font-semibold">{game.stats.totalPlays}</div>
+                    <div className="text-xs text-muted-foreground">Plays</div>
+                  </div>
+                  <div className="bg-muted rounded p-2">
+                    <div className="font-semibold">{game.stats.completionRate}%</div>
+                    <div className="text-xs text-muted-foreground">Complete</div>
+                  </div>
+                  <div className="bg-muted rounded p-2">
+                    <div className="font-semibold">{game.stats.averageStars.toFixed(1)}</div>
+                    <div className="text-xs text-muted-foreground">Avg Stars</div>
+                  </div>
+                </div>
+              )}
+              <div className="text-xs text-muted-foreground mb-3">
+                Created {new Date(game.createdAt).toLocaleDateString()}
+              </div>
+              <div className="flex gap-1">
+                <Button variant="outline" size="sm">
+                  <Eye className="w-4 h-4 mr-1" />
+                  Preview
+                </Button>
+                <Button variant="outline" size="sm">
+                  <Pencil className="w-4 h-4 mr-1" />
+                  Edit
+                </Button>
+                {game.status === "draft" && (
+                  <Button variant="outline" size="sm">
+                    <CheckCircle2 className="w-4 h-4 mr-1" />
+                    Publish
+                  </Button>
+                )}
+                <Button variant="outline" size="sm">
+                  <Copy className="w-4 h-4" />
+                </Button>
+                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EntryTestsTab() {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Entry Tests</h2>
+          <p className="text-muted-foreground">
+            Create and manage placement tests for your students.
+          </p>
+        </div>
+        <Button>
+          <Plus className="w-4 h-4 mr-2" />
+          New Entry Test
+        </Button>
+      </div>
+
+      <div className="flex gap-2">
+        <Badge variant="outline" className="cursor-pointer hover:bg-muted px-3 py-1">All statuses</Badge>
+      </div>
+
+      <div className="grid gap-4">
+        {sampleTests.map((test) => (
+          <Card key={test._id}>
+            <CardContent className="py-4">
+              <div className="flex items-start justify-between">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-semibold">{test.title}</h3>
+                    <Badge
+                      variant={test.status === "published" ? "default" : "secondary"}
+                      className="text-xs"
+                    >
+                      {test.status}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <span>/{test.slug}</span>
+                    {test.companyName && <span>{test.companyName}</span>}
+                    <span>Created {new Date(test.createdAt).toLocaleDateString()}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 ml-4">
+                  <Button variant="ghost" size="sm" title="Preview">
+                    <Eye className="w-4 h-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm" title="Edit">
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm" title="Copy link">
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                  {test.status === "draft" && (
+                    <Button variant="ghost" size="sm" title="Publish">
+                      <CheckCircle2 className="w-4 h-4 text-green-600" />
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" title="Delete">
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// MAIN PREVIEW PAGE
+// ============================================
+
+const teacherNavItems = [
+  { title: "Overview", key: "overview" },
+  { title: "Practice", key: "practice" },
+  { title: "Games", key: "games" },
+  { title: "Entry Tests", key: "entry-tests" },
 ];
 
 export default function TeacherDashboardPreview() {
+  const [activeTab, setActiveTab] = useState("overview");
+
   return (
     <div className="min-h-full bg-background">
       {/* Admin Preview Banner */}
@@ -139,217 +590,44 @@ export default function TeacherDashboardPreview() {
         </div>
       </div>
 
-      {/* Teacher Dashboard Content */}
-      <div className="p-8">
-        <div className="max-w-7xl mx-auto space-y-6">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold mb-1">Teacher Dashboard</h1>
-              <p className="text-muted-foreground">
-                Welcome back, Dr. Sarah Johnson
-              </p>
-            </div>
-            <Button>
-              <Play className="w-4 h-4 mr-2" />
-              Start New Session
-            </Button>
+      {/* Teacher Panel Header + Tabs (mirrors actual layout) */}
+      <div className="border-b bg-card">
+        <div className="px-8 py-4">
+          <div className="flex items-center gap-2 mb-4">
+            <GraduationCap className="w-5 h-5 text-primary" />
+            <h1 className="text-xl font-bold">Teacher Panel</h1>
+            <span className="text-sm text-muted-foreground ml-2">
+              — {sampleProfile.user.firstName} {sampleProfile.user.lastName}
+              {sampleProfile.company && (
+                <span className="ml-1">({sampleProfile.company.name})</span>
+              )}
+            </span>
           </div>
-
-          {/* Quick Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                    <Users className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">24</p>
-                    <p className="text-xs text-muted-foreground">Active Students</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                    <BookOpen className="w-5 h-5 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">8</p>
-                    <p className="text-xs text-muted-foreground">Active Lessons</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                    <TrendingUp className="w-5 h-5 text-purple-600" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">76%</p>
-                    <p className="text-xs text-muted-foreground">Avg. Completion</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
-                    <Clock className="w-5 h-5 text-orange-600" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">12h</p>
-                    <p className="text-xs text-muted-foreground">This Week</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Main Content Grid */}
-          <div className="grid lg:grid-cols-3 gap-6">
-            {/* Students Section */}
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <Users className="w-5 h-5" />
-                      My Students
-                    </CardTitle>
-                    <CardDescription>
-                      Monitor student progress and activity
-                    </CardDescription>
-                  </div>
-                  <Button variant="outline" size="sm">View All</Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {sampleStudents.map((student) => (
-                    <div
-                      key={student.id}
-                      className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                          <span className="text-sm font-medium text-primary">
-                            {student.name.split(" ").map(n => n[0]).join("")}
-                          </span>
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium">{student.name}</p>
-                            <Badge variant="outline" className="text-xs">
-                              {student.level}
-                            </Badge>
-                            {student.status === "needs_attention" && (
-                              <AlertCircle className="w-4 h-4 text-amber-500" />
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            Last active: {student.lastActive}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <p className="text-sm font-medium">{student.progress}%</p>
-                          <Progress value={student.progress} className="w-20 h-1.5" />
-                        </div>
-                        <Button variant="ghost" size="icon">
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Right Sidebar */}
-            <div className="space-y-6">
-              {/* Upcoming Sessions */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Calendar className="w-5 h-5" />
-                    Upcoming Sessions
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {sampleUpcomingSessions.map((session) => (
-                    <div
-                      key={session.id}
-                      className="p-3 rounded-lg bg-muted/50 border"
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="font-medium text-sm">{session.studentName}</p>
-                        <Badge variant="outline" className="text-xs">
-                          {session.type}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground mb-2">
-                        {session.lessonTitle}
-                      </p>
-                      <p className="text-xs font-medium text-primary">
-                        {session.scheduledFor}
-                      </p>
-                    </div>
-                  ))}
-                  <Button variant="outline" className="w-full" size="sm">
-                    View Calendar
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* Lessons Overview */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <BookOpen className="w-5 h-5" />
-                    My Lessons
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {sampleLessons.map((lesson) => (
-                    <div
-                      key={lesson.id}
-                      className="p-3 rounded-lg border hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="font-medium text-sm truncate">{lesson.title}</p>
-                        {lesson.status === "completed" ? (
-                          <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
-                        ) : (
-                          <Badge variant="outline" className="text-xs shrink-0">
-                            {lesson.level}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <GraduationCap className="w-3 h-3" />
-                          {lesson.enrolledStudents} students
-                        </span>
-                        <span>{lesson.completionRate}% complete</span>
-                      </div>
-                    </div>
-                  ))}
-                  <Button variant="outline" className="w-full" size="sm">
-                    Manage Lessons
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
+          <nav className="flex gap-4">
+            {teacherNavItems.map((item) => (
+              <button
+                key={item.key}
+                onClick={() => setActiveTab(item.key)}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-sm transition-colors",
+                  activeTab === item.key
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted"
+                )}
+              >
+                {item.title}
+              </button>
+            ))}
+          </nav>
         </div>
+      </div>
+
+      {/* Tab Content */}
+      <div className="p-8">
+        {activeTab === "overview" && <OverviewTab />}
+        {activeTab === "practice" && <PracticeTab />}
+        {activeTab === "games" && <GamesTab />}
+        {activeTab === "entry-tests" && <EntryTestsTab />}
       </div>
     </div>
   );

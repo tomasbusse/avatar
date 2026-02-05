@@ -1748,6 +1748,7 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_category", ["category"])
     .index("by_created", ["createdAt"])
+    .index("by_creator", ["createdBy"])
     .index("by_knowledge_content", ["knowledgeContentId"]),
 
   // Game-Lesson Links
@@ -3640,7 +3641,8 @@ export default defineSchema({
   })
     .index("by_slug", ["slug"])
     .index("by_status", ["status"])
-    .index("by_created", ["createdAt"]),
+    .index("by_created", ["createdAt"])
+    .index("by_creator", ["createdBy"]),
 
   /**
    * Voice Library - Standalone voice configurations

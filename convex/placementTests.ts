@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { Id } from "./_generated/dataModel";
 
 // ============================================
 // QUERIES
@@ -73,6 +74,40 @@ export const getPublishedBySlug = query({
   },
 });
 
+/**
+ * List placement tests created by the current user (for teacher dashboard)
+ */
+export const listByCreator = query({
+  args: {
+    status: v.optional(v.union(v.literal("draft"), v.literal("published"))),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) return [];
+
+    let tests = await ctx.db
+      .query("placementTests")
+      .withIndex("by_creator", (q) => q.eq("createdBy", user._id))
+      .collect();
+
+    if (args.status) {
+      tests = tests.filter((t) => t.status === args.status);
+    }
+
+    // Sort by newest first
+    tests.sort((a, b) => b.createdAt - a.createdAt);
+
+    return tests;
+  },
+});
+
 // ============================================
 // MUTATIONS
 // ============================================
@@ -104,6 +139,17 @@ export const create = mutation({
       throw new Error(`A test with slug "${args.slug}" already exists`);
     }
 
+    // Get current user for createdBy
+    const identity = await ctx.auth.getUserIdentity();
+    let createdBy: Id<"users"> | undefined;
+    if (identity) {
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+        .first();
+      createdBy = user?._id;
+    }
+
     const now = Date.now();
     return await ctx.db.insert("placementTests", {
       title: args.title,
@@ -113,6 +159,7 @@ export const create = mutation({
       config: args.config,
       status: args.status || "draft",
       resultEmails: args.resultEmails,
+      createdBy,
       createdAt: now,
       updatedAt: now,
     });
