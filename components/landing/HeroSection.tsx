@@ -149,9 +149,9 @@ export function HeroSection({ avatarId, showAvatar = true, content }: HeroSectio
   };
 
   return (
-    <section className="flex flex-col lg:flex-row min-h-[90vh] lg:min-h-screen items-center justify-center px-4 py-8 sm:p-6 lg:p-16 xl:p-20 bg-[#f3e9d2] gap-8 lg:gap-16 xl:gap-24 overflow-hidden">
+    <section className="flex flex-col-reverse lg:flex-row min-h-[90vh] lg:min-h-screen items-center justify-center px-4 py-8 sm:p-6 lg:p-16 xl:p-20 bg-[#f3e9d2] gap-8 lg:gap-16 xl:gap-24 overflow-hidden">
       {/* Phone Mockup Section */}
-      <div className="relative w-full max-w-[280px] sm:max-w-[300px] lg:max-w-[340px] shrink-0" data-phone-display>
+      <div className="relative w-full max-w-[260px] sm:max-w-[300px] lg:max-w-[340px] shrink-0" data-phone-display>
         {/* Phone Frame with flip animation - reduced height by 50px using max-height */}
         <div
           className="relative rounded-[3rem] border-[12px] border-black overflow-hidden shadow-2xl bg-gray-900"

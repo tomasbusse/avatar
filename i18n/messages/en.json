@@ -102,6 +102,29 @@
     "headline": "Frequently Asked Questions",
     "subheadline": "Find answers to common questions about our language services",
     "viewAll": "View All FAQs",
+    "avatarPrompt": "Do you have any questions?",
+    "avatarSubtext": "Ask me anything about our language services",
+    "avatarName": "Emma",
+    "methodBadge": "Our Approach",
+    "methodTitle": "The Simmonds Method",
+    "methodTagline": "Your reality. Your content. Your results.",
+    "methodDescription": "Every lesson is built around your real work situations — not generic textbook scenarios. That's what makes the difference.",
+    "methodPoints": {
+      "0": {
+        "title": "Your Reality",
+        "description": "We start with your actual work challenges — the meetings, emails, and presentations you need to master."
+      },
+      "1": {
+        "title": "Your Content",
+        "description": "Training materials come from your industry and role, making every session immediately relevant."
+      },
+      "2": {
+        "title": "Your Results",
+        "description": "Measurable progress tracked against your personal goals, not generic benchmarks."
+      }
+    },
+    "faqSectionTitle": "Common Questions",
+    "faqSectionSubtitle": "Everything you need to know about our training",
     "items": {
       "0": {
         "question": "How long does it take to see results?",

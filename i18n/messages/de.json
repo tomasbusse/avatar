@@ -102,6 +102,29 @@
     "headline": "Häufig gestellte Fragen",
     "subheadline": "Antworten auf häufige Fragen zu unseren Sprachdienstleistungen",
     "viewAll": "Alle FAQs ansehen",
+    "avatarPrompt": "Haben Sie Fragen?",
+    "avatarSubtext": "Fragen Sie mich alles über unsere Sprachdienstleistungen",
+    "avatarName": "Emma",
+    "methodBadge": "Unser Ansatz",
+    "methodTitle": "Die Simmonds Methode",
+    "methodTagline": "Ihre Realität. Ihre Inhalte. Ihre Ergebnisse.",
+    "methodDescription": "Jede Unterrichtsstunde basiert auf Ihren echten Arbeitssituationen — nicht auf generischen Lehrbuchszenarien. Das macht den Unterschied.",
+    "methodPoints": {
+      "0": {
+        "title": "Ihre Realität",
+        "description": "Wir beginnen mit Ihren tatsächlichen Herausforderungen — den Meetings, E-Mails und Präsentationen, die Sie meistern müssen."
+      },
+      "1": {
+        "title": "Ihre Inhalte",
+        "description": "Trainingsmaterialien kommen aus Ihrer Branche und Ihrer Rolle und machen jede Sitzung sofort relevant."
+      },
+      "2": {
+        "title": "Ihre Ergebnisse",
+        "description": "Messbare Fortschritte, die an Ihren persönlichen Zielen gemessen werden — nicht an generischen Maßstäben."
+      }
+    },
+    "faqSectionTitle": "Häufige Fragen",
+    "faqSectionSubtitle": "Alles, was Sie über unser Training wissen müssen",
     "items": {
       "0": {
         "question": "Wie lange dauert es, bis man Ergebnisse sieht?",
