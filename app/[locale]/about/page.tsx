@@ -3,6 +3,8 @@ import { getTranslations } from "next-intl/server";
 import { Metadata } from "next";
 import { MapPin, Clock, Award, Users } from "lucide-react";
 import { Breadcrumbs, CTASection, FAQAccordion } from "@/components/landing";
+import { getOrganizationSchema } from "@/lib/schema";
+import { JsonLd } from "@/lib/JsonLd";
 
 interface PageProps {
   params: Promise<{ locale: string }>;
@@ -15,6 +17,21 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: `${t("headline")} | Simmonds Language Services`,
     description: t("subheadline"),
+    alternates: {
+      canonical: `https://simmonds.online/${locale}/about`,
+      languages: {
+        de: "https://simmonds.online/de/about",
+        en: "https://simmonds.online/en/about",
+      },
+    },
+    openGraph: {
+      title: `${t("headline")} | Simmonds Language Services`,
+      description: t("subheadline"),
+      url: `https://simmonds.online/${locale}/about`,
+      siteName: "Simmonds Language Services",
+      locale: locale === "de" ? "de_DE" : "en_US",
+      type: "website",
+    },
   };
 }
 
@@ -25,6 +42,8 @@ export default async function AboutPage({ params }: PageProps) {
 
   return (
     <div className="pt-20">
+      <JsonLd data={getOrganizationSchema(locale)} />
+
       {/* Breadcrumbs */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <Breadcrumbs items={[{ label: t("headline") }]} />
@@ -59,11 +78,15 @@ export default async function AboutPage({ params }: PageProps) {
               <div className="grid grid-cols-2 gap-6">
                 <div className="p-4 rounded-xl bg-sls-cream">
                   <div className="text-3xl font-bold text-sls-teal mb-1">20+</div>
-                  <div className="text-sm text-sls-olive">Years Experience</div>
+                  <div className="text-sm text-sls-olive">
+                    {locale === "de" ? "Jahre Erfahrung" : "Years Experience"}
+                  </div>
                 </div>
                 <div className="p-4 rounded-xl bg-sls-cream">
                   <div className="text-3xl font-bold text-sls-teal mb-1">500+</div>
-                  <div className="text-sm text-sls-olive">Happy Clients</div>
+                  <div className="text-sm text-sls-olive">
+                    {locale === "de" ? "Zufriedene Kunden" : "Happy Clients"}
+                  </div>
                 </div>
               </div>
             </div>
@@ -96,9 +119,9 @@ export default async function AboutPage({ params }: PageProps) {
               </p>
               <ul className="space-y-4">
                 {[
-                  { icon: <Users />, text: "Tailored to your specific needs" },
-                  { icon: <Clock />, text: "Flexible scheduling options" },
-                  { icon: <Award />, text: "Proven results over 20 years" },
+                  { icon: <Users />, text: locale === "de" ? "Auf Ihre Bed\u00fcrfnisse zugeschnitten" : "Tailored to your specific needs" },
+                  { icon: <Clock />, text: locale === "de" ? "Flexible Terminplanung" : "Flexible scheduling options" },
+                  { icon: <Award />, text: locale === "de" ? "Bew\u00e4hrte Ergebnisse \u00fcber 20 Jahre" : "Proven results over 20 years" },
                 ].map((item, i) => (
                   <li key={i} className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-sls-teal/10 flex items-center justify-center text-sls-teal">
@@ -121,9 +144,9 @@ export default async function AboutPage({ params }: PageProps) {
           </h2>
           <div className="grid md:grid-cols-3 gap-8">
             {[
-              { name: t("hannover"), address: "Im Werkhof, Schaufelder Straße 11" },
-              { name: t("berlin"), address: "Friedrichstraße 123" },
-              { name: t("online"), address: "Worldwide via Video Call" },
+              { name: t("hannover"), address: "Im Werkhof, Schaufelder Stra\u00dfe 11" },
+              { name: t("berlin"), address: "Friedrichstra\u00dfe 123" },
+              { name: t("online"), address: locale === "de" ? "Weltweit per Videoanruf" : "Worldwide via Video Call" },
             ].map((location) => (
               <div
                 key={location.name}

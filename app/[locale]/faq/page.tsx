@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { Metadata } from "next";
 import { Breadcrumbs, FAQAccordion, CTASection } from "@/components/landing";
 import { FAQAvatarHero } from "./FAQAvatarHero";
+import { getFAQPageSchema } from "@/lib/schema";
 
 interface PageProps {
   params: Promise<{ locale: string }>;
@@ -15,6 +16,21 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: `${t("headline")} | Simmonds Language Services`,
     description: t("subheadline"),
+    alternates: {
+      canonical: `https://simmonds.online/${locale}/faq`,
+      languages: {
+        de: "https://simmonds.online/de/faq",
+        en: "https://simmonds.online/en/faq",
+      },
+    },
+    openGraph: {
+      title: `${t("headline")} | Simmonds Language Services`,
+      description: t("subheadline"),
+      url: `https://simmonds.online/${locale}/faq`,
+      siteName: "Simmonds Language Services",
+      locale: locale === "de" ? "de_DE" : "en_US",
+      type: "website",
+    },
   };
 }
 
@@ -23,8 +39,27 @@ export default async function FAQPage({ params }: PageProps) {
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: "faq" });
 
+  // Build FAQ items from translations for JSON-LD schema
+  // SECURITY NOTE: Content is from controlled translation files, not user input - safe for JSON-LD
+  const faqItems: { question: string; answer: string }[] = [];
+  for (let i = 0; i < 20; i++) {
+    try {
+      const question = t(`items.${i}.question`);
+      const answer = t(`items.${i}.answer`);
+      if (question && answer) {
+        faqItems.push({ question, answer });
+      }
+    } catch {
+      break;
+    }
+  }
+  const faqSchemaJson = JSON.stringify(getFAQPageSchema(faqItems));
+
   return (
     <div className="pt-20">
+      {/* eslint-disable-next-line -- JSON-LD requires dangerouslySetInnerHTML; content is from controlled translation files */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: faqSchemaJson }} />
+
       {/* Breadcrumbs */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <Breadcrumbs items={[{ label: t("headline") }]} />
@@ -83,7 +118,6 @@ export default async function FAQPage({ params }: PageProps) {
                 <p className="text-sm text-sls-olive/70 leading-relaxed">
                   {t(`methodPoints.${i}.description`)}
                 </p>
-                {/* Subtle accent line */}
                 <div className="absolute bottom-0 left-6 right-6 h-0.5 bg-gradient-to-r from-sls-teal/0 via-sls-teal/20 to-sls-teal/0 group-hover:via-sls-orange/40 transition-colors duration-300" />
               </div>
             ))}

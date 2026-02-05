@@ -381,9 +381,9 @@ export function HeroSection({ avatarId, showAvatar = true, content }: HeroSectio
           {content?.title || (
             <>
               {locale === "de" ? "Treffen Sie" : "Meet"} {avatarName}, <br />
-              {locale === "de" ? "Ihre" : "your"}{" "}
+              {locale === "de" ? "Ihr" : "your"}{" "}
               <span className="text-[#b3592d]">AI</span>{" "}
-              {locale === "de" ? "Sprachpartnerin" : "Practice Partner"}
+              {locale === "de" ? "Sprachpartner" : "Practice Partner"}
             </>
           )}
         </h1>

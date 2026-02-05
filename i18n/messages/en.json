@@ -1,14 +1,14 @@
 {
   "meta": {
-    "title": "Business English Training Hannover | The Simmonds Method",
-    "description": "Business English training using the Simmonds Method. Over 20 years experience. AI avatar for 24/7 practice. For executives and teams in Hannover, Berlin, and online."
+    "title": "Online Business English Training | The Simmonds Method",
+    "description": "Online Business English with experienced trainers & AI conversation partner. Tailored training for your real work. 20+ years experience. Book a free consultation."
   },
   "nav": {
     "services": "Services",
     "allServices": "All Services",
     "businessEnglish": "Business English",
     "teamTraining": "Team Training",
-    "aiPractice": "AI Avatar Practice",
+    "aiPractice": "AI Conversation Practice",
     "pricing": "Pricing",
     "about": "About",
     "faq": "FAQ",
@@ -18,37 +18,45 @@
   },
   "hero": {
     "badge": "The Simmonds Method",
-    "headline": "Business English Training",
-    "headlineAccent": "that actually works.",
-    "subheadline": "Your reality. Your content. Your results. Tailored English training using the proven Simmonds Method – in person or online.",
-    "benefit1": "Personalized 1:1 sessions focused on your goals",
-    "benefit2": "Real-world practice with meetings, emails & presentations",
-    "benefit3": "Flexible scheduling – online or face-to-face",
-    "ctaPrimary": "Free Consultation",
-    "ctaSecondary": "Our Services",
+    "headline": "Online Business English",
+    "headlineAccent": "that gets results.",
+    "subheadline": "Online Business English training with the proven Simmonds Method. Your personal trainer for real work situations \u2014 plus George Patterson, your AI conversation partner for unlimited practice between lessons.",
+    "benefit1": "Online 1:1 sessions with your experienced trainer",
+    "benefit2": "AI conversation practice 24/7 between lessons",
+    "benefit3": "Personalized to your real work situations",
+    "ctaPrimary": "Talk to George",
+    "ctaSecondary": "Free Consultation",
     "years": "Years Experience",
-    "students": "Happy Students",
+    "students": "Happy Clients",
     "satisfaction": "Satisfaction",
     "loadingAvatar": "Loading avatar...",
-    "avatarGreeting": "Hello! I'm Emma, your AI language assistant. How can I help you today?",
+    "avatarGreeting": "Hello! I'm George, your AI practice partner. Shall we have a conversation?",
     "avatarPlaceholder": "AI avatar will appear here",
     "clickToStart": "Click to Start"
   },
   "services": {
     "badge": "Our Services",
-    "headline": "Business English Training",
-    "subheadline": "Professional English training for your career success",
+    "headline": "Online Business English Training",
+    "subheadline": "Professional English training for your career success \u2014 online, personalized, and supported by AI",
     "businessEnglish": {
-      "title": "1:1 Business English",
-      "description": "Individual training for meetings, presentations, negotiations, and emails. Content from your real work situations."
+      "title": "Online Business English",
+      "description": "1:1 video sessions with your personal trainer, tailored to your job. Meetings, presentations, emails \u2014 all from your real work situations."
     },
     "teamTraining": {
-      "title": "Team Training",
-      "description": "Group training for your team. Improve international communication across your department."
+      "title": "Corporate Team Training",
+      "description": "Online group training for your team with customized content for your industry. Every team member gets AI avatar access for practice between sessions."
     },
     "aiPractice": {
-      "title": "AI Avatar Practice",
-      "description": "Practice 24/7 with our AI training partner. She knows your learning content and gives immediate feedback."
+      "title": "AI Conversation Practice",
+      "description": "Practice 24/7 with George Patterson, your AI conversation partner. He knows your learning content and gives instant feedback on grammar, vocabulary, and pronunciation."
+    },
+    "germanCourses": {
+      "title": "German Courses",
+      "description": "German language training for internationals. Business German, integration support, and conversation practice tailored to your needs."
+    },
+    "copyEditing": {
+      "title": "Copy Editing & Proofreading",
+      "description": "Professional editing for documents, reports, websites, and marketing materials. Native-level English quality for your business communications."
     },
     "learnMore": "Learn More",
     "viewAll": "View All Services"
@@ -56,30 +64,30 @@
   "usp": {
     "badge": "Why Choose Us",
     "headline": "The Simmonds Difference",
-    "subheadline": "What sets our language training apart from the rest",
+    "subheadline": "What sets our online training apart from standard language schools",
     "flexibility": {
-      "title": "Complete Flexibility",
-      "description": "Online or face-to-face, morning or evening – training that fits your schedule."
+      "title": "Online-First Training",
+      "description": "Flexible video sessions from anywhere. Morning or evening \u2014 training that fits your schedule. Face-to-face in Hannover and Berlin also available."
     },
     "personalized": {
       "title": "Truly Personalized",
-      "description": "No generic courses. Every session is built around your specific goals and challenges."
+      "description": "No generic courses. Every session is built around your specific goals, your real meetings, and your actual work challenges."
     },
     "experience": {
       "title": "20+ Years Expertise",
-      "description": "Proven methods refined over two decades of helping professionals succeed."
+      "description": "Proven methods refined over two decades of helping German professionals succeed in international business."
     },
     "methodology": {
       "title": "The Simmonds Method",
-      "description": "Your reality. Your content. Your results. We build each session around real situations from your work life."
+      "description": "Your Reality. Your Content. Your Results. We build each session around real situations from your work life \u2014 not textbook scenarios."
     },
     "bilingual": {
-      "title": "Native Expertise",
-      "description": "Native speakers who understand both languages and cultures deeply."
+      "title": "AI Practice Partner",
+      "description": "George Patterson, your AI conversation partner, provides unlimited practice between your real lessons \u2014 available 24/7."
     },
     "support": {
-      "title": "Ongoing Support",
-      "description": "We're here for you between sessions with feedback and resources."
+      "title": "Continuous Support",
+      "description": "Training doesn't stop between sessions. AI practice, exercises, and feedback keep you progressing every day."
     }
   },
   "testimonials": {
@@ -87,32 +95,32 @@
     "headline": "What Our Clients Say",
     "items": {
       "0": {
-        "quote": "The training completely transformed how I communicate in meetings. I feel confident presenting to international stakeholders now."
+        "quote": "The online training completely transformed how I communicate in meetings. I feel confident presenting to international stakeholders now."
       },
       "1": {
         "quote": "Finally, English training that's actually relevant to my job. James understands what business professionals need."
       },
       "2": {
-        "quote": "The flexibility of online sessions combined with personalized content made all the difference for our team."
+        "quote": "The combination of online sessions with my trainer and practicing with George between lessons accelerated my progress enormously."
       }
     }
   },
   "faq": {
     "badge": "Got Questions?",
     "headline": "Frequently Asked Questions",
-    "subheadline": "Find answers to common questions about our language services",
+    "subheadline": "Find answers to common questions about our online training and AI conversation practice",
     "viewAll": "View All FAQs",
     "avatarPrompt": "Do you have any questions?",
-    "avatarSubtext": "Ask me anything about our language services",
-    "avatarName": "Emma",
+    "avatarSubtext": "Ask me anything about our online training",
+    "avatarName": "George",
     "methodBadge": "Our Approach",
     "methodTitle": "The Simmonds Method",
-    "methodTagline": "Your reality. Your content. Your results.",
-    "methodDescription": "Every lesson is built around your real work situations — not generic textbook scenarios. That's what makes the difference.",
+    "methodTagline": "Your Reality. Your Content. Your Results.",
+    "methodDescription": "Every lesson is built around your real work situations \u2014 not generic textbook scenarios. That's what makes the difference.",
     "methodPoints": {
       "0": {
         "title": "Your Reality",
-        "description": "We start with your actual work challenges — the meetings, emails, and presentations you need to master."
+        "description": "We start with your actual work challenges \u2014 the meetings, emails, and presentations you need to master."
       },
       "1": {
         "title": "Your Content",
@@ -124,27 +132,63 @@
       }
     },
     "faqSectionTitle": "Common Questions",
-    "faqSectionSubtitle": "Everything you need to know about our training",
+    "faqSectionSubtitle": "Everything you need to know about our online training and AI conversation practice",
     "items": {
       "0": {
-        "question": "How long does it take to see results?",
-        "answer": "Most clients notice improved confidence within 4-6 sessions. Significant fluency gains typically occur within 3-6 months of regular training."
+        "question": "How do your online lessons work?",
+        "answer": "You meet your personal trainer via video call for 1:1 sessions tailored to your job. Content comes from your real work situations \u2014 not pre-recorded or AI-only. Flexible scheduling fits around your workday."
       },
       "1": {
-        "question": "Do you offer online training?",
-        "answer": "Yes! Online training is available via video call and works just as effectively as face-to-face sessions. Many of our clients prefer this format for its flexibility."
+        "question": "What technology do I need for online sessions?",
+        "answer": "Just a browser, camera, and microphone. Our platform works on any device. We also support Teams, Zoom, and Google Meet if your company prefers those tools."
       },
       "2": {
-        "question": "What is the Simmonds Method?",
-        "answer": "The Simmonds Method is our unique approach: Your reality. Your content. Your results. We build each session around real questions and situations you face at work, making the training immediately applicable."
+        "question": "How does AI conversation practice work?",
+        "answer": "George Patterson, your AI conversation partner, practices English with you 24/7 between your real lessons. He knows your lesson content, adapts to your level, and gives instant feedback on grammar, vocabulary, and pronunciation."
       },
       "3": {
-        "question": "Can you train our whole team?",
-        "answer": "Absolutely. We offer group training for corporate teams, with content customized to your industry and company needs."
+        "question": "Who is George Patterson?",
+        "answer": "George is your AI conversation partner, customized to your company and industry. He is infinitely patient, available anytime, and remembers your progress and learning goals from session to session."
       },
       "4": {
+        "question": "Can the AI avatar be customized for our company?",
+        "answer": "Yes. Avatars are tailored with your industry-specific vocabulary, company context, and specialized knowledge. Each team member gets a personalized practice experience relevant to their role."
+      },
+      "5": {
+        "question": "What is the Simmonds Method?",
+        "answer": "Your Reality. Your Content. Your Results. Training built from your actual work situations, not textbooks. Every session uses your real meetings, emails, and presentations. Proven over 20 years with German professionals."
+      },
+      "6": {
+        "question": "How is this different from standard language schools?",
+        "answer": "No generic courses or textbook exercises. Every session uses your real meetings, emails, and presentations. Your AI conversation partner reinforces what you learn between lessons \u2014 something traditional schools cannot offer."
+      },
+      "7": {
+        "question": "How long does it take to see results?",
+        "answer": "Most clients notice improved confidence within 4\u20136 sessions. Significant fluency gains typically occur within 3\u20136 months with regular online training and AI conversation practice between lessons."
+      },
+      "8": {
+        "question": "What does a typical training package include?",
+        "answer": "Usually 24 online sessions over 6\u20139 months, plus AI avatar access for unlimited conversation practice between lessons. Packages are customized to your goals and schedule."
+      },
+      "9": {
+        "question": "Can my employer pay for the training?",
+        "answer": "Yes, we invoice companies directly and provide all necessary documentation. Language training is VAT-exempt in Germany. HR departments regularly arrange corporate training packages with us."
+      },
+      "10": {
+        "question": "Do you train entire corporate teams?",
+        "answer": "Yes. Online group training for 2\u20136 participants with custom content for your industry and company. Each team member also gets individual AI avatar access for conversation practice."
+      },
+      "11": {
+        "question": "Can we start with a trial session?",
+        "answer": "Contact us for a free consultation. We'll discuss your goals, assess your current level, and recommend the right training format \u2014 no obligation."
+      },
+      "12": {
+        "question": "Is face-to-face training also available?",
+        "answer": "Yes, in Hannover and Berlin. However, most of our clients choose online training for its flexibility and equal effectiveness. We recommend online for the best scheduling options."
+      },
+      "13": {
         "question": "What's your cancellation policy?",
-        "answer": "We ask for 24 hours notice for cancellations. Lessons cancelled with less notice may be charged at the full rate."
+        "answer": "24 hours notice for online sessions, 48 hours for face-to-face. Late cancellations may be charged at the full session rate. We understand business schedules can be unpredictable."
       }
     }
   },
@@ -156,10 +200,10 @@
     "perPerson": "Per Person",
     "online": {
       "title": "Online Training",
-      "description": "Flexible video sessions from anywhere in the world",
+      "description": "Flexible 1:1 video sessions with your personal trainer",
       "features": {
-        "0": "1:1 personalized sessions",
-        "1": "Flexible scheduling",
+        "0": "1:1 personalized sessions via video call",
+        "1": "Flexible scheduling around your workday",
         "2": "Session recordings available",
         "3": "Resources & materials included"
       }
@@ -176,12 +220,22 @@
     },
     "group": {
       "title": "Group Training",
-      "description": "Team training for corporate clients",
+      "description": "Online team training for corporate clients",
       "features": {
         "0": "2-6 participants per group",
         "1": "Custom content for your company",
         "2": "Online or in-person",
         "3": "Progress tracking included"
+      }
+    },
+    "avatar": {
+      "title": "AI Conversation Practice",
+      "description": "Add-on to your online training \u2014 unlimited conversation practice with George between your real lessons",
+      "features": {
+        "0": "24/7 conversation practice with George Patterson",
+        "1": "Personalized to your lesson content & company",
+        "2": "Instant feedback on grammar, vocabulary & pronunciation",
+        "3": "Track your progress between sessions"
       }
     },
     "getStarted": "Get Started",
@@ -190,16 +244,16 @@
     "cancellationNote": "24h cancellation policy"
   },
   "cta": {
-    "headline": "Ready to Transform Your English?",
-    "subheadline": "Book a free consultation and discover how we can help you achieve your language goals.",
+    "headline": "Ready to Transform Your Business English?",
+    "subheadline": "Book a free consultation and discover how online training with the Simmonds Method can help you achieve your goals.",
     "buttonPrimary": "Book Free Consultation",
     "buttonSecondary": "Call Us",
-    "trustBadge": "No commitment required • Usually respond within 24 hours"
+    "trustBadge": "No commitment required \u2022 Usually respond within 24 hours"
   },
   "contact": {
     "badge": "Get in Touch",
     "headline": "Contact Us",
-    "subheadline": "We'd love to hear from you. Send us a message and we'll respond as soon as possible.",
+    "subheadline": "Book a free consultation or send us a message. We'll recommend the right training format for your goals.",
     "name": "Full Name",
     "namePlaceholder": "Your name",
     "email": "Email Address",
@@ -216,15 +270,15 @@
     "successMessage": "Thank you for your message. We'll get back to you within 24 hours.",
     "error": "Something went wrong. Please try again.",
     "infoTitle": "Contact Information",
-    "hours": "Monday – Friday: 9:00 – 18:00"
+    "hours": "Monday \u2013 Friday: 9:00 \u2013 18:00"
   },
   "footer": {
-    "tagline": "Professional Business English training using the Simmonds Method. Helping professionals communicate with confidence.",
+    "tagline": "Online Business English training with the Simmonds Method. Experienced trainers and AI conversation practice for German professionals.",
     "yearsExperience": "Years of Excellence",
     "services": "Services",
-    "businessEnglish": "1:1 Business English",
+    "businessEnglish": "Online Business English",
     "teamTraining": "Team Training",
-    "aiPractice": "AI Avatar Practice",
+    "aiPractice": "AI Conversation Practice",
     "pricing": "Pricing",
     "company": "Company",
     "about": "About Us",
@@ -241,11 +295,11 @@
   "about": {
     "badge": "Our Story",
     "headline": "About Simmonds Language Services",
-    "subheadline": "Over 20 years of helping professionals communicate with confidence",
+    "subheadline": "Over 20 years of helping German professionals communicate with confidence in English",
     "storyTitle": "Our Story",
-    "storyContent": "Founded in Hannover over two decades ago, Simmonds Language Services has grown from a small English training practice into a trusted partner for businesses and individuals across Germany.",
+    "storyContent": "Founded in Hannover over two decades ago, Simmonds Language Services has grown from a small English training practice into a trusted partner for businesses and professionals across Germany. Today we combine experienced human trainers with AI-powered conversation practice for maximum results.",
     "methodTitle": "The Simmonds Method",
-    "methodContent": "Our unique teaching approach: Your reality. Your content. Your results. We build each session around real questions and situations from your work life.",
+    "methodContent": "Our unique teaching approach: Your Reality. Your Content. Your Results. We build each session around real questions and situations from your work life \u2014 then George Patterson, your AI conversation partner, helps you practice between lessons.",
     "locationsTitle": "Our Locations",
     "hannover": "Hannover Office",
     "berlin": "Berlin Office",
@@ -277,29 +331,29 @@
     "contactHeadline": "Questions? We're Here to Help"
   },
   "aiPractice": {
-    "title": "AI Avatar Practice",
-    "badge": "24/7 AI Practice Partner",
+    "title": "AI Conversation Practice",
+    "badge": "24/7 AI Conversation Partner",
     "meta": {
-      "title": "AI Avatar English Practice",
-      "description": "Practice English 24/7 with George Patterson, your incredibly patient AI teacher. Instant feedback, no judgment, available whenever you need."
+      "title": "AI Conversation Practice | Practice English 24/7",
+      "description": "Practice Business English 24/7 with George Patterson, your AI conversation partner. Personalized to your lessons, your company, and your goals. Instant feedback, infinite patience."
     },
     "hero": {
       "headline": "Meet George Patterson",
-      "subheadline": "Your incredibly patient English teacher, available around the clock. Practice conversations, improve pronunciation, and build confidence – all at your own pace."
+      "subheadline": "Your AI conversation partner for unlimited English practice between your real lessons. Available 24/7, personalized to your work, infinitely patient."
     },
     "george": {
-      "title": "Your Incredibly Patient AI Teacher",
+      "title": "Your AI Conversation Partner",
       "headline": "Why Practice with George?",
-      "description": "George Patterson is designed to be the most patient English teacher you've ever had. He never gets frustrated, always provides constructive feedback, and adapts to your learning pace.",
-      "trait1": "Infinite patience – repeat as many times as you need",
+      "description": "George Patterson is your AI conversation partner, designed to complement your real training sessions. He knows your lesson content, adapts to your level, and provides instant feedback \u2014 so you keep improving between lessons.",
+      "trait1": "Infinite patience \u2014 repeat as many times as you need",
       "trait2": "Instant, constructive feedback on every response",
-      "trait3": "Adapts difficulty to your current level",
+      "trait3": "Personalized to your lesson content and company",
       "trait4": "Remembers your progress and learning goals"
     },
     "benefits": {
       "availability": {
         "title": "Available 24/7",
-        "description": "Practice whenever suits your schedule – early morning, lunch break, or late at night."
+        "description": "Practice whenever suits your schedule \u2014 early morning, lunch break, or late at night."
       },
       "patience": {
         "title": "Infinitely Patient",
@@ -307,7 +361,7 @@
       },
       "feedback": {
         "title": "Instant Feedback",
-        "description": "Get immediate, constructive feedback to improve with every conversation."
+        "description": "Get immediate feedback on grammar, vocabulary, and pronunciation with every conversation."
       }
     },
     "features": {
@@ -315,7 +369,7 @@
       "subheadline": "Multiple ways to practice and improve your English skills",
       "conversations": {
         "title": "Free Conversations",
-        "description": "Chat naturally about any topic – from daily life to current events."
+        "description": "Chat naturally about any topic \u2014 from daily life to current events."
       },
       "pronunciation": {
         "title": "Pronunciation Practice",
@@ -339,11 +393,11 @@
       "subheadline": "Getting started is simple",
       "step1": {
         "title": "Start a Session",
-        "description": "Click to connect with George – no downloads or installations needed."
+        "description": "Click to connect with George \u2014 no downloads or installations needed."
       },
       "step2": {
         "title": "Choose Your Focus",
-        "description": "Select what you want to practice – conversation, pronunciation, or specific skills."
+        "description": "Select what you want to practice \u2014 conversation, pronunciation, or specific skills."
       },
       "step3": {
         "title": "Practice & Improve",
@@ -352,19 +406,19 @@
     },
     "demo": {
       "badge": "AI-Powered",
-      "title": "Your Incredibly Patient AI Teacher",
+      "title": "Your AI Conversation Partner",
       "voiceEnabled": "Voice Enabled",
       "instantFeedback": "Instant Feedback",
       "startButton": "Start Practice",
-      "contactPrompt": "Interested in AI-powered English practice? Leave us a message!"
+      "contactPrompt": "Interested in AI-powered conversation practice? Leave us a message!"
     }
   },
   "imprint": {
     "title": "Legal Notice (Imprint)",
-    "responsibleTitle": "Information according to § 5 TMG",
+    "responsibleTitle": "Information according to \u00a7 5 TMG",
     "name": "Simmonds Language Services",
     "owner": "James Simmonds",
-    "address": "Im Werkhof, Schaufelder Straße 11",
+    "address": "Im Werkhof, Schaufelder Stra\u00dfe 11",
     "city": "30167 Hannover",
     "country": "Germany",
     "contactTitle": "Contact",
@@ -372,8 +426,8 @@
     "email": "Email: james@englisch-lehrer.com",
     "website": "Web: www.englisch-lehrer.com",
     "vatTitle": "VAT Information",
-    "vatExempt": "Language training is VAT-exempt according to § 4 No. 21 UStG.",
-    "contentTitle": "Responsible for content according to § 55 Abs. 2 RStV",
+    "vatExempt": "Language training is VAT-exempt according to \u00a7 4 No. 21 UStG.",
+    "contentTitle": "Responsible for content according to \u00a7 55 Abs. 2 RStV",
     "disputeTitle": "Dispute Resolution",
     "disputeText": "The European Commission provides a platform for online dispute resolution (OS): https://ec.europa.eu/consumers/odr. We are neither willing nor obliged to participate in dispute resolution proceedings before a consumer arbitration board.",
     "copyrightTitle": "Copyright",

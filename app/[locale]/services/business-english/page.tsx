@@ -23,6 +23,21 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: `${t("businessEnglish.title")} | Simmonds Language Services`,
     description: t("businessEnglish.description"),
+    alternates: {
+      canonical: `https://simmonds.online/${locale}/services/business-english`,
+      languages: {
+        de: "https://simmonds.online/de/services/business-english",
+        en: "https://simmonds.online/en/services/business-english",
+      },
+    },
+    openGraph: {
+      title: `${t("businessEnglish.title")} | Simmonds Language Services`,
+      description: t("businessEnglish.description"),
+      url: `https://simmonds.online/${locale}/services/business-english`,
+      siteName: "Simmonds Language Services",
+      locale: locale === "de" ? "de_DE" : "en_US",
+      type: "website",
+    },
   };
 }
 

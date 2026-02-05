@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
-import { Check, ArrowRight, Clock, Users, MapPin, Monitor } from "lucide-react";
+import { Check, ArrowRight, Clock, Users, MapPin, Monitor, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PricingTier {
@@ -49,6 +49,15 @@ export function PricingTable() {
       ],
       featuresKey: "group.features",
     },
+    {
+      titleKey: "avatar.title",
+      icon: <Bot className="w-6 h-6" />,
+      descriptionKey: "avatar.description",
+      prices: [
+        { duration: locale === "de" ? "pro Monat" : "per month", price: "€65" },
+      ],
+      featuresKey: "avatar.features",
+    },
   ];
 
   // Get features array from translations
@@ -83,7 +92,7 @@ export function PricingTable() {
         </div>
 
         {/* Pricing Cards */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
           {tiers.map((tier, index) => (
             <div
               key={index}

@@ -30,6 +30,21 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: `${t("meta.title")} | Simmonds Language Services`,
     description: t("meta.description"),
+    alternates: {
+      canonical: `https://simmonds.online/${locale}/services/ai-practice`,
+      languages: {
+        de: "https://simmonds.online/de/services/ai-practice",
+        en: "https://simmonds.online/en/services/ai-practice",
+      },
+    },
+    openGraph: {
+      title: `${t("meta.title")} | Simmonds Language Services`,
+      description: t("meta.description"),
+      url: `https://simmonds.online/${locale}/services/ai-practice`,
+      siteName: "Simmonds Language Services",
+      locale: locale === "de" ? "de_DE" : "en_US",
+      type: "website",
+    },
   };
 }
 

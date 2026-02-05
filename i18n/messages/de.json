@@ -1,16 +1,16 @@
 {
   "meta": {
-    "title": "Business Englisch Training Hannover | Die Simmonds Methode",
-    "description": "Business Englisch Training mit der Simmonds Methode. Über 20 Jahre Erfahrung. KI-Avatar für 24/7 Übung. Für Führungskräfte und Teams in Hannover, Berlin und online."
+    "title": "Online Business English Training | Die Simmonds Methode",
+    "description": "Online Business English mit erfahrenen Trainern & KI-Konversationspartner. Ma\u00dfgeschneidertes Training f\u00fcr Ihren Berufsalltag. \u00dcber 20 Jahre Erfahrung. Jetzt kostenlose Beratung."
   },
   "nav": {
     "services": "Leistungen",
     "allServices": "Alle Leistungen",
     "businessEnglish": "Business English",
     "teamTraining": "Team Training",
-    "aiPractice": "KI-Avatar Übung",
+    "aiPractice": "KI-Konversationstraining",
     "pricing": "Preise",
-    "about": "Über uns",
+    "about": "\u00dcber uns",
     "faq": "FAQ",
     "contact": "Kontakt",
     "blog": "Blog",
@@ -18,37 +18,45 @@
   },
   "hero": {
     "badge": "Die Simmonds Methode",
-    "headline": "Business Englisch Training",
-    "headlineAccent": "das wirklich funktioniert.",
-    "subheadline": "Ihre Realität. Ihre Inhalte. Ihre Ergebnisse. Maßgeschneidertes Englischtraining mit der bewährten Simmonds Methode – persönlich oder online.",
-    "benefit1": "Personalisierte 1:1-Sitzungen auf Ihre Ziele ausgerichtet",
-    "benefit2": "Praxisnahes Training für Meetings, E-Mails & Präsentationen",
-    "benefit3": "Flexible Terminplanung – online oder persönlich",
-    "ctaPrimary": "Kostenlose Beratung",
-    "ctaSecondary": "Unsere Leistungen",
+    "headline": "Online Business English",
+    "headlineAccent": "das Ergebnisse liefert.",
+    "subheadline": "Online Business English Training mit der bew\u00e4hrten Simmonds Methode. Ihr pers\u00f6nlicher Trainer f\u00fcr echte Arbeitssituationen \u2014 plus George Patterson, Ihr KI-Konversationspartner f\u00fcr unbegrenztes \u00dcben zwischen den Unterrichtsstunden.",
+    "benefit1": "Online 1:1-Sitzungen mit Ihrem erfahrenen Trainer",
+    "benefit2": "KI-Konversationstraining rund um die Uhr zwischen den Stunden",
+    "benefit3": "Auf Ihre echten Arbeitssituationen zugeschnitten",
+    "ctaPrimary": "Mit George sprechen",
+    "ctaSecondary": "Kostenlose Beratung",
     "years": "Jahre Erfahrung",
     "students": "Zufriedene Kunden",
     "satisfaction": "Zufriedenheit",
     "loadingAvatar": "Avatar wird geladen...",
-    "avatarGreeting": "Hallo! Ich bin Emma, Ihre KI-Sprachassistentin. Wie kann ich Ihnen heute helfen?",
+    "avatarGreeting": "Hallo! Ich bin George, Ihr KI-Sprachpartner. Sollen wir uns unterhalten?",
     "avatarPlaceholder": "KI-Avatar erscheint hier",
     "clickToStart": "Klicken zum Starten"
   },
   "services": {
     "badge": "Unsere Leistungen",
-    "headline": "Business Englisch Training",
-    "subheadline": "Professionelles Englischtraining für Ihren beruflichen Erfolg",
+    "headline": "Online Business English Training",
+    "subheadline": "Professionelles Englischtraining f\u00fcr Ihren beruflichen Erfolg \u2014 online, individuell und mit KI-Unterst\u00fctzung",
     "businessEnglish": {
-      "title": "1:1 Business Englisch",
-      "description": "Individuelles Training für Meetings, Präsentationen, Verhandlungen und E-Mails. Inhalte aus Ihrem echten Arbeitsalltag."
+      "title": "Online Business English",
+      "description": "1:1 Video-Sitzungen mit Ihrem pers\u00f6nlichen Trainer, zugeschnitten auf Ihren Job. Meetings, Pr\u00e4sentationen, E-Mails \u2014 alles aus Ihrem echten Arbeitsalltag."
     },
     "teamTraining": {
-      "title": "Team Training",
-      "description": "Gruppentraining für Ihr Team. Verbessern Sie die internationale Kommunikation in Ihrer Abteilung."
+      "title": "Firmen-Teamtraining",
+      "description": "Online-Gruppentraining f\u00fcr Ihr Team mit ma\u00dfgeschneiderten Inhalten f\u00fcr Ihre Branche. Jedes Teammitglied erh\u00e4lt KI-Avatar-Zugang zum \u00dcben zwischen den Sitzungen."
     },
     "aiPractice": {
-      "title": "KI-Avatar Übung",
-      "description": "Üben Sie 24/7 mit unserer KI-Trainingspartnerin. Sie kennt Ihre Lerninhalte und gibt sofortiges Feedback."
+      "title": "KI-Konversationstraining",
+      "description": "\u00dcben Sie rund um die Uhr mit George Patterson, Ihrem KI-Konversationspartner. Er kennt Ihre Lerninhalte und gibt sofortiges Feedback zu Grammatik, Wortschatz und Aussprache."
+    },
+    "germanCourses": {
+      "title": "Deutschkurse",
+      "description": "Deutschtraining f\u00fcr Internationals. Business-Deutsch, Integrationsunterst\u00fctzung und Konversationstraining auf Ihre Bed\u00fcrfnisse zugeschnitten."
+    },
+    "copyEditing": {
+      "title": "Lektorat & Korrektur",
+      "description": "Professionelles Lektorat f\u00fcr Dokumente, Berichte, Websites und Marketingmaterialien. Muttersprachliche Englischqualit\u00e4t f\u00fcr Ihre Gesch\u00e4ftskommunikation."
     },
     "learnMore": "Mehr erfahren",
     "viewAll": "Alle Leistungen"
@@ -56,30 +64,30 @@
   "usp": {
     "badge": "Warum wir",
     "headline": "Der Simmonds Unterschied",
-    "subheadline": "Was unser Sprachtraining von anderen unterscheidet",
+    "subheadline": "Was unser Online-Training von herk\u00f6mmlichen Sprachschulen unterscheidet",
     "flexibility": {
-      "title": "Maximale Flexibilität",
-      "description": "Online oder persönlich, morgens oder abends – Training das in Ihren Zeitplan passt."
+      "title": "Online-First Training",
+      "description": "Flexible Video-Sitzungen von \u00fcberall. Morgens oder abends \u2014 Training das in Ihren Zeitplan passt. Pr\u00e4senztraining in Hannover und Berlin ebenfalls m\u00f6glich."
     },
     "personalized": {
       "title": "Wirklich Individuell",
-      "description": "Keine Standard-Kurse. Jede Sitzung wird um Ihre spezifischen Ziele und Herausforderungen gebaut."
+      "description": "Keine Standard-Kurse. Jede Sitzung basiert auf Ihren spezifischen Zielen, Ihren echten Meetings und Ihren tats\u00e4chlichen Herausforderungen im Job."
     },
     "experience": {
       "title": "20+ Jahre Expertise",
-      "description": "Bewährte Methoden, verfeinert über zwei Jahrzehnte Erfahrung mit Fach- und Führungskräften."
+      "description": "Bew\u00e4hrte Methoden, verfeinert \u00fcber zwei Jahrzehnte Erfahrung mit deutschen Fach- und F\u00fchrungskr\u00e4ften im internationalen Business."
     },
     "methodology": {
       "title": "Die Simmonds Methode",
-      "description": "Ihre Realität. Ihre Inhalte. Ihre Ergebnisse. Wir bauen jede Sitzung um echte Situationen aus Ihrem Arbeitsalltag."
+      "description": "Ihre Realit\u00e4t. Ihre Inhalte. Ihre Ergebnisse. Wir bauen jede Sitzung um echte Situationen aus Ihrem Arbeitsalltag \u2014 nicht um Lehrbuch-Szenarien."
     },
     "bilingual": {
-      "title": "Muttersprachliche Expertise",
-      "description": "Muttersprachler, die beide Sprachen und Kulturen tiefgreifend verstehen."
+      "title": "KI-Konversationspartner",
+      "description": "George Patterson, Ihr KI-Konversationspartner, bietet unbegrenztes \u00dcben zwischen Ihren echten Unterrichtsstunden \u2014 rund um die Uhr verf\u00fcgbar."
     },
     "support": {
-      "title": "Kontinuierliche Betreuung",
-      "description": "Wir sind auch zwischen den Sitzungen mit Feedback und Materialien für Sie da."
+      "title": "Kontinuierliche Unterst\u00fctzung",
+      "description": "Das Training endet nicht zwischen den Sitzungen. KI-Konversationstraining, \u00dcbungen und Feedback halten Sie jeden Tag auf Kurs."
     }
   },
   "testimonials": {
@@ -87,32 +95,32 @@
     "headline": "Was unsere Kunden sagen",
     "items": {
       "0": {
-        "quote": "Das Training hat meine Kommunikation in Meetings komplett transformiert. Ich präsentiere jetzt selbstbewusst vor internationalen Stakeholdern."
+        "quote": "Das Online-Training hat meine Kommunikation in Meetings komplett transformiert. Ich pr\u00e4sentiere jetzt selbstbewusst vor internationalen Stakeholdern."
       },
       "1": {
-        "quote": "Endlich Englischtraining, das wirklich relevant für meinen Job ist. James versteht, was Business-Profis brauchen."
+        "quote": "Endlich Englischtraining, das wirklich relevant f\u00fcr meinen Job ist. James versteht, was Business-Profis brauchen."
       },
       "2": {
-        "quote": "Die Flexibilität der Online-Sitzungen kombiniert mit personalisierten Inhalten hat für unser Team den Unterschied gemacht."
+        "quote": "Die Kombination aus Online-Sitzungen mit meinem Trainer und dem \u00dcben mit George zwischen den Stunden hat meinen Fortschritt enorm beschleunigt."
       }
     }
   },
   "faq": {
     "badge": "Fragen?",
-    "headline": "Häufig gestellte Fragen",
-    "subheadline": "Antworten auf häufige Fragen zu unseren Sprachdienstleistungen",
+    "headline": "H\u00e4ufig gestellte Fragen",
+    "subheadline": "Antworten auf h\u00e4ufige Fragen zu unserem Online-Training und KI-Konversationstraining",
     "viewAll": "Alle FAQs ansehen",
     "avatarPrompt": "Haben Sie Fragen?",
-    "avatarSubtext": "Fragen Sie mich alles über unsere Sprachdienstleistungen",
-    "avatarName": "Emma",
+    "avatarSubtext": "Fragen Sie mich alles \u00fcber unser Online-Training",
+    "avatarName": "George",
     "methodBadge": "Unser Ansatz",
     "methodTitle": "Die Simmonds Methode",
-    "methodTagline": "Ihre Realität. Ihre Inhalte. Ihre Ergebnisse.",
-    "methodDescription": "Jede Unterrichtsstunde basiert auf Ihren echten Arbeitssituationen — nicht auf generischen Lehrbuchszenarien. Das macht den Unterschied.",
+    "methodTagline": "Ihre Realit\u00e4t. Ihre Inhalte. Ihre Ergebnisse.",
+    "methodDescription": "Jede Unterrichtsstunde basiert auf Ihren echten Arbeitssituationen \u2014 nicht auf generischen Lehrbuchszenarien. Das macht den Unterschied.",
     "methodPoints": {
       "0": {
-        "title": "Ihre Realität",
-        "description": "Wir beginnen mit Ihren tatsächlichen Herausforderungen — den Meetings, E-Mails und Präsentationen, die Sie meistern müssen."
+        "title": "Ihre Realit\u00e4t",
+        "description": "Wir beginnen mit Ihren tats\u00e4chlichen Herausforderungen \u2014 den Meetings, E-Mails und Pr\u00e4sentationen, die Sie meistern m\u00fcssen."
       },
       "1": {
         "title": "Ihre Inhalte",
@@ -120,87 +128,133 @@
       },
       "2": {
         "title": "Ihre Ergebnisse",
-        "description": "Messbare Fortschritte, die an Ihren persönlichen Zielen gemessen werden — nicht an generischen Maßstäben."
+        "description": "Messbare Fortschritte, die an Ihren pers\u00f6nlichen Zielen gemessen werden \u2014 nicht an generischen Ma\u00dfst\u00e4ben."
       }
     },
-    "faqSectionTitle": "Häufige Fragen",
-    "faqSectionSubtitle": "Alles, was Sie über unser Training wissen müssen",
+    "faqSectionTitle": "H\u00e4ufige Fragen",
+    "faqSectionSubtitle": "Alles, was Sie \u00fcber unser Online-Training und KI-Konversationstraining wissen m\u00fcssen",
     "items": {
       "0": {
-        "question": "Wie lange dauert es, bis man Ergebnisse sieht?",
-        "answer": "Die meisten Kunden bemerken nach 4-6 Sitzungen ein verbessertes Selbstvertrauen. Deutliche Fortschritte in der Sprachgewandtheit zeigen sich typischerweise nach 3-6 Monaten regelmäßigem Training."
+        "question": "Wie funktionieren Ihre Online-Unterrichtsstunden?",
+        "answer": "Sie treffen Ihren pers\u00f6nlichen Trainer per Videoanruf f\u00fcr 1:1-Sitzungen, zugeschnitten auf Ihren Job. Inhalte kommen aus Ihren echten Arbeitssituationen \u2014 nicht voraufgezeichnet oder rein KI-basiert. Flexible Terminplanung passt sich Ihrem Arbeitstag an."
       },
       "1": {
-        "question": "Bieten Sie Online-Training an?",
-        "answer": "Ja! Online-Training ist per Videoanruf verfügbar und funktioniert genauso effektiv wie persönliche Sitzungen. Viele unserer Kunden bevorzugen dieses Format wegen seiner Flexibilität."
+        "question": "Welche Technik brauche ich f\u00fcr Online-Sitzungen?",
+        "answer": "Nur einen Browser, eine Kamera und ein Mikrofon. Unsere Plattform funktioniert auf jedem Ger\u00e4t. Wir unterst\u00fctzen auch Teams, Zoom und Google Meet, falls Ihr Unternehmen diese Tools bevorzugt."
       },
       "2": {
-        "question": "Was ist die Simmonds Methode?",
-        "answer": "Die Simmonds Methode ist unser einzigartiger Ansatz: Ihre Realität. Ihre Inhalte. Ihre Ergebnisse. Wir bauen jede Sitzung um echte Fragen und Situationen aus Ihrem Arbeitsalltag auf, was das Training sofort anwendbar macht."
+        "question": "Wie funktioniert das KI-Konversationstraining?",
+        "answer": "George Patterson, Ihr KI-Konversationspartner, \u00fcbt rund um die Uhr Englisch mit Ihnen zwischen Ihren echten Unterrichtsstunden. Er kennt Ihre Lerninhalte, passt sich Ihrem Niveau an und gibt sofortiges Feedback zu Grammatik, Wortschatz und Aussprache."
       },
       "3": {
-        "question": "Können Sie unser gesamtes Team trainieren?",
-        "answer": "Absolut. Wir bieten Gruppentraining für Unternehmensteams an, mit Inhalten, die auf Ihre Branche und Ihre Unternehmensbedürfnisse zugeschnitten sind."
+        "question": "Wer ist George Patterson?",
+        "answer": "George ist Ihr KI-Konversationspartner, zugeschnitten auf Ihr Unternehmen und Ihre Branche. Er ist unendlich geduldig, jederzeit verf\u00fcgbar und merkt sich Ihren Fortschritt und Ihre Lernziele von Sitzung zu Sitzung."
       },
       "4": {
+        "question": "Kann der KI-Avatar f\u00fcr unser Unternehmen angepasst werden?",
+        "answer": "Ja. Avatare werden mit Ihrem branchenspezifischen Vokabular, Ihrem Unternehmenskontext und spezialisiertem Wissen ma\u00dfgeschneidert. Jedes Teammitglied erh\u00e4lt eine personalisierte \u00dcbungserfahrung, relevant f\u00fcr seine Rolle."
+      },
+      "5": {
+        "question": "Was ist die Simmonds Methode?",
+        "answer": "Ihre Realit\u00e4t. Ihre Inhalte. Ihre Ergebnisse. Training basierend auf Ihren echten Arbeitssituationen, nicht auf Lehrb\u00fcchern. Jede Sitzung nutzt Ihre realen Meetings, E-Mails und Pr\u00e4sentationen. Seit \u00fcber 20 Jahren bew\u00e4hrt mit deutschen Fachkr\u00e4ften."
+      },
+      "6": {
+        "question": "Wie unterscheidet sich das von herk\u00f6mmlichen Sprachschulen?",
+        "answer": "Keine generischen Kurse oder Lehrbuch-\u00dcbungen. Jede Sitzung nutzt Ihre echten Meetings, E-Mails und Pr\u00e4sentationen. Ihr KI-Konversationspartner vertieft das Gelernte zwischen den Stunden \u2014 etwas, das traditionelle Sprachschulen nicht bieten k\u00f6nnen."
+      },
+      "7": {
+        "question": "Wie lange dauert es, bis man Ergebnisse sieht?",
+        "answer": "Die meisten Kunden bemerken nach 4\u20136 Sitzungen ein verbessertes Selbstvertrauen. Deutliche Fortschritte in der Sprachgewandtheit zeigen sich typischerweise nach 3\u20136 Monaten mit regelm\u00e4\u00dfigem Online-Training und KI-Konversationstraining."
+      },
+      "8": {
+        "question": "Was beinhaltet ein typisches Trainingspaket?",
+        "answer": "In der Regel 24 Online-Sitzungen \u00fcber 6\u20139 Monate, plus KI-Avatar-Zugang f\u00fcr unbegrenztes Konversationstraining zwischen den Stunden. Pakete werden individuell auf Ihre Ziele und Ihren Zeitplan abgestimmt."
+      },
+      "9": {
+        "question": "Kann mein Arbeitgeber das Training bezahlen?",
+        "answer": "Ja, wir stellen direkt an Unternehmen Rechnungen und liefern alle notwendigen Unterlagen. Sprachtraining ist in Deutschland umsatzsteuerbefreit. Personalabteilungen vereinbaren regelm\u00e4\u00dfig Firmenpakete mit uns."
+      },
+      "10": {
+        "question": "Trainieren Sie auch ganze Firmenteams?",
+        "answer": "Ja. Online-Gruppentraining f\u00fcr 2\u20136 Teilnehmer mit ma\u00dfgeschneiderten Inhalten f\u00fcr Ihre Branche und Ihr Unternehmen. Jedes Teammitglied erh\u00e4lt zus\u00e4tzlich individuellen KI-Avatar-Zugang zum Konversationstraining."
+      },
+      "11": {
+        "question": "Kann man mit einer Probestunde beginnen?",
+        "answer": "Kontaktieren Sie uns f\u00fcr eine kostenlose Beratung. Wir besprechen Ihre Ziele, sch\u00e4tzen Ihr aktuelles Niveau ein und empfehlen das richtige Trainingsformat \u2014 v\u00f6llig unverbindlich."
+      },
+      "12": {
+        "question": "Ist auch Pr\u00e4senztraining m\u00f6glich?",
+        "answer": "Ja, in Hannover und Berlin. Die meisten unserer Kunden w\u00e4hlen jedoch Online-Training wegen der Flexibilit\u00e4t und gleichen Effektivit\u00e4t. Wir empfehlen Online f\u00fcr die besten Terminoptionen."
+      },
+      "13": {
         "question": "Wie ist Ihre Stornierungsrichtlinie?",
-        "answer": "Wir bitten um 24 Stunden Vorankündigung bei Stornierungen. Kurzfristiger abgesagte Unterrichtsstunden können vollständig berechnet werden."
+        "answer": "24 Stunden Vorankndigung f\u00fcr Online-Sitzungen, 48 Stunden f\u00fcr Pr\u00e4senztraining. Kurzfristige Stornierungen k\u00f6nnen zum vollen Sitzungspreis berechnet werden. Wir verstehen, dass Gesch\u00e4ftstermine unvorhersehbar sein k\u00f6nnen."
       }
     }
   },
   "pricing": {
     "badge": "Transparente Preise",
     "headline": "Einfache, faire Preise",
-    "subheadline": "Keine versteckten Gebühren. Wählen Sie das Format, das am besten zu Ihnen passt.",
+    "subheadline": "Keine versteckten Geb\u00fchren. W\u00e4hlen Sie das Format, das am besten zu Ihnen passt.",
     "popular": "Beliebteste Wahl",
     "perPerson": "Pro Person",
     "online": {
       "title": "Online Training",
-      "description": "Flexible Video-Sitzungen von überall auf der Welt",
+      "description": "Flexible 1:1 Video-Sitzungen mit Ihrem pers\u00f6nlichen Trainer",
       "features": {
-        "0": "1:1 personalisierte Sitzungen",
-        "1": "Flexible Terminplanung",
-        "2": "Sitzungsaufnahmen verfügbar",
+        "0": "1:1 personalisierte Sitzungen per Videoanruf",
+        "1": "Flexible Terminplanung nach Ihrem Arbeitstag",
+        "2": "Sitzungsaufnahmen verf\u00fcgbar",
         "3": "Ressourcen & Materialien inklusive"
       }
     },
     "faceToFace": {
-      "title": "Präsenztraining",
-      "description": "Persönliches Training in Hannover oder Berlin",
+      "title": "Pr\u00e4senztraining",
+      "description": "Pers\u00f6nliches Training in Hannover oder Berlin",
       "features": {
         "0": "1:1 personalisierte Sitzungen",
-        "1": "Bei Ihnen im Büro oder bei uns",
+        "1": "Bei Ihnen im B\u00fcro oder bei uns",
         "2": "Intensive Lernumgebung",
         "3": "Alle Materialien inklusive"
       }
     },
     "group": {
       "title": "Gruppentraining",
-      "description": "Teamtraining für Firmenkunden",
+      "description": "Online-Teamtraining f\u00fcr Firmenkunden",
       "features": {
         "0": "2-6 Teilnehmer pro Gruppe",
-        "1": "Maßgeschneiderte Inhalte für Ihr Unternehmen",
-        "2": "Online oder persönlich",
+        "1": "Ma\u00dfgeschneiderte Inhalte f\u00fcr Ihr Unternehmen",
+        "2": "Online oder pers\u00f6nlich",
         "3": "Fortschrittsverfolgung inklusive"
+      }
+    },
+    "avatar": {
+      "title": "KI-Konversationstraining",
+      "description": "Add-on zu Ihrem Online-Training \u2014 unbegrenztes Konversationstraining mit George zwischen Ihren echten Unterrichtsstunden",
+      "features": {
+        "0": "24/7 Konversationstraining mit George Patterson",
+        "1": "Personalisiert auf Ihre Lerninhalte & Ihr Unternehmen",
+        "2": "Sofortiges Feedback zu Grammatik, Wortschatz & Aussprache",
+        "3": "Verfolgen Sie Ihren Fortschritt zwischen den Sitzungen"
       }
     },
     "getStarted": "Jetzt starten",
     "vatNote": "Sprachtraining ist umsatzsteuerbefreit",
-    "travelNote": "Fahrtkosten können für Präsenztraining anfallen",
+    "travelNote": "Fahrtkosten k\u00f6nnen f\u00fcr Pr\u00e4senztraining anfallen",
     "cancellationNote": "24 Std. Stornierungsrichtlinie"
   },
   "cta": {
-    "headline": "Bereit Ihr Englisch zu transformieren?",
-    "subheadline": "Buchen Sie eine kostenlose Beratung und entdecken Sie, wie wir Ihnen helfen können, Ihre Sprachziele zu erreichen.",
+    "headline": "Bereit Ihr Business English zu verbessern?",
+    "subheadline": "Buchen Sie eine kostenlose Beratung und entdecken Sie, wie Online-Training mit der Simmonds Methode Ihnen helfen kann.",
     "buttonPrimary": "Kostenlose Beratung buchen",
     "buttonSecondary": "Rufen Sie uns an",
-    "trustBadge": "Keine Verpflichtung • Antwort innerhalb von 24 Stunden"
+    "trustBadge": "Keine Verpflichtung \u2022 Antwort innerhalb von 24 Stunden"
   },
   "contact": {
     "badge": "Kontaktieren Sie uns",
     "headline": "Kontakt",
-    "subheadline": "Wir freuen uns von Ihnen zu hören. Senden Sie uns eine Nachricht und wir melden uns so schnell wie möglich.",
-    "name": "Vollständiger Name",
+    "subheadline": "Buchen Sie eine kostenlose Beratung oder senden Sie uns eine Nachricht. Wir empfehlen das richtige Trainingsformat f\u00fcr Ihre Ziele.",
+    "name": "Vollst\u00e4ndiger Name",
     "namePlaceholder": "Ihr Name",
     "email": "E-Mail-Adresse",
     "emailPlaceholder": "ihre@email.de",
@@ -209,25 +263,25 @@
     "company": "Unternehmen",
     "companyPlaceholder": "Ihr Unternehmen (optional)",
     "message": "Nachricht",
-    "messagePlaceholder": "Erzählen Sie uns von Ihren Sprachzielen...",
+    "messagePlaceholder": "Erz\u00e4hlen Sie uns von Ihren Sprachzielen...",
     "send": "Nachricht senden",
     "sending": "Wird gesendet...",
     "successTitle": "Nachricht gesendet!",
-    "successMessage": "Vielen Dank für Ihre Nachricht. Wir melden uns innerhalb von 24 Stunden.",
+    "successMessage": "Vielen Dank f\u00fcr Ihre Nachricht. Wir melden uns innerhalb von 24 Stunden.",
     "error": "Etwas ist schief gelaufen. Bitte versuchen Sie es erneut.",
     "infoTitle": "Kontaktinformationen",
-    "hours": "Montag – Freitag: 9:00 – 18:00"
+    "hours": "Montag \u2013 Freitag: 9:00 \u2013 18:00"
   },
   "footer": {
-    "tagline": "Professionelles Business Englisch Training mit der Simmonds Methode. Wir helfen Fachleuten, selbstbewusst zu kommunizieren.",
+    "tagline": "Online Business English Training mit der Simmonds Methode. Erfahrene Trainer und KI-Konversationstraining f\u00fcr deutsche Fachkr\u00e4fte.",
     "yearsExperience": "Jahre Exzellenz",
     "services": "Leistungen",
-    "businessEnglish": "1:1 Business Englisch",
+    "businessEnglish": "Online Business English",
     "teamTraining": "Team Training",
-    "aiPractice": "KI-Avatar Übung",
+    "aiPractice": "KI-Konversationstraining",
     "pricing": "Preise",
     "company": "Unternehmen",
-    "about": "Über uns",
+    "about": "\u00dcber uns",
     "faq": "FAQ",
     "blog": "Blog",
     "contact": "Kontakt",
@@ -240,15 +294,15 @@
   },
   "about": {
     "badge": "Unsere Geschichte",
-    "headline": "Über Simmonds Language Services",
-    "subheadline": "Über 20 Jahre Erfahrung darin, Fachleuten zu selbstbewusster Kommunikation zu verhelfen",
+    "headline": "\u00dcber Simmonds Language Services",
+    "subheadline": "\u00dcber 20 Jahre Erfahrung darin, deutschen Fachkr\u00e4ften zu selbstbewusster englischer Kommunikation zu verhelfen",
     "storyTitle": "Unsere Geschichte",
-    "storyContent": "Vor über zwei Jahrzehnten in Hannover gegründet, hat sich Simmonds Language Services von einer kleinen Englischtraining-Praxis zu einem vertrauenswürdigen Partner für Unternehmen und Privatpersonen in ganz Deutschland entwickelt.",
+    "storyContent": "Vor \u00fcber zwei Jahrzehnten in Hannover gegr\u00fcndet, hat sich Simmonds Language Services von einer kleinen Englischtraining-Praxis zu einem vertrauensw\u00fcrdigen Partner f\u00fcr Unternehmen und Fachkr\u00e4fte in ganz Deutschland entwickelt. Heute verbinden wir erfahrene menschliche Trainer mit KI-gest\u00fctztem Konversationstraining f\u00fcr maximale Ergebnisse.",
     "methodTitle": "Die Simmonds Methode",
-    "methodContent": "Unser einzigartiger Lehransatz: Ihre Realität. Ihre Inhalte. Ihre Ergebnisse. Wir bauen jede Sitzung um echte Fragen und Situationen aus Ihrem Berufsleben auf.",
+    "methodContent": "Unser einzigartiger Lehransatz: Ihre Realit\u00e4t. Ihre Inhalte. Ihre Ergebnisse. Wir bauen jede Sitzung um echte Fragen und Situationen aus Ihrem Berufsleben auf \u2014 dann hilft George Patterson, Ihr KI-Konversationspartner, Ihnen zwischen den Stunden zu \u00fcben.",
     "locationsTitle": "Unsere Standorte",
-    "hannover": "Büro Hannover",
-    "berlin": "Büro Berlin",
+    "hannover": "B\u00fcro Hannover",
+    "berlin": "B\u00fcro Berlin",
     "online": "Online Weltweit"
   },
   "blog": {
@@ -256,82 +310,82 @@
     "headline": "Unser Blog",
     "subheadline": "Tipps, Einblicke und Updates zum Sprachenlernen und professioneller Kommunikation",
     "readMore": "Artikel lesen",
-    "backToBlog": "Zurück zum Blog",
-    "publishedOn": "Veröffentlicht am",
+    "backToBlog": "Zur\u00fcck zum Blog",
+    "publishedOn": "Ver\u00f6ffentlicht am",
     "byAuthor": "von",
     "minRead": "Min. Lesezeit",
     "categories": "Kategorien",
     "allCategories": "Alle",
-    "recentPosts": "Neueste Beiträge",
-    "noPosts": "Noch keine Blog-Beiträge. Schauen Sie bald wieder vorbei!"
+    "recentPosts": "Neueste Beitr\u00e4ge",
+    "noPosts": "Noch keine Blog-Beitr\u00e4ge. Schauen Sie bald wieder vorbei!"
   },
   "blogHero": {
     "heroHeadline": "Englisch lernen mit interaktiven Spielen",
-    "heroSubheadline": "Grammatik und Business-Englisch durch spannende Lektionen und Übungsspiele meistern",
+    "heroSubheadline": "Grammatik und Business-Englisch durch spannende Lektionen und \u00dcbungsspiele meistern",
     "browseArticles": "Artikel durchsuchen",
     "freeConsultation": "Kostenlose Beratung",
     "featuredPost": "Empfohlener Artikel",
-    "popularGames": "Üben mit interaktiven Spielen",
-    "gamesSubheadline": "Lernen durch Spielen mit unseren interaktiven Übungen",
+    "popularGames": "\u00dcben mit interaktiven Spielen",
+    "gamesSubheadline": "Lernen durch Spielen mit unseren interaktiven \u00dcbungen",
     "viewAllGames": "Alle Spiele ansehen",
     "contactHeadline": "Fragen? Wir helfen gerne"
   },
   "aiPractice": {
-    "title": "KI-Avatar Übung",
-    "badge": "24/7 KI-Übungspartner",
+    "title": "KI-Konversationstraining",
+    "badge": "24/7 KI-Konversationspartner",
     "meta": {
-      "title": "KI-Avatar Englisch Übung",
-      "description": "Üben Sie Englisch rund um die Uhr mit George Patterson, Ihrem unglaublich geduldigen KI-Lehrer. Sofortiges Feedback, keine Bewertung, immer verfügbar."
+      "title": "KI-Konversationstraining | Englisch \u00fcben rund um die Uhr",
+      "description": "Trainieren Sie Business English rund um die Uhr mit George Patterson, Ihrem KI-Konversationspartner. Personalisiert auf Ihre Unterrichtsstunden, Ihr Unternehmen und Ihre Ziele. Sofortiges Feedback, unendliche Geduld."
     },
     "hero": {
       "headline": "Lernen Sie George Patterson kennen",
-      "subheadline": "Ihr unglaublich geduldiger Englischlehrer, rund um die Uhr verfügbar. Üben Sie Gespräche, verbessern Sie Ihre Aussprache und gewinnen Sie Selbstvertrauen – in Ihrem eigenen Tempo."
+      "subheadline": "Ihr KI-Konversationspartner f\u00fcr unbegrenztes Englisch\u00fcben zwischen Ihren echten Unterrichtsstunden. Rund um die Uhr verf\u00fcgbar, auf Ihre Arbeit zugeschnitten, unendlich geduldig."
     },
     "george": {
-      "title": "Ihr unglaublich geduldiger KI-Lehrer",
-      "headline": "Warum mit George üben?",
-      "description": "George Patterson wurde entwickelt, um der geduldigste Englischlehrer zu sein, den Sie je hatten. Er wird nie frustriert, gibt immer konstruktives Feedback und passt sich Ihrem Lerntempo an.",
-      "trait1": "Unendliche Geduld – wiederholen Sie so oft Sie möchten",
+      "title": "Ihr KI-Konversationspartner",
+      "headline": "Warum mit George \u00fcben?",
+      "description": "George Patterson ist Ihr KI-Konversationspartner, entwickelt um Ihre echten Trainingseinheiten zu erg\u00e4nzen. Er kennt Ihre Lerninhalte, passt sich Ihrem Niveau an und gibt sofortiges Feedback \u2014 damit Sie auch zwischen den Stunden Fortschritte machen.",
+      "trait1": "Unendliche Geduld \u2014 wiederholen Sie so oft Sie m\u00f6chten",
       "trait2": "Sofortiges, konstruktives Feedback bei jeder Antwort",
-      "trait3": "Passt den Schwierigkeitsgrad an Ihr aktuelles Niveau an",
+      "trait3": "Personalisiert auf Ihre Lerninhalte und Ihr Unternehmen",
       "trait4": "Merkt sich Ihren Fortschritt und Ihre Lernziele"
     },
     "benefits": {
       "availability": {
-        "title": "24/7 Verfügbar",
-        "description": "Üben Sie wann es Ihnen passt – früh morgens, in der Mittagspause oder spät abends."
+        "title": "24/7 Verf\u00fcgbar",
+        "description": "\u00dcben Sie wann es Ihnen passt \u2014 fr\u00fch morgens, in der Mittagspause oder sp\u00e4t abends."
       },
       "patience": {
         "title": "Unendlich Geduldig",
-        "description": "Keine Bewertung, kein Druck. Nehmen Sie sich Zeit und wiederholen Sie so oft Sie möchten."
+        "description": "Keine Bewertung, kein Druck. Nehmen Sie sich Zeit und wiederholen Sie so oft Sie m\u00f6chten."
       },
       "feedback": {
         "title": "Sofortiges Feedback",
-        "description": "Erhalten Sie sofort konstruktives Feedback, um sich mit jedem Gespräch zu verbessern."
+        "description": "Erhalten Sie sofort Feedback zu Grammatik, Wortschatz und Aussprache bei jedem Gespr\u00e4ch."
       }
     },
     "features": {
-      "headline": "Übungsarten",
-      "subheadline": "Verschiedene Möglichkeiten, Ihre Englischkenntnisse zu üben und zu verbessern",
+      "headline": "\u00dcbungsarten",
+      "subheadline": "Verschiedene M\u00f6glichkeiten, Ihre Englischkenntnisse zu \u00fcben und zu verbessern",
       "conversations": {
-        "title": "Freie Gespräche",
-        "description": "Unterhalten Sie sich natürlich über jedes Thema – vom Alltag bis zu aktuellen Ereignissen."
+        "title": "Freie Gespr\u00e4che",
+        "description": "Unterhalten Sie sich nat\u00fcrlich \u00fcber jedes Thema \u2014 vom Alltag bis zu aktuellen Ereignissen."
       },
       "pronunciation": {
-        "title": "Aussprache-Übung",
+        "title": "Aussprache-\u00dcbung",
         "description": "Erhalten Sie Feedback zu Ihrer Aussprache und Tipps zur Verbesserung."
       },
       "business": {
         "title": "Business-Szenarien",
-        "description": "Rollenspiele für Meetings, Präsentationen, Verhandlungen und E-Mails."
+        "description": "Rollenspiele f\u00fcr Meetings, Pr\u00e4sentationen, Verhandlungen und E-Mails."
       },
       "vocabulary": {
         "title": "Wortschatz aufbauen",
-        "description": "Lernen und üben Sie neue Wörter im Kontext mit Wiederholungssystem."
+        "description": "Lernen und \u00fcben Sie neue W\u00f6rter im Kontext mit Wiederholungssystem."
       },
       "grammar": {
-        "title": "Grammatik-Übungen",
-        "description": "Gezielte Übungen für Zeiten, Artikel, Präpositionen und mehr."
+        "title": "Grammatik-\u00dcbungen",
+        "description": "Gezielte \u00dcbungen f\u00fcr Zeiten, Artikel, Pr\u00e4positionen und mehr."
       }
     },
     "howItWorks": {
@@ -339,32 +393,32 @@
       "subheadline": "Der Einstieg ist einfach",
       "step1": {
         "title": "Session starten",
-        "description": "Klicken Sie, um sich mit George zu verbinden – keine Downloads oder Installationen nötig."
+        "description": "Klicken Sie, um sich mit George zu verbinden \u2014 keine Downloads oder Installationen n\u00f6tig."
       },
       "step2": {
-        "title": "Fokus wählen",
-        "description": "Wählen Sie, was Sie üben möchten – Konversation, Aussprache oder bestimmte Fähigkeiten."
+        "title": "Fokus w\u00e4hlen",
+        "description": "W\u00e4hlen Sie, was Sie \u00fcben m\u00f6chten \u2014 Konversation, Aussprache oder bestimmte F\u00e4higkeiten."
       },
       "step3": {
-        "title": "Üben & Verbessern",
-        "description": "Sprechen Sie natürlich, erhalten Sie sofortiges Feedback und verfolgen Sie Ihren Fortschritt."
+        "title": "\u00dcben & Verbessern",
+        "description": "Sprechen Sie nat\u00fcrlich, erhalten Sie sofortiges Feedback und verfolgen Sie Ihren Fortschritt."
       }
     },
     "demo": {
-      "badge": "KI-gestützt",
-      "title": "Ihr unglaublich geduldiger KI-Lehrer",
+      "badge": "KI-gest\u00fctzt",
+      "title": "Ihr KI-Konversationspartner",
       "voiceEnabled": "Sprachgesteuert",
       "instantFeedback": "Sofort-Feedback",
-      "startButton": "Übung starten",
-      "contactPrompt": "Interesse an KI-gestütztem Englischtraining? Schreiben Sie uns!"
+      "startButton": "\u00dcbung starten",
+      "contactPrompt": "Interesse an KI-gest\u00fctztem Konversationstraining? Schreiben Sie uns!"
     }
   },
   "imprint": {
     "title": "Impressum",
-    "responsibleTitle": "Angaben gemäß § 5 TMG",
+    "responsibleTitle": "Angaben gem\u00e4\u00df \u00a7 5 TMG",
     "name": "Simmonds Language Services",
     "owner": "James Simmonds",
-    "address": "Im Werkhof, Schaufelder Straße 11",
+    "address": "Im Werkhof, Schaufelder Stra\u00dfe 11",
     "city": "30167 Hannover",
     "country": "Deutschland",
     "contactTitle": "Kontakt",
@@ -372,13 +426,13 @@
     "email": "E-Mail: james@englisch-lehrer.com",
     "website": "Web: www.englisch-lehrer.com",
     "vatTitle": "Umsatzsteuer",
-    "vatExempt": "Sprachtraining ist gemäß § 4 Nr. 21 UStG umsatzsteuerbefreit.",
-    "contentTitle": "Verantwortlich für den Inhalt nach § 55 Abs. 2 RStV",
+    "vatExempt": "Sprachtraining ist gem\u00e4\u00df \u00a7 4 Nr. 21 UStG umsatzsteuerbefreit.",
+    "contentTitle": "Verantwortlich f\u00fcr den Inhalt nach \u00a7 55 Abs. 2 RStV",
     "disputeTitle": "Streitschlichtung",
-    "disputeText": "Die Europäische Kommission stellt eine Plattform zur Online-Streitbeilegung (OS) bereit: https://ec.europa.eu/consumers/odr. Wir sind nicht bereit oder verpflichtet, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen.",
+    "disputeText": "Die Europ\u00e4ische Kommission stellt eine Plattform zur Online-Streitbeilegung (OS) bereit: https://ec.europa.eu/consumers/odr. Wir sind nicht bereit oder verpflichtet, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen.",
     "copyrightTitle": "Urheberrecht",
-    "copyrightText": "Die durch die Seitenbetreiber erstellten Inhalte und Werke auf diesen Seiten unterliegen dem deutschen Urheberrecht. Die Vervielfältigung, Bearbeitung, Verbreitung und jede Art der Verwertung außerhalb der Grenzen des Urheberrechtes bedürfen der schriftlichen Zustimmung des jeweiligen Autors bzw. Erstellers.",
+    "copyrightText": "Die durch die Seitenbetreiber erstellten Inhalte und Werke auf diesen Seiten unterliegen dem deutschen Urheberrecht. Die Vervielf\u00e4ltigung, Bearbeitung, Verbreitung und jede Art der Verwertung au\u00dferhalb der Grenzen des Urheberrechtes bed\u00fcrfen der schriftlichen Zustimmung des jeweiligen Autors bzw. Erstellers.",
     "liabilityTitle": "Haftungsausschluss",
-    "liabilityText": "Trotz sorgfältiger inhaltlicher Kontrolle übernehmen wir keine Haftung für die Inhalte externer Links. Für den Inhalt der verlinkten Seiten sind ausschließlich deren Betreiber verantwortlich."
+    "liabilityText": "Trotz sorgf\u00e4ltiger inhaltlicher Kontrolle \u00fcbernehmen wir keine Haftung f\u00fcr die Inhalte externer Links. F\u00fcr den Inhalt der verlinkten Seiten sind ausschlie\u00dflich deren Betreiber verantwortlich."
   }
 }

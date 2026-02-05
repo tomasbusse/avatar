@@ -9,6 +9,7 @@ import {
   FAQAccordion,
   CTASection,
 } from "@/components/landing";
+import { getLocalBusinessSchema, getOrganizationSchema } from "@/lib/schema";
 
 interface PageProps {
   params: Promise<{ locale: string }>;
@@ -22,15 +23,17 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title: t("title"),
     description: t("description"),
     alternates: {
-      canonical: `/${locale}`,
+      canonical: `https://simmonds.online/${locale}`,
       languages: {
-        de: "/de",
-        en: "/en",
+        de: "https://simmonds.online/de",
+        en: "https://simmonds.online/en",
       },
     },
     openGraph: {
       title: t("title"),
       description: t("description"),
+      url: `https://simmonds.online/${locale}`,
+      siteName: "Simmonds Language Services",
       locale: locale === "de" ? "de_DE" : "en_US",
       type: "website",
     },
@@ -41,8 +44,21 @@ export default async function HomePage({ params }: PageProps) {
   const { locale } = await params;
   setRequestLocale(locale);
 
+  // JSON-LD schemas are generated from our own controlled schema functions (no user input)
+  const localBusinessSchema = getLocalBusinessSchema(locale);
+  const organizationSchema = getOrganizationSchema(locale);
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+      />
+
       {/* Hero Section with Avatar */}
       <HeroSection showAvatar={true} />
 
