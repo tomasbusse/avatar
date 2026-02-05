@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, AlertCircle, ArrowLeft, Clock, MessageSquare } from "lucide-react";
 import { useAuth, useUser } from "@clerk/nextjs";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
 
 export default function PracticeRoomPage() {
@@ -55,20 +56,18 @@ export default function PracticeRoomPage() {
     session?.avatarId ? { avatarId: session.avatarId } : "skip"
   );
 
+  // Get monthly usage for the practice (for usage limit badge)
+  const monthlyUsage = useQuery(
+    api.practiceUsage.getMonthlyUsage,
+    session?.conversationPracticeId
+      ? { practiceId: session.conversationPracticeId }
+      : "skip"
+  );
+
   const [roomName, setRoomName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [startTime] = useState<number>(Date.now());
-  const [elapsedMinutes, setElapsedMinutes] = useState(0);
 
   const sessionInitializedRef = useRef(false);
-
-  // Update elapsed time
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setElapsedMinutes(Math.floor((Date.now() - startTime) / 60000));
-    }, 60000);
-    return () => clearInterval(timer);
-  }, [startTime]);
 
   // Initialize session when data is loaded
   useEffect(() => {
@@ -232,11 +231,14 @@ export default function PracticeRoomPage() {
     <div className="h-screen relative">
       {/* Practice info overlay */}
       <div className="absolute top-4 left-4 z-10 flex items-center gap-3">
-        {targetDurationMinutes && (
+        {monthlyUsage?.limits?.enabled && monthlyUsage.remainingMinutes !== null && (
           <div className="flex items-center gap-2 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-sm">
             <Clock className="w-4 h-4 text-[#003F37]" />
-            <span className="text-sm font-medium text-[#003F37]">
-              {elapsedMinutes} / {targetDurationMinutes} min
+            <span className={cn(
+              "text-sm font-medium",
+              monthlyUsage.warningReached ? "text-amber-600" : "text-[#003F37]"
+            )}>
+              {monthlyUsage.remainingMinutes} min left this month
             </span>
           </div>
         )}
@@ -259,6 +261,7 @@ export default function PracticeRoomPage() {
         onSessionEnd={handleSessionEnd}
         isGuest={!isSignedIn}
         isEmbed={isEmbed}
+        durationMinutes={targetDurationMinutes || 15}
       />
     </div>
   );

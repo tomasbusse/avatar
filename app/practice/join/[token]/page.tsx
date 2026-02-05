@@ -4,11 +4,10 @@ import { useState, useEffect } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { StartButton, WaitingScreen, GuestEntryForm } from "@/components/practice";
+import { WaitingScreen, GuestEntryForm } from "@/components/practice";
 import { SignInButton, useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Clock, BookOpen, MessageSquare, Lock } from "lucide-react";
-import Image from "next/image";
+import { ArrowLeft, Lock } from "lucide-react";
 import Link from "next/link";
 
 type EntryState = "loading" | "not_found" | "auth_required" | "guest_form" | "ready" | "connecting" | "error";
@@ -80,15 +79,26 @@ export default function PracticeJoinPage() {
     setState("ready");
   }, [practiceData, isUserLoaded, guestData, user]);
 
-  // Handle guest form submission
+  // Auto-start when reaching "ready" state (no guest form needed)
+  useEffect(() => {
+    if (state === "ready" && practiceData?.practice) {
+      handleStart();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
+
+  // Handle guest form submission — auto-start immediately
   const handleGuestFormSubmit = (data: GuestFormData) => {
     setGuestData(data);
-    setState("ready");
+    handleStart(data);
   };
 
   // Handle start conversation
-  const handleStart = async () => {
+  const handleStart = async (formData?: GuestFormData) => {
     if (!practiceData?.practice) return;
+
+    // Use passed-in data or fall back to state
+    const effectiveGuestData = formData ?? guestData;
 
     setState("connecting");
 
@@ -127,12 +137,12 @@ export default function PracticeJoinPage() {
       const session = await createSession({
         practiceId: practiceData.practice._id,
         roomName,
-        guestName: guestData?.name,
-        guestMetadata: guestData
+        guestName: effectiveGuestData?.name,
+        guestMetadata: effectiveGuestData
           ? {
-              email: guestData.email,
-              customFields: guestData.customFields,
-              acceptedTermsAt: guestData.acceptedTerms ? Date.now() : undefined,
+              email: effectiveGuestData.email,
+              customFields: effectiveGuestData.customFields,
+              acceptedTermsAt: effectiveGuestData.acceptedTerms ? Date.now() : undefined,
               referrer: typeof window !== "undefined" ? document.referrer : undefined,
             }
           : undefined,
@@ -151,7 +161,17 @@ export default function PracticeJoinPage() {
 
   // Handle cancel from waiting screen
   const handleCancel = () => {
-    setState("ready");
+    const needsGuestForm = !practiceData?.isAuthenticated && (
+      practiceData?.practice?.guestSettings?.collectName ||
+      practiceData?.practice?.guestSettings?.collectEmail ||
+      practiceData?.practice?.guestSettings?.termsRequired
+    );
+    if (needsGuestForm) {
+      setGuestData(null);
+      setState("guest_form");
+    } else {
+      window.location.reload();
+    }
   };
 
   // Loading state
@@ -259,128 +279,11 @@ export default function PracticeJoinPage() {
     );
   }
 
-  // Ready state - show landing page with start button
+  // Ready state — transient, auto-start kicks in via useEffect
   if (state === "ready" && practiceData) {
-    const { practice, avatar } = practiceData;
-    const startConfig = practice.entryFlowConfig?.startButton;
-
     return (
-      <div className="min-h-screen bg-[#FFE8CD]">
-        {/* Header - hidden in embed mode */}
-        {!isEmbed && (
-          <header className="p-4 flex items-center justify-between">
-            <Link href="/" className="text-[#003F37] hover:text-[#004a40] transition-colors">
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            {user && (
-              <span className="text-sm text-[#4F5338]">
-                Signed in as {user.firstName || user.emailAddresses[0]?.emailAddress}
-              </span>
-            )}
-          </header>
-        )}
-
-        {/* Main content */}
-        <main className={`flex flex-col items-center justify-center px-6 py-12 ${isEmbed ? "min-h-screen" : "min-h-[calc(100vh-80px)]"}`}>
-          {/* Avatar preview */}
-          {avatar && (
-            <div className="mb-8">
-              <p className="text-center mb-2 text-sm text-[#4F5338]">{avatar.name}</p>
-              <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-lg">
-                {(avatar.profileImage || avatar.appearance?.avatarImage) ? (
-                  <Image
-                    src={avatar.profileImage || avatar.appearance?.avatarImage || ""}
-                    alt={avatar.name}
-                    fill
-                    className="object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-[#E3C6AB] flex items-center justify-center">
-                    <span className="text-4xl text-[#003F37] font-bold">
-                      {avatar.name.charAt(0)}
-                    </span>
-                  </div>
-                )}
-              </div>
-              <p className="text-center mt-3 font-semibold text-[#003F37]">{avatar.name}</p>
-            </div>
-          )}
-
-          {/* Title and description */}
-          <div className="text-center max-w-lg mb-8">
-            <h1 className="text-3xl font-bold text-[#003F37] mb-3">{practice.title}</h1>
-            {practice.description && (
-              <p className="text-[#4F5338] text-lg">{practice.description}</p>
-            )}
-          </div>
-
-          {/* Info cards */}
-          <div className="flex flex-wrap gap-4 justify-center mb-8">
-            {practice.behaviorConfig.targetDurationMinutes && (
-              <div className="flex items-center gap-2 bg-white/50 px-4 py-2 rounded-lg">
-                <Clock className="w-4 h-4 text-[#003F37]" />
-                <span className="text-sm text-[#003F37]">
-                  {practice.behaviorConfig.targetDurationMinutes} minutes
-                </span>
-              </div>
-            )}
-            {practice.transcriptTopics && practice.transcriptTopics.length > 0 && (
-              <div className="flex items-center gap-2 bg-white/50 px-4 py-2 rounded-lg">
-                <BookOpen className="w-4 h-4 text-[#003F37]" />
-                <span className="text-sm text-[#003F37]">
-                  {practice.transcriptTopics.slice(0, 3).join(", ")}
-                </span>
-              </div>
-            )}
-            <div className="flex items-center gap-2 bg-white/50 px-4 py-2 rounded-lg">
-              <MessageSquare className="w-4 h-4 text-[#003F37]" />
-              <span className="text-sm text-[#003F37] capitalize">
-                {practice.behaviorConfig.conversationStyle} mode
-              </span>
-            </div>
-          </div>
-
-          {/* Transcript summary */}
-          {practice.transcriptSummary && (
-            <div className="bg-white rounded-xl p-6 max-w-lg mb-8 shadow-sm">
-              <h3 className="font-semibold text-[#003F37] mb-2">About this session</h3>
-              <p className="text-[#4F5338] text-sm">{practice.transcriptSummary}</p>
-            </div>
-          )}
-
-          {/* Key points */}
-          {practice.transcriptKeyPoints && practice.transcriptKeyPoints.length > 0 && (
-            <div className="bg-white rounded-xl p-6 max-w-lg mb-8 shadow-sm">
-              <h3 className="font-semibold text-[#003F37] mb-3">Key Topics</h3>
-              <ul className="space-y-2">
-                {practice.transcriptKeyPoints.slice(0, 5).map((point, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-[#4F5338]">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#9F9D38] mt-1.5 flex-shrink-0" />
-                    {point}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Start button */}
-          <StartButton
-            text={startConfig?.text || "Start Practice"}
-            variant={startConfig?.variant || "primary"}
-            animation={startConfig?.animation || "breathe"}
-            showAvatarPreview={startConfig?.showAvatarPreview}
-            avatarImage={avatar?.profileImage || avatar?.appearance?.avatarImage}
-            avatarName={avatar?.name}
-            onClick={handleStart}
-          />
-
-          {/* Guest indicator */}
-          {!user && guestData?.name && (
-            <p className="text-sm text-[#4F5338] mt-4">
-              Joining as <span className="font-medium">{guestData.name}</span>
-            </p>
-          )}
-        </main>
+      <div className="min-h-screen bg-[#FFE8CD] flex items-center justify-center">
+        <div className="animate-pulse text-[#003F37]">Starting...</div>
       </div>
     );
   }

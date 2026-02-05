@@ -331,7 +331,7 @@ export function GuestEntryForm({
               Starting...
             </>
           ) : (
-            "Continue to Practice"
+            "Start Practice"
           )}
         </Button>
       </form>
