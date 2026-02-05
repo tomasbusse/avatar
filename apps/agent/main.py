@@ -3552,6 +3552,21 @@ The game will appear on the student's screen. Encourage them to try it and offer
         final_prompt = final_prompt + practice_context
         logger.info(f"📝 Added conversation practice context to prompt")
 
+    # Add configured greeting to system prompt so LLM knows what to open with
+    if practice_greeting_config:
+        _pg_text = practice_greeting_config.get("openingGreeting", "")
+        _pg_variations = practice_greeting_config.get("greetingVariations", [])
+        if _pg_text or _pg_variations:
+            _display = _pg_text or _pg_variations[0]
+            if practice_student_name:
+                _display = _display.replace("{name}", practice_student_name)
+            final_prompt += f"""
+
+# Opening Greeting
+Your very first message to the student MUST be: "{_display}"
+Say this greeting exactly as written when you begin the conversation. After their response, continue naturally."""
+            logger.info(f"📝 Added greeting instruction to prompt: {_display[:60]}...")
+
     # ==========================================================================
     # WEB SEARCH CONTEXT - For conversation practice with Tavily
     # ==========================================================================
@@ -3839,15 +3854,18 @@ Example: "Perfect! You've got that. Let's see what's next. [NEXT]"
     else:
         logger.info(f"⏱️ [TIMER] No session timer configured (unlimited duration)")
 
-    # Deliver opening greeting immediately (if speak_first behavior)
-    # Pass memory context for personalized greetings to returning students
-    # Pass student info for conversation practice sessions (guest name)
-    # Returns tuple of (greeting, memory_ids_to_mark_as_followed_up)
+    # ==========================================================================
+    # OPENING GREETING — routed through LLM → TTS pipeline via generate_reply
+    # ==========================================================================
+    # Build greeting text from config (conversation practice or avatar defaults).
+    # Then deliver via generate_reply() so the LLM processes it, ensuring:
+    #   1. The greeting flows through the full LLM → TTS pipeline
+    #   2. The LLM's response is natively added to chat context
+    #   3. The LLM is contextually aware of what it said
     student_info_for_greeting = {"name": practice_student_name} if practice_student_name else None
 
-    # Debug: Log greeting config
-    logger.info(f"🎤 DEBUG - practice_greeting_config: {practice_greeting_config}")
-    logger.info(f"🎤 DEBUG - practice_student_name: {practice_student_name}")
+    logger.info(f"🎤 Greeting config: {practice_greeting_config}")
+    logger.info(f"🎤 Student name: {practice_student_name}")
 
     opening_greeting, memory_ids_to_followup = get_opening_greeting(
         avatar_config,
@@ -3855,26 +3873,37 @@ Example: "Perfect! You've got that. Let's see what's next. [NEXT]"
         memory_context=student_memory_context,
         conversation_practice_greeting=practice_greeting_config
     )
-    logger.info(f"🎤 Opening greeting: {opening_greeting[:80] if opening_greeting else 'None'}...")
+    logger.info(f"🎤 Opening greeting: {opening_greeting[:80] if opening_greeting else 'None'}")
     if memory_ids_to_followup:
         logger.info(f"📅 Following up on {len(memory_ids_to_followup)} past-due events")
 
     if opening_greeting:
         try:
-            # Note: asyncio is imported at module level (line 10)
-            # Longer delay to ensure Beyond Presence avatar is fully connected (cold starts can be slow)
+            # Wait for avatar/TTS to be ready (Beyond Presence cold starts can be slow)
             await asyncio.sleep(1.5)
-            logger.info(f"🎤 Calling session.say() with greeting...")
-            # Use asyncio.wait_for to prevent hanging forever
-            # Increased timeout from 10s to 25s to accommodate Beyond Presence cold starts
-            try:
-                await asyncio.wait_for(
-                    session.say(opening_greeting, allow_interruptions=True),
-                    timeout=25.0  # 25 second timeout for greeting (Beyond Presence can be slow)
-                )
-                logger.info(f"👋 Delivered opening greeting: '{opening_greeting[:50]}...'")
 
-                # Mark events as followed up after successfully delivering the greeting
+            # Build instruction for the LLM — exact text for configured greetings,
+            # natural delivery for default ones
+            is_configured_greeting = bool(
+                practice_greeting_config
+                and (practice_greeting_config.get("openingGreeting") or practice_greeting_config.get("greetingVariations"))
+            )
+            if is_configured_greeting:
+                greeting_instruction = f'Say this greeting to the student exactly as written: "{opening_greeting}"'
+            else:
+                greeting_instruction = f'Greet the student warmly. Say: "{opening_greeting}"'
+
+            logger.info(f"🎤 Delivering greeting via generate_reply (configured={is_configured_greeting})...")
+
+            try:
+                handle = session.generate_reply(
+                    instructions=greeting_instruction,
+                    allow_interruptions=True,
+                )
+                await asyncio.wait_for(handle, timeout=25.0)
+                logger.info(f"👋 Delivered opening greeting via LLM pipeline: '{opening_greeting[:50]}...'")
+
+                # Mark memory events as followed up after successful delivery
                 if memory_ids_to_followup:
                     try:
                         followup_convex = ConvexClient(config.convex_url)
@@ -3887,7 +3916,17 @@ Example: "Perfect! You've got that. Let's see what's next. [NEXT]"
                         logger.warning(f"⚠️ Failed to mark events as followed up: {e}")
 
             except asyncio.TimeoutError:
-                logger.warning(f"⏱️ Opening greeting timed out after 25s - continuing without greeting")
+                logger.warning(f"⏱️ Opening greeting timed out after 25s — falling back to session.say()")
+                # Fallback: deliver directly via TTS if LLM pipeline is slow
+                try:
+                    await asyncio.wait_for(
+                        session.say(opening_greeting, allow_interruptions=True),
+                        timeout=10.0
+                    )
+                    logger.info(f"👋 Delivered greeting via TTS fallback")
+                except Exception:
+                    logger.warning(f"⏱️ TTS fallback also timed out — continuing without greeting")
+
         except Exception as e:
             logger.error(f"❌ Failed to deliver opening greeting: {e}")
             logger.exception(e)
