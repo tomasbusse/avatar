@@ -48,18 +48,13 @@ export function FAQAccordion({
   });
 
   // Fallback FAQs from translations (used for SSR and initial client render)
-  // Dynamically read all available FAQ items from translations
+  // Dynamically read all available FAQ items using t.has() to avoid missing message errors
   const fallbackItems: FAQItem[] = [];
   for (let i = 0; i < 20; i++) {
-    try {
-      const question = t(`items.${i}.question`);
-      const answer = t(`items.${i}.answer`);
-      if (question && answer) {
-        fallbackItems.push({ question, answer });
-      }
-    } catch {
-      break;
-    }
+    const qKey = `items.${i}.question`;
+    const aKey = `items.${i}.answer`;
+    if (!t.has(qKey)) break;
+    fallbackItems.push({ question: String(t(qKey as never)), answer: String(t(aKey as never)) });
   }
 
   // Use provided items, then DB (only on client), then fallback to translations

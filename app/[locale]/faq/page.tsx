@@ -43,15 +43,10 @@ export default async function FAQPage({ params }: PageProps) {
   // SECURITY NOTE: Content is from controlled translation files, not user input - safe for JSON-LD
   const faqItems: { question: string; answer: string }[] = [];
   for (let i = 0; i < 20; i++) {
-    try {
-      const question = t(`items.${i}.question`);
-      const answer = t(`items.${i}.answer`);
-      if (question && answer) {
-        faqItems.push({ question, answer });
-      }
-    } catch {
-      break;
-    }
+    const qKey = `items.${i}.question`;
+    const aKey = `items.${i}.answer`;
+    if (!t.has(qKey)) break;
+    faqItems.push({ question: String(t(qKey as never)), answer: String(t(aKey as never)) });
   }
   const faqSchemaJson = JSON.stringify(getFAQPageSchema(faqItems));
 
