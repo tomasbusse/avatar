@@ -13,10 +13,16 @@ function getConvexClient() {
 
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication
+    // Check authentication and admin role
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const convex = getConvexClient();
+    const user = await convex.query(api.users.getUserByClerkId, { clerkId: userId });
+    if (!user || user.role !== "admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Get action from request body
@@ -28,7 +34,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Send command to Convex
-    const convex = getConvexClient();
     await convex.mutation(api.agentControl.sendCommand, {
       command: action as "start" | "stop" | "restart",
     });
@@ -48,8 +53,19 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   try {
-    // Get status from Convex
+    // Check authentication and admin role
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const convex = getConvexClient();
+    const user = await convex.query(api.users.getUserByClerkId, { clerkId: userId });
+    if (!user || user.role !== "admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Get status from Convex
     const status = await convex.query(api.agentControl.getStatus);
 
     return NextResponse.json({

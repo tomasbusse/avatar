@@ -23,6 +23,33 @@ export function VideoBlock({ config }: VideoBlockProps) {
 
   const [isPlaying, setIsPlaying] = useState(autoplay);
 
+  // Sanitize embed code: only allow iframe elements from trusted video domains
+  const sanitizeEmbedCode = (code: string): string | null => {
+    const allowedDomains = [
+      "www.youtube.com",
+      "youtube.com",
+      "www.youtube-nocookie.com",
+      "player.vimeo.com",
+      "vimeo.com",
+    ];
+
+    // Parse with a temporary element to extract iframe src
+    const iframeMatch = code.match(/<iframe\s[^>]*src=["']([^"']*)["'][^>]*>/i);
+    if (!iframeMatch) return null;
+
+    try {
+      const srcUrl = new URL(iframeMatch[1]);
+      if (!allowedDomains.includes(srcUrl.hostname)) return null;
+    } catch {
+      return null;
+    }
+
+    // Strip everything except the iframe element itself with safe attributes
+    const srcAttr = iframeMatch[1];
+    const titleAttr = code.match(/title=["']([^"']*)["']/i)?.[1] ?? "Video";
+    return `<iframe src="${srcAttr.replace(/"/g, "&quot;")}" title="${titleAttr.replace(/"/g, "&quot;")}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+  };
+
   const aspectRatioStyles = {
     "16:9": "aspect-video",
     "4:3": "aspect-[4/3]",
@@ -70,11 +97,11 @@ export function VideoBlock({ config }: VideoBlockProps) {
             aspectRatioStyles[aspectRatio]
           )}
         >
-          {/* Custom embed code (iframe) */}
-          {provider === "embed" && embedCode ? (
+          {/* Custom embed code (iframe) - sanitized to trusted domains only */}
+          {provider === "embed" && embedCode && sanitizeEmbedCode(embedCode) ? (
             <div
               className="absolute inset-0 [&_iframe]:w-full [&_iframe]:h-full"
-              dangerouslySetInnerHTML={{ __html: embedCode }}
+              dangerouslySetInnerHTML={{ __html: sanitizeEmbedCode(embedCode)! }}  // embedCode is sanitized: only iframes from youtube/vimeo domains pass
             />
           ) : isPlaying && embedUrl ? (
             // Playing state - show iframe

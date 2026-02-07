@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
+import { getAuthenticatedUser } from "./helpers";
 
 // ============================================
 // SYSTEM ROLES DEFINITION
@@ -167,7 +168,7 @@ const PERMISSIONS = [
 // SEED FUNCTIONS
 // ============================================
 
-export const seedRolesAndPermissions = mutation({
+export const seedRolesAndPermissions = internalMutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
@@ -348,15 +349,7 @@ export const assignRoleToUser = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser) throw new Error("User not found");
+    const currentUser = await getAuthenticatedUser(ctx);
 
     // Check if current user can assign roles (must be admin)
     // For now, check legacy role. Later will check RBAC permission.
@@ -442,15 +435,9 @@ export const revokeRoleFromUser = mutation({
     reason: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can revoke roles");
     }
 
@@ -543,16 +530,10 @@ export const getUserRoleAssignments = query({
 export const promoteToSuperAdmin = mutation({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
+    const currentUser = await getAuthenticatedUser(ctx);
 
     // Must be an existing admin
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can promote to Super Admin");
     }
 
@@ -582,7 +563,7 @@ export const promoteToSuperAdmin = mutation({
 });
 
 // Internal mutation for seeding - assigns super_admin to users with legacy admin role
-export const seedSuperAdminAssignments = mutation({
+export const seedSuperAdminAssignments = internalMutation({
   args: {},
   handler: async (ctx) => {
     // Find all users with legacy admin role
@@ -646,15 +627,9 @@ export const bulkAssignRole = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can bulk assign roles");
     }
 
@@ -815,15 +790,9 @@ export const listAuditLog = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can view audit logs");
     }
 
@@ -886,15 +855,9 @@ export const createRole = mutation({
     companyId: v.optional(v.id("companies")),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can create roles");
     }
 
@@ -937,15 +900,9 @@ export const updateRole = mutation({
     isActive: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can update roles");
     }
 
@@ -976,15 +933,9 @@ export const deleteRole = mutation({
     roleId: v.id("roles"),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can delete roles");
     }
 

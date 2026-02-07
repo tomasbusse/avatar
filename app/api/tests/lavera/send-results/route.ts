@@ -19,6 +19,8 @@ interface ResultsPayload {
   testDate: string;
 }
 
+// Intentionally public: called from the public Lavera placement test page (app/tests/lavera/)
+// where candidates take the test without being logged in.
 export async function POST(request: NextRequest) {
   try {
     const apiKey = process.env.RESEND_API_KEY;

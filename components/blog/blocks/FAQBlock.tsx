@@ -22,6 +22,10 @@ function FAQItem({ question, answer, isOpen, onToggle, variant, index }: FAQItem
   // Parse simple markdown in answer
   const parseContent = (text: string) => {
     return text
+      // Escape HTML first
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
       .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-sls-teal">$1</strong>')
       .replace(/\*(.+?)\*/g, '<em>$1</em>')
       .replace(/`(.+?)`/g, '<code class="px-1.5 py-0.5 rounded bg-sls-beige/50 text-sls-teal text-sm font-mono">$1</code>')

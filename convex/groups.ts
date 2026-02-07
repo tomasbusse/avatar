@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
+import { getAuthenticatedUser } from "./helpers";
 
 // ============================================
 // QUERIES
@@ -181,15 +182,9 @@ export const createGroup = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can create groups");
     }
 
@@ -276,15 +271,9 @@ export const updateGroup = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can update groups");
     }
 
@@ -313,15 +302,9 @@ export const updateGroup = mutation({
 export const archiveGroup = mutation({
   args: { groupId: v.id("groups") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can archive groups");
     }
 
@@ -356,15 +339,9 @@ export const deleteGroup = mutation({
     force: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can delete groups");
     }
 
@@ -425,15 +402,9 @@ export const addMemberToGroup = mutation({
     role: v.optional(v.union(v.literal("member"), v.literal("lead"))),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can add group members");
     }
 
@@ -544,15 +515,9 @@ export const removeMemberFromGroup = mutation({
     reason: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can remove group members");
     }
 
@@ -629,15 +594,9 @@ export const updateMemberRole = mutation({
     role: v.union(v.literal("member"), v.literal("lead")),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can update member roles");
     }
 
@@ -758,15 +717,9 @@ export const assignGroupLead = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can assign group leads");
     }
 
@@ -863,15 +816,9 @@ export const createUserAndAddToGroup = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can create users");
     }
 
@@ -1061,15 +1008,9 @@ export const bulkAddMembersToGroup = mutation({
     studentIds: v.array(v.id("students")),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can add group members");
     }
 
@@ -1166,15 +1107,9 @@ export const assignGroupToCompany = mutation({
     companyId: v.id("companies"),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can assign groups to companies");
     }
 
@@ -1216,15 +1151,9 @@ export const unassignGroupFromCompany = mutation({
     groupId: v.id("groups"),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can unassign groups from companies");
     }
 

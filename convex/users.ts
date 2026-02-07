@@ -1,29 +1,30 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
+import { getAuthenticatedUser } from "./helpers";
 
-export const debugListAllUsers = query({
+export const debugListAllUsers = internalQuery({
   args: {},
   handler: async (ctx) => {
     return await ctx.db.query("users").collect();
   },
 });
 
-export const debugListStudents = query({
+export const debugListStudents = internalQuery({
   args: {},
   handler: async (ctx) => {
     return await ctx.db.query("students").collect();
   },
 });
 
-export const debugListMemories = query({
+export const debugListMemories = internalQuery({
   args: {},
   handler: async (ctx) => {
     return await ctx.db.query("memories").collect();
   },
 });
 
-export const createCurrentUserAsAdmin = mutation({
+export const createCurrentUserAsAdmin = internalMutation({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -197,15 +198,9 @@ export const createUserByAdmin = mutation({
     groupId: v.optional(v.id("groups")),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can create users");
     }
 
@@ -442,15 +437,9 @@ export const listUsers = query({
     ),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || !["admin", "moderator"].includes(currentUser.role)) {
+    if (!["admin", "moderator"].includes(currentUser.role)) {
       throw new Error("Not authorized");
     }
 
@@ -493,15 +482,9 @@ export const setUserRole = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can change user roles");
     }
 
@@ -519,7 +502,7 @@ export const setUserRole = mutation({
   },
 });
 
-export const makeFirstAdmin = mutation({
+export const makeFirstAdmin = internalMutation({
   args: { 
     email: v.string(),
     clerkId: v.optional(v.string()),
@@ -612,15 +595,9 @@ export const listUsersWithRoles = query({
     ),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || !["admin", "moderator"].includes(currentUser.role)) {
+    if (!["admin", "moderator"].includes(currentUser.role)) {
       throw new Error("Not authorized");
     }
 
@@ -759,15 +736,9 @@ export const listUsersWithRoles = query({
 export const getUserWithRoles = query({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || !["admin", "moderator"].includes(currentUser.role)) {
+    if (!["admin", "moderator"].includes(currentUser.role)) {
       throw new Error("Not authorized");
     }
 
@@ -861,15 +832,9 @@ export const listUsersAvailableForGroup = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || !["admin", "moderator"].includes(currentUser.role)) {
+    if (!["admin", "moderator"].includes(currentUser.role)) {
       throw new Error("Not authorized");
     }
 
@@ -954,15 +919,9 @@ export const updateUser = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can update users");
     }
 
@@ -1009,15 +968,9 @@ export const deleteUser = mutation({
     hardDelete: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can delete users");
     }
 
@@ -1087,15 +1040,9 @@ export const bulkDeleteUsers = mutation({
     hardDelete: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can delete users");
     }
 

@@ -30,6 +30,8 @@ const BRAND_GREEN = "#5D8C3D";
 const BRAND_GREEN_DARK = "#4A7030";
 const BRAND_GREEN_LIGHT = "#EBF2E7";
 
+// Intentionally public: called from public placement test pages (app/tests/[slug]/)
+// where candidates take the test without being logged in.
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }

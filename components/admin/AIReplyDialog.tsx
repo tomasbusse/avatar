@@ -63,7 +63,14 @@ const DEFAULT_AI_PROMPT = `You are James Simmonds, the founder of Simmonds Langu
 export function AIReplyDialog({ submission, open, onOpenChange }: AIReplyDialogProps) {
   const recordReply = useMutation(api.landing.recordContactReply);
   const knowledgeBases = useQuery(api.knowledgeBases.getActive);
-  const emailConfig = useQuery(api.landing.getEmailConfig);
+  const emailConfig = useQuery(api.landing.getEmailConfig) as {
+    replyMode?: string;
+    aiSettings?: { enabled?: boolean; model?: string; customPrompt?: string; temperature?: number; maxTokens?: number };
+    knowledgeBase?: { includeFaqs?: boolean; defaultKnowledgeBaseIds?: string[]; includeServices?: boolean };
+    notifications?: Record<string, any>;
+    templates?: Record<string, any>;
+    rateLimits?: Record<string, any>;
+  } | undefined;
 
   // Track if settings have been customized
   const [usingGlobalDefaults, setUsingGlobalDefaults] = useState(true);

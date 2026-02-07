@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { getConvexClient } from "@/lib/convex-client";
 
 // Lazy-initialized Convex client
@@ -188,6 +189,17 @@ function textToMarkdown(text: string, title: string, metadata: any): string {
 
 export async function POST(request: NextRequest) {
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const convex = getConvex();
+    const user = await convex.query(api.users.getUserByClerkId, { clerkId: userId });
+    if (!user || user.role !== "admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const { contentId, storageId, fileType } = await request.json();
 
     if (!contentId || !storageId) {

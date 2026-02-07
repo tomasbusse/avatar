@@ -15,7 +15,12 @@ interface ContactInfoItem {
 export function ContactInfo() {
   const locale = useLocale();
   const t = useTranslations("contact");
-  const contactConfig = useQuery(api.landing.getContactInfo);
+  const contactConfig = useQuery(api.landing.getContactInfo) as {
+    email?: string;
+    phone?: string;
+    hours?: { en: string; de: string };
+    locations?: Array<{ name: { en: string; de: string }; address: string }>;
+  } | undefined;
 
   // Build contact info items from config or defaults
   const contactItems: ContactInfoItem[] = [];

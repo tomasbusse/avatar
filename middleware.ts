@@ -83,7 +83,7 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
       response.headers.delete("X-Frame-Options");
       response.headers.set(
         "Content-Security-Policy",
-        "frame-ancestors *"
+        "frame-ancestors 'self'"
       );
     }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useQuery } from "convex/react";
 import { useLocale } from "next-intl";
 import { useSearchParams } from "next/navigation";
@@ -111,7 +111,13 @@ export function ClientAvatarWrapper({
 
   // Pass full avatar object for LiveKit connection (only when we have real data)
   // The agent needs all avatar config fields (avatarProvider, voiceProvider, llmConfig, etc.)
-  const fullAvatar = landingAvatar && !useFallback ? landingAvatar : undefined;
+  // IMPORTANT: Use a ref to stabilize the avatar - once loaded, don't let it go undefined
+  // during Convex WebSocket reconnections (which would unmount/remount the LiveKit room)
+  const stableAvatarRef = useRef<typeof landingAvatar>(undefined);
+  if (landingAvatar && !useFallback) {
+    stableAvatarRef.current = landingAvatar;
+  }
+  const fullAvatar = (landingAvatar && !useFallback ? landingAvatar : stableAvatarRef.current) || undefined;
 
   return (
     <AvatarDisplay

@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { getConvexClient } from "@/lib/convex-client";
+import { api } from "@/convex/_generated/api";
 import OpenAI from "openai";
 
 // Lazy-init OpenRouter client to avoid build-time env var issues
@@ -356,6 +359,17 @@ Generate content appropriate for the "${topic || "hero"}" section of the "${page
 
 export async function POST(request: NextRequest) {
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const convex = getConvexClient();
+    const user = await convex.query(api.users.getUserByClerkId, { clerkId: userId });
+    if (!user || user.role !== "admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const body = await request.json();
     const { type, locale, topic, category, context } = body;
 
@@ -450,6 +464,17 @@ export async function POST(request: NextRequest) {
 // SEO Analysis endpoint
 export async function PUT(request: NextRequest) {
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const convex = getConvexClient();
+    const user = await convex.query(api.users.getUserByClerkId, { clerkId: userId });
+    if (!user || user.role !== "admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const body = await request.json();
     const { content, type, locale } = body;
 

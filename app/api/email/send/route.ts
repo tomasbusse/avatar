@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 
+// Escape HTML entities to prevent HTML injection in email templates
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Intentionally public: this endpoint serves the public contact form on the landing page.
+// Visitors must be able to send messages without being logged in.
 export async function POST(request: NextRequest) {
   try {
     const apiKey = process.env.RESEND_API_KEY;
@@ -13,10 +25,17 @@ export async function POST(request: NextRequest) {
     const resend = new Resend(apiKey);
 
     const body = await request.json();
-    const { name, email, phone, company, message, locale = "en" } = body;
+    const { name: rawName, email: rawEmail, phone: rawPhone, company: rawCompany, message: rawMessage, locale = "en" } = body;
 
-    // Validate required fields
-    if (!name || !email || !message) {
+    // Sanitize all user input before HTML interpolation
+    const name = escapeHtml(String(rawName || ""));
+    const email = escapeHtml(String(rawEmail || ""));
+    const phone = rawPhone ? escapeHtml(String(rawPhone)) : "";
+    const company = rawCompany ? escapeHtml(String(rawCompany)) : "";
+    const message = escapeHtml(String(rawMessage || ""));
+
+    // Validate required fields (check raw values before escaping)
+    if (!rawName || !rawEmail || !rawMessage) {
       return NextResponse.json(
         { error: "Missing required fields: name, email, message" },
         { status: 400 }

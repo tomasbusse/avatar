@@ -171,7 +171,6 @@ export function LandingAvatarRoom({
       connect={true}
       audio={true}
       video={visionEnabled ?? false}
-      onDisconnected={() => onClose?.("disconnected")}
       className={cn("w-full h-full", className)}
     >
       <RoomContent

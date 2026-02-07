@@ -19,27 +19,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // CRITICAL DEBUG: Log ALL avatar keys to see what's being received
-    console.log("🎟️ [TOKEN] Generating token for:", {
+    console.log("[TOKEN] Generating token:", {
       roomName,
-      participantName,
-      userId: effectiveUserId,
-      isGuest: !userId,
-      hasAvatar: !!avatar,
-      avatarId: avatar?._id,
       avatarName: avatar?.name,
-      avatarKeys: avatar ? Object.keys(avatar) : [],
+      sessionType: isGuest ? "guest" : "authenticated",
     });
-
-    // Log critical config fields explicitly
-    if (avatar) {
-      console.log("⚡ [TOKEN] CRITICAL CONFIG:", {
-        llmConfig: avatar.llmConfig,
-        voiceProvider: avatar.voiceProvider,
-        visionConfig: avatar.visionConfig,
-        sttConfig: avatar.sttConfig,
-      });
-    }
 
     if (!roomName) {
       return NextResponse.json(
@@ -133,7 +117,7 @@ export async function POST(req: NextRequest) {
     // - Agent dispatch metadata is also updated for consistency
     // ==========================================================================
     if (livekitUrl) {
-      console.log("🔗 [LIVEKIT] Using URL:", livekitUrl);
+      console.log("[LIVEKIT] Using URL:", livekitUrl);
       const roomService = new RoomServiceClient(livekitUrl, apiKey, apiSecret);
 
       try {
@@ -142,30 +126,23 @@ export async function POST(req: NextRequest) {
           name: roomName,
           metadata: roomMetadata,
           emptyTimeout: 60 * 10, // 10 minutes
-          maxParticipants: 2, // Simplified: 1 student + 1 avatar agent
+          maxParticipants: 4, // 1 student + 1 agent + 1 bey-avatar + buffer
         });
 
-        console.log("🏠 [ROOM] Created room with avatar metadata:", {
-          roomName,
-          avatarName: avatar?.name,
-          beyAvatarId: avatar?.avatarProvider?.avatarId,
-        });
+        console.log("[ROOM] Created room:", roomName, "avatar:", avatar?.name);
       } catch (roomError: any) {
         // Room already exists - MUST update metadata to use current avatar!
         if (roomError?.message?.includes("already exists")) {
-          console.log("🏠 [ROOM] Room exists, updating metadata for avatar:", avatar?.name);
+          console.log("[ROOM] Room exists, updating metadata for avatar:", avatar?.name);
           try {
             // CRITICAL: Update room metadata to ensure correct avatar is used
             await roomService.updateRoomMetadata(roomName, roomMetadata);
-            console.log("✅ [ROOM] Metadata updated with current avatar config");
+            console.log("[ROOM] Metadata updated with current avatar config");
           } catch (updateError: any) {
-            console.error("❌ [ROOM] Failed to update metadata:", updateError?.message);
+            console.error("[ROOM] Failed to update metadata:", updateError?.message);
           }
         } else {
-          console.error("🏠 [ROOM] Room creation error:", {
-            message: roomError?.message,
-            code: roomError?.code,
-          });
+          console.error("[ROOM] Room creation error:", roomError?.message);
         }
       }
 
@@ -182,11 +159,11 @@ export async function POST(req: NextRequest) {
             p.identity?.includes("beethoven") || p.identity?.includes("bey-avatar")
           );
           if (agentInRoom) {
-            console.log("🤖 [AGENT] Agent already in room, skipping dispatch:", roomName);
+            console.log("[AGENT] Agent already in room, skipping dispatch:", roomName);
           }
         } catch (listError: any) {
           // Room might not exist yet, which is fine
-          console.log("🤖 [AGENT] Could not list participants (room may not exist yet)");
+          console.log("[AGENT] Could not list participants (room may not exist yet)");
         }
 
         // Only create dispatch if agent is not already in room
@@ -195,11 +172,11 @@ export async function POST(req: NextRequest) {
             await agentDispatch.createDispatch(roomName, "beethoven-teacher", {
               metadata: roomMetadata,
             });
-            console.log("🤖 [AGENT] Dispatched beethoven-teacher to room:", roomName);
+            console.log("[AGENT] Dispatched beethoven-teacher to room:", roomName);
           } catch (createError: any) {
             // If dispatch already exists, that's fine - don't delete it
             if (createError?.message?.includes("already exists") || createError?.code === 409) {
-              console.log("🤖 [AGENT] Dispatch already exists for room (keeping it):", roomName);
+              console.log("[AGENT] Dispatch already exists for room (keeping it):", roomName);
             } else {
               throw createError;
             }
@@ -207,16 +184,13 @@ export async function POST(req: NextRequest) {
         }
       } catch (dispatchError: any) {
         // Log error but don't fail token generation
-        console.error("🤖 [AGENT] Dispatch error:", {
-          message: dispatchError?.message,
-          code: dispatchError?.code,
-        });
+        console.error("[AGENT] Dispatch error:", dispatchError?.message);
       }
     } else {
-      console.warn("⚠️ [LIVEKIT] No LiveKit URL configured, skipping room creation");
+      console.warn("[LIVEKIT] No LiveKit URL configured, skipping room creation");
     }
 
-    const TOKEN_TTL_HOURS = 6;
+    const TOKEN_TTL_HOURS = 1;
     const at = new AccessToken(apiKey, apiSecret, {
       identity: effectiveUserId,
       name: participantName || "Student",
@@ -229,7 +203,6 @@ export async function POST(req: NextRequest) {
       canPublish: true,
       canPublishData: true,
       canSubscribe: true,
-      agent: true, // Allow agent to join
     });
 
     const token = await at.toJwt();

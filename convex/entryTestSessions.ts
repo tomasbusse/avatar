@@ -613,13 +613,13 @@ export const submitSpeakingResponse = mutation({
     // Add answer with audio reference
     const newAnswer = {
       instanceId: args.instanceId,
-      answer: null, // Transcript will be added after processing
+      answer: "" as string, // Empty string placeholder - transcript will be added after processing
       audioRecordingStorageId: args.audioStorageId,
       answeredAt: Date.now(),
       timeSpentSeconds: args.timeSpentSeconds,
     };
 
-    const updatedAnswers = [...session.answers, newAnswer];
+    const updatedAnswers = [...session.answers, newAnswer] as typeof session.answers;
 
     // Update state same as regular answer
     const currentState = session.currentState;

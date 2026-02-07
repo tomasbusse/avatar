@@ -50,20 +50,16 @@ export const getGamesFromEnrolledLessons = query({
     // Get lesson IDs
     const lessonIds = enrollments.map((e) => e.lessonId);
 
-    // Get all game-lesson links for these lessons
-    const allLinks: Array<{
-      gameId: Id<"wordGames">;
-      lessonId: Id<"structuredLessons">;
-      order: number;
-    }> = [];
-
-    for (const lessonId of lessonIds) {
-      const links = await ctx.db
-        .query("gameLessonLinks")
-        .withIndex("by_lesson", (q) => q.eq("lessonId", lessonId))
-        .collect();
-      allLinks.push(...links);
-    }
+    // Get all game-lesson links for these lessons (parallel)
+    const linkResults = await Promise.all(
+      lessonIds.map((lessonId) =>
+        ctx.db
+          .query("gameLessonLinks")
+          .withIndex("by_lesson", (q) => q.eq("lessonId", lessonId))
+          .collect()
+      )
+    );
+    const allLinks = linkResults.flat();
 
     if (allLinks.length === 0) {
       return [];

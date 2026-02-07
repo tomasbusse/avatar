@@ -1685,7 +1685,7 @@ export default function AdminEntryTestsPage() {
               tests.map((test) => (
                 <TestCard
                   key={test._id}
-                  test={test as PlacementTest}
+                  test={test as unknown as PlacementTest}
                   isSelected={selectedTestId === test._id}
                   onSelect={() => setSelectedTestId(test._id)}
                   onDelete={() => handleDelete(test._id)}

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Gamepad2, Play, Star, Clock, Trophy, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { WordGame } from "@/types/word-games";
 
 interface GameBlockProps {
   config: GameBlockConfig;
@@ -195,7 +196,7 @@ export function GameBlock({ config, postSlug }: GameBlockProps) {
                       </div>
                     ) : (
                       <GameViewer
-                        game={game}
+                        game={game as unknown as WordGame}
                         currentIndex={currentIndex}
                         onIndexChange={setCurrentIndex}
                         onComplete={handleComplete}
@@ -270,7 +271,7 @@ export function GameBlock({ config, postSlug }: GameBlockProps) {
               </div>
             ) : (
               <GameViewer
-                game={game}
+                game={game as unknown as WordGame}
                 currentIndex={currentIndex}
                 onIndexChange={setCurrentIndex}
                 onComplete={handleComplete}

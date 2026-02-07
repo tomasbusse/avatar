@@ -1,16 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
-
-// Generate a random share token (8 characters, alphanumeric)
-function generateShareToken(): string {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  let token = "";
-  for (let i = 0; i < 8; i++) {
-    token += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return token;
-}
+import { getAuthenticatedUser, generateShareToken } from "./helpers";
 
 // ============================================
 // QUERIES
@@ -244,20 +235,7 @@ export const create = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    // Get user by Clerk ID
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .first();
-
-    if (!user) {
-      throw new Error("User not found");
-    }
+    const user = await getAuthenticatedUser(ctx);
 
     // Generate unique share token
     let shareToken = generateShareToken();
@@ -327,24 +305,15 @@ export const update = mutation({
     clearWordGame: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
+    const user = await getAuthenticatedUser(ctx);
 
     const lesson = await ctx.db.get(args.lessonId);
     if (!lesson) {
       throw new Error("Lesson not found");
     }
 
-    // Get user by Clerk ID
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .first();
-
     // Check ownership
-    if (!user || (lesson.createdBy !== user._id && user.role !== "admin")) {
+    if (lesson.createdBy !== user._id && user.role !== "admin") {
       throw new Error("Not authorized");
     }
 
@@ -387,24 +356,15 @@ export const update = mutation({
 export const regenerateToken = mutation({
   args: { lessonId: v.id("structuredLessons") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
+    const user = await getAuthenticatedUser(ctx);
 
     const lesson = await ctx.db.get(args.lessonId);
     if (!lesson) {
       throw new Error("Lesson not found");
     }
 
-    // Get user by Clerk ID
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .first();
-
     // Check ownership
-    if (!user || (lesson.createdBy !== user._id && user.role !== "admin")) {
+    if (lesson.createdBy !== user._id && user.role !== "admin") {
       throw new Error("Not authorized");
     }
 
@@ -436,24 +396,15 @@ export const regenerateToken = mutation({
 export const remove = mutation({
   args: { lessonId: v.id("structuredLessons") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
+    const user = await getAuthenticatedUser(ctx);
 
     const lesson = await ctx.db.get(args.lessonId);
     if (!lesson) {
       throw new Error("Lesson not found");
     }
 
-    // Get user by Clerk ID
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .first();
-
     // Check ownership
-    if (!user || (lesson.createdBy !== user._id && user.role !== "admin")) {
+    if (lesson.createdBy !== user._id && user.role !== "admin") {
       throw new Error("Not authorized");
     }
 

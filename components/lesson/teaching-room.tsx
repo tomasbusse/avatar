@@ -917,12 +917,12 @@ function RoomContent({
       return;
     }
     console.log("[DEBUG] Manually triggering game load:", linkedGame.title);
-    setActiveGame(linkedGame as WordGame);
+    setActiveGame(linkedGame as unknown as WordGame);
     setGameModeActive(true);
     setCurrentGameItemIndex(0);
     setGameResults({ correctAnswers: 0, incorrectAnswers: 0 });
     gameActivatedRef.current = true;
-    notifyGameLoaded(linkedGame as WordGame);
+    notifyGameLoaded(linkedGame as unknown as WordGame);
   }, [linkedGame, notifyGameLoaded]);
 
   // Session timer - updates every second
@@ -977,13 +977,13 @@ function RoomContent({
     if (linkedGame && !gameActivatedRef.current && room.state === "connected") {
       console.log("[TeachingRoom] Auto-activating game mode for:", linkedGame.title);
       gameActivatedRef.current = true;
-      setActiveGame(linkedGame as WordGame);
+      setActiveGame(linkedGame as unknown as WordGame);
       setGameModeActive(true);
       setCurrentGameItemIndex(0);
       setGameResults({ correctAnswers: 0, incorrectAnswers: 0 });
 
       // Notify avatar that game is loaded
-      notifyGameLoaded(linkedGame as WordGame);
+      notifyGameLoaded(linkedGame as unknown as WordGame);
     }
   }, [linkedGame, room.state, notifyGameLoaded]);
 
@@ -1206,7 +1206,7 @@ function RoomContent({
 
           if (linkedGame && linkedGame._id === requestedGameId) {
             console.log("[TeachingRoom] Activating linked game:", linkedGame.title);
-            gameToActivate = linkedGame as WordGame;
+            gameToActivate = linkedGame as unknown as WordGame;
           } else if (message.gameData) {
             // Use game data from broadcast (multi-participant sync)
             console.log("[TeachingRoom] Activating game from broadcast:", message.gameData.title);
@@ -1216,7 +1216,7 @@ function RoomContent({
             const foundGame = availableGames.find((g) => g._id === requestedGameId);
             if (foundGame) {
               console.log("[TeachingRoom] Activating game from availableGames:", foundGame.title);
-              gameToActivate = foundGame as WordGame;
+              gameToActivate = foundGame as unknown as WordGame;
             }
           }
 
@@ -1538,7 +1538,7 @@ function RoomContent({
       console.log("[TeachingRoom] Direct fetch game result:", directFetchGame.title);
 
       // Activate the game
-      setActiveGame(directFetchGame as WordGame);
+      setActiveGame(directFetchGame as unknown as WordGame);
       setGameModeActive(true);
       setCurrentGameItemIndex(0);
       setGameResults({ correctAnswers: 0, incorrectAnswers: 0 });
@@ -1553,7 +1553,7 @@ function RoomContent({
       }]);
 
       // Notify avatar that game is loaded
-      notifyGameLoaded(directFetchGame as WordGame);
+      notifyGameLoaded(directFetchGame as unknown as WordGame);
 
       // Clear pending ID after processing
       setPendingGameId(null);
@@ -2079,7 +2079,7 @@ function RoomContent({
                         key={game._id}
                         onClick={() => {
                           // Start this game
-                          const wordGame = game as WordGame;
+                          const wordGame = game as unknown as WordGame;
                           setActiveGame(wordGame);
                           setGameModeActive(true);
                           setCurrentGameItemIndex(0);
@@ -2117,7 +2117,7 @@ function RoomContent({
                   <div className="text-xs text-gray-500 mb-2 font-medium">Games</div>
                   <button
                     onClick={() => {
-                      const wordGame = linkedGame as WordGame;
+                      const wordGame = linkedGame as unknown as WordGame;
                       setActiveGame(wordGame);
                       setGameModeActive(true);
                       setCurrentGameItemIndex(0);

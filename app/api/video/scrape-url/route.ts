@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { getConvexClient } from "@/lib/convex-client";
+import { api } from "@/convex/_generated/api";
 import Anthropic from "@anthropic-ai/sdk";
 
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
@@ -392,6 +395,17 @@ function extractTitle(content: string): string {
  */
 export async function POST(request: NextRequest) {
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const convex = getConvexClient();
+    const user = await convex.query(api.users.getUserByClerkId, { clerkId: userId });
+    if (!user || user.role !== "admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     if (!TAVILY_API_KEY) {
       return NextResponse.json(
         { error: "TAVILY_API_KEY not configured" },

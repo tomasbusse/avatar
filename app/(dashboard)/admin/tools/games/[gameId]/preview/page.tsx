@@ -12,6 +12,7 @@ import {
   getGameTypeDisplayName,
   getGameTypeIcon,
   WordGame,
+  type GameConfig,
 } from "@/types/word-games";
 
 export default function GamePreviewPage() {
@@ -63,7 +64,7 @@ export default function GamePreviewPage() {
     category: game.category,
     level: game.level,
     tags: game.tags,
-    config: game.config,
+    config: game.config as GameConfig,
     hints: game.hints,
     difficultyConfig: game.difficultyConfig,
     status: game.status,

@@ -21,6 +21,7 @@ import {
   getGameTypeDisplayName,
   getGameTypeIcon,
   WordGame,
+  type GameConfig,
 } from "@/types/word-games";
 import { toast } from "sonner";
 
@@ -146,7 +147,7 @@ export default function PublicGamePage() {
     category: game.category,
     level: game.level,
     tags: game.tags,
-    config: game.config,
+    config: game.config as GameConfig,
     hints: game.hints,
     difficultyConfig: game.difficultyConfig,
     status: game.status,

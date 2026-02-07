@@ -3017,8 +3017,8 @@ async def entrypoint(ctx: JobContext):
     stt_language = stt_language_map.get(language_mode, "en")
 
     # Use lower endpointing for bilingual mode (better for code-switching)
-    if language_mode == "bilingual" and stt_endpointing > 200:
-        stt_endpointing = 200  # Faster turn detection for code-switching
+    if language_mode == "bilingual" and stt_endpointing > 250:
+        stt_endpointing = 250  # Faster turn detection for code-switching
 
     logger.info(f"🎤 STT Config: mode={language_mode}, language={stt_language}, model={stt_model}, endpointing={stt_endpointing}ms")
 

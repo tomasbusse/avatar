@@ -137,7 +137,7 @@ export const updateContactInfo = mutation({
       .withIndex("by_key", (q) => q.eq("key", "contact_info"))
       .first();
 
-    const currentValue = existing?.value || {};
+    const currentValue = (existing?.value || {}) as Record<string, any>;
     const newValue = {
       ...currentValue,
       ...args,
@@ -458,7 +458,7 @@ export const updateLandingAvatarConfig = mutation({
       .withIndex("by_key", (q) => q.eq("key", "landing_avatar_config"))
       .first();
 
-    const currentValue = existing?.value ?? DEFAULT_LANDING_AVATAR_CONFIG;
+    const currentValue = (existing?.value ?? DEFAULT_LANDING_AVATAR_CONFIG) as Record<string, any>;
     const newValue = {
       ...currentValue,
       ...Object.fromEntries(

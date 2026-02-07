@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
+import { getAuthenticatedUser } from "./helpers";
 
 // Internal mutation for admin updates (no auth required - use only from dashboard or scripts)
 export const internalUpdateAvatar = internalMutation({
@@ -279,15 +280,9 @@ export const createAvatar = mutation({
     }),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const user = await getAuthenticatedUser(ctx);
 
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!user || user.role !== "admin") {
+    if (user.role !== "admin") {
       throw new Error("Not authorized");
     }
 
@@ -308,15 +303,9 @@ export const updateAvatar = mutation({
     updates: v.any(),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const user = await getAuthenticatedUser(ctx);
 
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!user || user.role !== "admin") {
+    if (user.role !== "admin") {
       throw new Error("Not authorized");
     }
 
@@ -415,15 +404,9 @@ export const updateLifeStory = mutation({
     lifeStorySummary: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const user = await getAuthenticatedUser(ctx);
 
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!user || user.role !== "admin") {
+    if (user.role !== "admin") {
       throw new Error("Not authorized");
     }
 
@@ -466,15 +449,9 @@ export const updateSessionStartConfig = mutation({
     }),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const user = await getAuthenticatedUser(ctx);
 
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!user || user.role !== "admin") {
+    if (user.role !== "admin") {
       throw new Error("Not authorized");
     }
 
@@ -591,15 +568,9 @@ export const deleteAvatar = mutation({
   },
   handler: async (ctx, args) => {
     // Auth check
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const user = await getAuthenticatedUser(ctx);
 
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!user || user.role !== "admin") {
+    if (user.role !== "admin") {
       throw new Error("Not authorized - admin access required");
     }
 
@@ -845,15 +816,9 @@ export const addVoiceConfig = mutation({
     config: voiceConfigValidator,
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const user = await getAuthenticatedUser(ctx);
 
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!user || user.role !== "admin") {
+    if (user.role !== "admin") {
       throw new Error("Not authorized");
     }
 
@@ -920,15 +885,9 @@ export const updateVoiceConfig = mutation({
     }),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const user = await getAuthenticatedUser(ctx);
 
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!user || user.role !== "admin") {
+    if (user.role !== "admin") {
       throw new Error("Not authorized");
     }
 
@@ -977,15 +936,9 @@ export const deleteVoiceConfig = mutation({
     configId: v.string(),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const user = await getAuthenticatedUser(ctx);
 
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!user || user.role !== "admin") {
+    if (user.role !== "admin") {
       throw new Error("Not authorized");
     }
 
@@ -1015,15 +968,9 @@ export const setDefaultVoiceConfig = mutation({
     configId: v.string(),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const user = await getAuthenticatedUser(ctx);
 
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!user || user.role !== "admin") {
+    if (user.role !== "admin") {
       throw new Error("Not authorized");
     }
 
@@ -1064,15 +1011,9 @@ export const cloneAvatar = mutation({
     newSlug: v.string(),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const user = await getAuthenticatedUser(ctx);
 
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!user || user.role !== "admin") {
+    if (user.role !== "admin") {
       throw new Error("Not authorized");
     }
 

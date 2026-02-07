@@ -5,8 +5,10 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { LessonRoom } from "@/components/lesson/lesson-room";
-import { TeachingRoom } from "@/components/lesson/teaching-room";
+import dynamic from "next/dynamic";
+
+const LessonRoom = dynamic(() => import("@/components/lesson/lesson-room").then(mod => ({ default: mod.LessonRoom })), { ssr: false });
+const TeachingRoom = dynamic(() => import("@/components/lesson/teaching-room").then(mod => ({ default: mod.TeachingRoom })), { ssr: false });
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, AlertCircle } from "lucide-react";

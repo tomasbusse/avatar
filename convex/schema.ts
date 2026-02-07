@@ -22,7 +22,7 @@ export default defineSchema({
     ),
     lastLoginAt: v.optional(v.number()),
     loginCount: v.number(),
-    metadata: v.optional(v.any()),
+    metadata: v.optional(v.record(v.string(), v.any())),
     // Invitation tracking for admin-created users
     invitedBy: v.optional(v.id("users")),
     invitedAt: v.optional(v.number()),
@@ -286,7 +286,7 @@ export default defineSchema({
     performedBy: v.optional(v.id("users")),
     performedByName: v.optional(v.string()),
     notes: v.optional(v.string()),
-    metadata: v.optional(v.any()),
+    metadata: v.optional(v.record(v.string(), v.any())),
     createdAt: v.number(),
   })
     .index("by_user", ["userId"])
@@ -895,7 +895,7 @@ export default defineSchema({
     guestMetadata: v.optional(
       v.object({
         email: v.optional(v.string()),
-        customFields: v.optional(v.any()), // Custom field responses
+        customFields: v.optional(v.record(v.string(), v.any())), // Custom field responses
         acceptedTermsAt: v.optional(v.number()), // Timestamp of terms acceptance
         referrer: v.optional(v.string()), // Where they came from
         userAgent: v.optional(v.string()), // Browser info
@@ -1020,6 +1020,7 @@ export default defineSchema({
     .index("by_presentation", ["presentationId"])
     .index("by_room", ["roomName"])
     .index("by_status", ["status"])
+    .index("by_student_status", ["studentId", "status"])
     .index("by_started", ["startedAt"])
     .index("by_structured_lesson", ["structuredLessonId"])
     .index("by_conversation_practice", ["conversationPracticeId"])
@@ -1118,7 +1119,7 @@ export default defineSchema({
     studentId: v.optional(v.id("students")),
     sessionId: v.optional(v.id("sessions")),
     event: v.string(),
-    properties: v.optional(v.any()),
+    properties: v.optional(v.record(v.string(), v.any())),
     timestamp: v.number(),
     source: v.optional(v.string()),
     createdAt: v.number(),
@@ -1141,7 +1142,7 @@ export default defineSchema({
     action: v.string(),
     resource: v.string(),
     resourceId: v.optional(v.string()),
-    details: v.optional(v.any()),
+    details: v.optional(v.record(v.string(), v.any())),
     ipAddress: v.optional(v.string()),
     createdAt: v.number(),
   })
@@ -1246,7 +1247,7 @@ export default defineSchema({
       v.object({
         level: v.optional(v.string()),
         goals: v.optional(v.array(v.string())),
-        preferences: v.optional(v.any()),
+        preferences: v.optional(v.record(v.string(), v.any())),
         strongAreas: v.optional(v.array(v.string())),
         weakAreas: v.optional(v.array(v.string())),
         personalFacts: v.optional(v.array(v.string())), // "works at BMW"
@@ -1332,7 +1333,7 @@ export default defineSchema({
     storageId: v.optional(v.id("_storage")), // Original file storage
 
     // Structured JSON content for avatar navigation
-    jsonContent: v.optional(v.any()), // LessonContent JSON schema
+    jsonContent: v.optional(v.record(v.string(), v.any())), // LessonContent JSON schema
 
     // PDF generation
     pdfStorageId: v.optional(v.id("_storage")), // Generated PDF storage
@@ -1383,11 +1384,11 @@ export default defineSchema({
     // RLM-optimized data for fast avatar retrieval (<10ms lookups)
     rlmOptimized: v.optional(v.object({
       // Grammar index for fast lookup by keyword
-      grammarIndex: v.optional(v.any()), // { [keyword: string]: GrammarRule[] }
+      grammarIndex: v.optional(v.record(v.string(), v.any())), // { [keyword: string]: GrammarRule[] }
       // Vocabulary maps for O(1) lookup
-      vocabularyByTerm: v.optional(v.any()),    // { [term: string]: VocabularyItem }
-      vocabularyByTermDe: v.optional(v.any()),  // { [termDe: string]: VocabularyItem }
-      vocabularyByLevel: v.optional(v.any()),   // { [level: string]: VocabularyItem[] }
+      vocabularyByTerm: v.optional(v.record(v.string(), v.any())),    // { [term: string]: VocabularyItem }
+      vocabularyByTermDe: v.optional(v.record(v.string(), v.any())),  // { [termDe: string]: VocabularyItem }
+      vocabularyByLevel: v.optional(v.record(v.string(), v.any())),   // { [level: string]: VocabularyItem[] }
       // Mistake detection patterns
       mistakePatterns: v.optional(v.array(v.object({
         pattern: v.string(),        // Regex or keyword pattern
@@ -1408,7 +1409,7 @@ export default defineSchema({
         expandedResponse: v.optional(v.string()), // Detailed response if needed
       }))),
       // Exercise index by type for targeted practice
-      exerciseIndex: v.optional(v.any()), // { [type: string]: string[] }
+      exerciseIndex: v.optional(v.record(v.string(), v.any())), // { [type: string]: string[] }
     })),
     // Web scraping sources (when content was scraped from web)
     webSources: v.optional(v.array(v.object({
@@ -1701,7 +1702,7 @@ export default defineSchema({
     tags: v.optional(v.array(v.string())),
 
     // Game Configuration (type-specific JSON)
-    config: v.any(), // GameConfig union type
+    config: v.record(v.string(), v.any()), // GameConfig union type
 
     // Difficulty Settings
     difficultyConfig: v.object({
@@ -1811,7 +1812,7 @@ export default defineSchema({
     ),
 
     // Game State (for resume capability)
-    gameState: v.any(), // Current game state JSON
+    gameState: v.record(v.string(), v.any()), // Current game state JSON
 
     // Progress
     currentItemIndex: v.number(), // For multi-item games
@@ -1834,7 +1835,7 @@ export default defineSchema({
       v.object({
         type: v.string(), // "answer", "hint", "scaffold"
         timestamp: v.number(),
-        data: v.any(),
+        data: v.record(v.string(), v.any()),
       })
     ),
 
@@ -1864,7 +1865,7 @@ export default defineSchema({
     sharedState: v.optional(
       v.object({
         currentTurn: v.optional(v.string()), // participantId for turn-based games
-        answers: v.optional(v.any()), // Collected answers from all participants
+        answers: v.optional(v.record(v.string(), v.any())), // Collected answers from all participants
         syncedItemIndex: v.optional(v.number()), // Which item everyone sees
         gameMode: v.optional(
           v.union(
@@ -2090,7 +2091,7 @@ export default defineSchema({
         caseSensitive: v.optional(v.boolean()),
         points: v.optional(v.number()), // Points for this field (default 1)
         // Type-specific config
-        config: v.optional(v.any()), // MultipleChoiceConfig, MatchingConfig, etc.
+        config: v.optional(v.record(v.string(), v.any())), // MultipleChoiceConfig, MatchingConfig, etc.
       })
     ),
 
@@ -2126,7 +2127,7 @@ export default defineSchema({
       )
     ),
     ocrText: v.optional(v.string()),   // Raw OCR extracted text
-    jsonContent: v.optional(v.any()),  // WorksheetContent structured JSON
+    jsonContent: v.optional(v.record(v.string(), v.any())),  // WorksheetContent structured JSON
 
     // Collaboration
     lockedBy: v.optional(v.id("users")), // User currently editing
@@ -2670,7 +2671,7 @@ export default defineSchema({
     tags: v.array(v.string()),
 
     // Question content (structure varies by type)
-    content: v.any(), // Type-specific content object
+    content: v.record(v.string(), v.any()), // Type-specific content object
 
     // For listening questions - pre-generated audio
     audioStorageId: v.optional(v.id("_storage")),
@@ -2744,7 +2745,7 @@ export default defineSchema({
       currentSectionIndex: v.number(),
       currentQuestionIndex: v.number(),
       sectionOrder: v.array(v.string()), // Section IDs in order
-      questionOrder: v.any(), // Map of sectionId -> array of questionIds
+      questionOrder: v.record(v.string(), v.any()), // Map of sectionId -> array of questionIds
     }),
 
     // Question instances for this test (snapshot for consistency)
@@ -2761,7 +2762,7 @@ export default defineSchema({
     answers: v.array(
       v.object({
         instanceId: v.string(),
-        answer: v.any(), // Answer value varies by question type
+        answer: v.union(v.string(), v.number(), v.boolean(), v.array(v.string()), v.record(v.string(), v.any())), // Answer value varies by question type
         audioRecordingStorageId: v.optional(v.id("_storage")), // For speaking questions
         transcript: v.optional(v.string()), // Deepgram transcript for speaking
         answeredAt: v.number(),
@@ -2780,7 +2781,7 @@ export default defineSchema({
           maxScore: v.number(),
           percentScore: v.number(),
           cefrLevel: v.string(),
-          aiEvaluation: v.optional(v.any()), // LLM evaluation details for writing/speaking
+          aiEvaluation: v.optional(v.record(v.string(), v.any())), // LLM evaluation details for writing/speaking
         })
       )
     ),
@@ -2895,7 +2896,7 @@ export default defineSchema({
   // Site configuration (global settings, featured avatar, etc.)
   siteConfig: defineTable({
     key: v.string(), // e.g., "landing_hero_avatar", "default_locale"
-    value: v.any(),
+    value: v.union(v.string(), v.number(), v.boolean(), v.record(v.string(), v.any()), v.array(v.any())),
     updatedAt: v.number(),
   }).index("by_key", ["key"]),
 
@@ -2904,7 +2905,7 @@ export default defineSchema({
     locale: v.string(), // "de" | "en"
     page: v.string(), // "home" | "about" | "services" | "pricing" | "contact"
     section: v.string(), // "hero" | "services" | "usps" | "cta" | etc.
-    content: v.any(), // Section-specific content object
+    content: v.record(v.string(), v.any()), // Section-specific content object
     order: v.optional(v.number()), // For ordering sections
     isPublished: v.boolean(),
     createdAt: v.number(),
@@ -2988,7 +2989,7 @@ export default defineSchema({
       id: v.string(),
       type: v.string(),
       order: v.number(),
-      config: v.any(), // Flexible config object for each block type
+      config: v.record(v.string(), v.any()), // Flexible config object for each block type
     }))),
     contentVersion: v.optional(v.number()), // 1 = legacy markdown, 2 = content blocks
 
@@ -2999,7 +3000,7 @@ export default defineSchema({
 
     // Enhanced SEO
     seoKeywords: v.optional(v.array(v.string())),
-    structuredData: v.optional(v.any()), // JSON-LD schema
+    structuredData: v.optional(v.record(v.string(), v.any())), // JSON-LD schema
 
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -3064,7 +3065,7 @@ export default defineSchema({
       ),
       order: v.number(),
       isPublished: v.boolean(),
-      content: v.any(), // Section-specific content object
+      content: v.record(v.string(), v.any()), // Section-specific content object
     })),
 
     // Publishing
@@ -3628,7 +3629,7 @@ export default defineSchema({
     companyName: v.optional(v.string()),
     companyLogo: v.optional(v.string()),
     // Full test configuration as JSON (questions, images, settings, etc.)
-    config: v.any(),
+    config: v.record(v.string(), v.any()),
     status: v.union(v.literal("draft"), v.literal("published")),
     // Result email configuration
     resultEmails: v.optional(v.object({

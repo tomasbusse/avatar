@@ -855,12 +855,13 @@ function SiteConfigTab() {
 
   // Load contact info
   if (!contactLoaded && contactInfo) {
-    setContactEmail(contactInfo.email || "");
-    setContactPhone(contactInfo.phone || "");
-    setHoursEN(contactInfo.hours?.en || "");
-    setHoursDE(contactInfo.hours?.de || "");
+    const ci = contactInfo as Record<string, any>;
+    setContactEmail(ci.email || "");
+    setContactPhone(ci.phone || "");
+    setHoursEN(ci.hours?.en || "");
+    setHoursDE(ci.hours?.de || "");
     setLocations(
-      contactInfo.locations?.map((loc: any) => ({
+      ci.locations?.map((loc: any) => ({
         nameEN: loc.name?.en || "",
         nameDE: loc.name?.de || "",
         address: loc.address || "",
@@ -871,10 +872,11 @@ function SiteConfigTab() {
 
   // Load session config
   if (!sessionConfigLoaded && avatarSessionConfig) {
-    setSessionTimeout(avatarSessionConfig.sessionTimeoutSeconds ?? 300);
-    setWarningAt(avatarSessionConfig.warningAtSeconds ?? 60);
-    setShowContactOnStop(avatarSessionConfig.showContactFormOnStop ?? true);
-    setPreloadAvatar(avatarSessionConfig.preloadAvatar ?? false);
+    const asc = avatarSessionConfig as Record<string, any>;
+    setSessionTimeout(asc.sessionTimeoutSeconds ?? 300);
+    setWarningAt(asc.warningAtSeconds ?? 60);
+    setShowContactOnStop(asc.showContactFormOnStop ?? true);
+    setPreloadAvatar(asc.preloadAvatar ?? false);
     setSessionConfigLoaded(true);
   }
 

@@ -1,12 +1,10 @@
 "use client";
 
-import { useQuery, useMutation } from "convex/react";
+import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ShieldCheck } from "lucide-react";
 import Link from "next/link";
-import { toast } from "sonner";
 import {
   StatsRow,
   ContinueLearningCard,
@@ -25,8 +23,6 @@ export default function DashboardPage() {
   const games = useQuery(api.dashboard.getGamesFromEnrolledLessons, {
     limit: 4,
   });
-  const createAdmin = useMutation(api.users.createCurrentUserAsAdmin);
-
   const firstName = user?.firstName ?? "there";
   const isLoading = user === undefined || student === undefined;
 
@@ -38,16 +34,6 @@ export default function DashboardPage() {
         e.status === "in_progress" ||
         e.status === "completed"
     ) ?? [];
-
-  const handleSetupAdmin = async () => {
-    try {
-      const result = await createAdmin();
-      toast.success(`Admin ${result.action}! Refresh the page.`);
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Failed";
-      toast.error(message);
-    }
-  };
 
   return (
     <div className="p-8">
@@ -61,28 +47,6 @@ export default function DashboardPage() {
             Ready to practice your English today?
           </p>
         </div>
-
-        {/* Admin Setup Banner */}
-        {!user && (
-          <Card className="border-amber-500/50 bg-amber-50">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold text-lg mb-1 flex items-center gap-2">
-                    <ShieldCheck className="w-5 h-5 text-amber-600" />
-                    Setup Admin Account
-                  </h3>
-                  <p className="text-muted-foreground text-sm">
-                    Create your admin account to manage the platform
-                  </p>
-                </div>
-                <Button onClick={handleSetupAdmin} variant="outline">
-                  Become Admin
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Onboarding Prompt */}
         {!student?.onboardingCompleted && user && (

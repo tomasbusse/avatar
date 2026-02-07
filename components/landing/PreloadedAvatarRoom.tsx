@@ -249,7 +249,6 @@ export function PreloadedAvatarRoom({
       // Key change: Don't request mic until user starts conversation
       audio={isConversationStarted}
       video={visionEnabled && isConversationStarted}
-      onDisconnected={() => onClose?.("disconnected")}
       className={cn("w-full h-full", className)}
     >
       <RoomContent

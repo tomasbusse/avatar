@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
@@ -136,6 +137,11 @@ function buildKnowledgeContext(knowledge: {
 
 export async function POST(request: NextRequest) {
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const anthropic = getAnthropicClient();
     const convex = getConvexClient();
 
@@ -154,7 +160,7 @@ export async function POST(request: NextRequest) {
     let emailConfig: EmailConfig | null = null;
     if (useGlobalConfig) {
       try {
-        emailConfig = await convex.query(api.landing.getEmailConfig);
+        emailConfig = await convex.query(api.landing.getEmailConfig) as EmailConfig | null;
       } catch (configError) {
         console.warn("[Autoresponder] Failed to fetch email config:", configError);
       }

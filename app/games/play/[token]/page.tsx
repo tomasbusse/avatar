@@ -11,6 +11,7 @@ import { Loader2, Users, Play, Clock, AlertCircle, Gamepad2 } from "lucide-react
 import { GameViewer } from "@/components/games/game-viewer";
 import { GameWaitingRoom } from "@/components/games/game-waiting-room";
 import { PlayerCursors, PlayerList, PlayerInputs, ControlPanel } from "@/components/games/player-cursors";
+import type { WordGame } from "@/types/word-games";
 
 export default function GamePlayPage() {
   const params = useParams();
@@ -273,7 +274,7 @@ export default function GamePlayPage() {
     return (
       <GameWaitingRoom
         session={session}
-        game={session.game}
+        game={session.game as unknown as WordGame}
         participantId={participantId}
         isHost={session.participants?.find(
           (p: { participantId: string }) => p.participantId === participantId
@@ -319,7 +320,7 @@ export default function GamePlayPage() {
         <div ref={gameContainerRef} className="relative">
           <Card className="overflow-hidden relative">
             <GameViewer
-              game={session.game}
+              game={session.game as unknown as WordGame}
               currentIndex={currentIndex}
               onIndexChange={setCurrentIndex}
               onComplete={handleComplete}

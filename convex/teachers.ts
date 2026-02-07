@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
+import { getAuthenticatedUser } from "./helpers";
 
 // ============================================
 // QUERIES
@@ -21,16 +22,9 @@ export const listTeachers = query({
     ),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    // Check admin status
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can list teachers");
     }
 
@@ -168,16 +162,9 @@ export const getAvailableUsersForTeacher = query({
     search: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    // Check admin status
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can access this");
     }
 
@@ -377,16 +364,9 @@ export const createTeacher = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    // Check admin status
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can create teachers");
     }
 
@@ -451,16 +431,9 @@ export const updateTeacher = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    // Check admin status
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can update teachers");
     }
 
@@ -496,16 +469,9 @@ export const updateTeacherAvatars = mutation({
     avatarIds: v.array(v.id("avatars")),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    // Check admin status
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can update teacher avatars");
     }
 
@@ -539,16 +505,9 @@ export const deleteTeacher = mutation({
     teacherId: v.id("teachers"),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    // Check admin status
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can delete teachers");
     }
 

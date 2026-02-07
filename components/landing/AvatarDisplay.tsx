@@ -123,7 +123,13 @@ export function AvatarDisplay({
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
   // Get avatar session config
-  const avatarConfig = useQuery(api.landing.getLandingAvatarConfig);
+  const avatarConfig = useQuery(api.landing.getLandingAvatarConfig) as {
+    sessionTimeoutSeconds: number;
+    warningAtSeconds: number;
+    allowRestart: boolean;
+    showContactFormOnStop: boolean;
+    preloadAvatar: boolean;
+  } | undefined;
   const submitContact = useMutation(api.landing.submitContactForm);
 
   // Check for debug mode via URL param or prop

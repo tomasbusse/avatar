@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { getAuthenticatedUser } from "./helpers";
 
 export const createSession = mutation({
   args: {
@@ -17,15 +18,7 @@ export const createSession = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!user) throw new Error("User not found");
+    const user = await getAuthenticatedUser(ctx);
 
     const student = await ctx.db
       .query("students")
@@ -759,16 +752,9 @@ export const cleanupStaleSessions = mutation({
     dryRun: v.optional(v.boolean()), // If true, just return count without modifying
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const user = await getAuthenticatedUser(ctx);
 
-    // Check if user is admin
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!user || user.role !== "admin") {
+    if (user.role !== "admin") {
       throw new Error("Only admins can cleanup sessions");
     }
 
@@ -831,15 +817,9 @@ export const forceEndSession = mutation({
     reason: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const user = await getAuthenticatedUser(ctx);
 
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!user || user.role !== "admin") {
+    if (user.role !== "admin") {
       throw new Error("Only admins can force-end sessions");
     }
 
@@ -967,15 +947,9 @@ export const endSessionsForAvatar = mutation({
   },
   handler: async (ctx, args) => {
     // Check admin permissions
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const user = await getAuthenticatedUser(ctx);
 
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!user || user.role !== "admin") {
+    if (user.role !== "admin") {
       throw new Error("Admin access required");
     }
 
@@ -1027,15 +1001,9 @@ export const cleanupStaleSessionsForAvatar = mutation({
   },
   handler: async (ctx, args) => {
     // Check admin permissions
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const user = await getAuthenticatedUser(ctx);
 
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!user || user.role !== "admin") {
+    if (user.role !== "admin") {
       throw new Error("Admin access required");
     }
 
@@ -1092,15 +1060,9 @@ export const deleteHistoricalSessionsForAvatar = mutation({
   },
   handler: async (ctx, args) => {
     // Check admin permissions
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const user = await getAuthenticatedUser(ctx);
 
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!user || user.role !== "admin") {
+    if (user.role !== "admin") {
       throw new Error("Admin access required");
     }
 

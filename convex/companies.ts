@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
+import { getAuthenticatedUser } from "./helpers";
 
 // ============================================
 // QUERIES
@@ -181,16 +182,9 @@ export const createCompany = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    // Get current user
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can create companies");
     }
 
@@ -283,15 +277,9 @@ export const updateCompany = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can update companies");
     }
 
@@ -323,15 +311,9 @@ export const deleteCompany = mutation({
     force: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can delete companies");
     }
 
@@ -407,15 +389,9 @@ export const assignCompanyAdmin = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (currentUser.role !== "admin") {
       throw new Error("Only admins can assign company admins");
     }
 
@@ -487,15 +463,9 @@ export const assignCompanyAdmin = mutation({
 export const getCompanyWithDetails = query({
   args: { companyId: v.id("companies") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await getAuthenticatedUser(ctx);
 
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!currentUser || !["admin", "moderator"].includes(currentUser.role)) {
+    if (!["admin", "moderator"].includes(currentUser.role)) {
       throw new Error("Not authorized");
     }
 
