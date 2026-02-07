@@ -19,8 +19,8 @@ export async function GET() {
         const response = await fetch("https://openrouter.ai/api/v1/models", {
             headers: {
                 "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-                "HTTP-Referer": "https://beethoven.app",
-                "X-Title": "Beethoven AI Teacher",
+                "HTTP-Referer": "https://simmonds.online",
+                "X-Title": "Simmonds Online English",
             },
             next: { revalidate: 3600 } // Cache for 1 hour
         });

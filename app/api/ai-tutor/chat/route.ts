@@ -49,7 +49,7 @@ Please provide a helpful, educational response about the vocabulary. Keep your r
             Authorization: `Bearer ${apiKey}`,
             "Content-Type": "application/json",
             "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-            "X-Title": "Beethoven AI Vocabulary Tutor",
+            "X-Title": "Simmonds AI Vocabulary Tutor",
           },
           body: JSON.stringify({
             model,

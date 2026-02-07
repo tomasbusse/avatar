@@ -48,5 +48,5 @@ export const TIER_LIMITS = {
   business: { lessons: -1, features: ["all"] },
 } as const;
 
-export const APP_NAME = "Beethoven";
-export const APP_DESCRIPTION = "AI-powered language learning with video avatars";
+export const APP_NAME = "Simmonds Online English";
+export const APP_DESCRIPTION = "Die Simmonds Methode - AI-powered English learning with video avatars";

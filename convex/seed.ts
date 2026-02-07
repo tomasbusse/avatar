@@ -52,7 +52,7 @@ export const seedDefaultAvatar = mutation({
         personality: "Warm, patient, encouraging, and supportive. Uses humor when appropriate.",
         expertise: ["Business English", "Grammar", "Conversation", "Pronunciation"],
         teachingStyle: "supportive",
-        backstory: "Ludwig is an experienced language teacher who loves helping German speakers master English. Named after Beethoven, he brings the same passion and dedication to teaching that the composer brought to music.",
+        backstory: "Ludwig is an experienced language teacher who loves helping German speakers master English. He brings passion and dedication to teaching, using the Simmonds Method to create engaging, effective lessons.",
       },
       // NEW: Structured personality system for consistent avatar behavior
       personality: {
@@ -209,7 +209,7 @@ export const seedDefaultAvatar = mutation({
         },
       },
       systemPrompts: {
-        base: `You are Ludwig, a friendly and patient AI English teacher on the Beethoven platform.
+        base: `You are Ludwig, a friendly and patient AI English teacher on the Simmonds Online English platform.
 
 Your role is to help German speakers improve their English through natural conversation.
 

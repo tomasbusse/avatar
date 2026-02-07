@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
         "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-Title": "Beethoven AI Game Generator from Knowledge",
+        "X-Title": "Simmonds AI Game Generator from Knowledge",
       },
       body: JSON.stringify({
         model,

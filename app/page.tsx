@@ -9,9 +9,9 @@ export default function LandingPage() {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-lg">B</span>
+              <span className="text-primary-foreground font-bold text-lg">S</span>
             </div>
-            <span className="font-semibold text-xl">Beethoven</span>
+            <span className="font-semibold text-xl">Simmonds</span>
           </div>
           <nav className="flex items-center gap-4">
             <Link href="/sign-in">
@@ -79,7 +79,7 @@ export default function LandingPage() {
             <h2 className="text-3xl font-bold mb-4">Ready to start speaking?</h2>
             <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
               Join thousands of German speakers improving their English with
-              Beethoven. Your first 3 lessons are free.
+              Simmonds Online English. Your first 3 lessons are free.
             </p>
             <Link href="/sign-up">
               <Button size="lg">Create Free Account</Button>
@@ -90,7 +90,7 @@ export default function LandingPage() {
 
       <footer className="border-t border-border py-8">
         <div className="container mx-auto px-4 text-center text-muted-foreground text-sm">
-          <p>&copy; 2025 Beethoven. AI-powered language learning.</p>
+          <p>&copy; 2026 Simmonds Language Services. Die Simmonds Methode.</p>
         </div>
       </footer>
     </div>

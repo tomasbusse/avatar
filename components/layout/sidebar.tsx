@@ -82,7 +82,7 @@ export function Sidebar() {
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
             <GraduationCap className="w-5 h-5 text-primary-foreground" />
           </div>
-          {!isCollapsed && <span className="font-semibold text-xl">Beethoven</span>}
+          {!isCollapsed && <span className="font-semibold text-lg">Simmonds</span>}
         </Link>
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}

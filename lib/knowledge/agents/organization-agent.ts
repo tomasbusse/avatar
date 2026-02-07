@@ -432,7 +432,7 @@ Learning objectives: ${outline.outline.objectives.map((o) => o.objective).join("
       headers: {
         Authorization: `Bearer ${this.config.openrouterApiKey}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://beethoven.app",
+        "HTTP-Referer": "https://simmonds.online",
       },
       body: JSON.stringify({
         model: "anthropic/claude-sonnet-4",

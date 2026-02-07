@@ -22,7 +22,7 @@ async function cleanupWithAI(rawText: string, documentType: string): Promise<str
       headers: {
         "Authorization": `Bearer ${openrouterKey}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://beethoven.app",
+        "HTTP-Referer": "https://simmonds.online",
       },
       body: JSON.stringify({
         model: "anthropic/claude-3-haiku",

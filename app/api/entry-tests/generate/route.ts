@@ -361,7 +361,7 @@ export async function POST(
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
         "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-Title": "Beethoven Entry Test Generator",
+        "X-Title": "Simmonds Entry Test Generator",
       },
       body: JSON.stringify({
         model: body.model,

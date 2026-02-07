@@ -20,8 +20,8 @@ const playfair = Playfair_Display({
 
 export function generateMetadata(): Metadata {
   return {
-    title: "Beethoven - AI Language Learning",
-    description: "Learn languages with AI-powered video avatars",
+    title: "Simmonds Online English - Die Simmonds Methode",
+    description: "Learn English with AI-powered video avatars - Die Simmonds Methode",
     other: {
       ...Sentry.getTraceData(),
     },

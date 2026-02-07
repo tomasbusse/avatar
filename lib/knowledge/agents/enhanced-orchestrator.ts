@@ -635,7 +635,7 @@ Output ONLY a JSON array of subtopic names.`;
       headers: {
         Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://beethoven.app",
+        "HTTP-Referer": "https://simmonds.online",
       },
       body: JSON.stringify({
         model: "anthropic/claude-sonnet-4",

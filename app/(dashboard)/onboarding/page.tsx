@@ -91,7 +91,7 @@ export default function OnboardingPage() {
         learningGoal: selectedGoal as "career" | "travel" | "exam" | "personal" | "academic",
         focusAreas: selectedFocusAreas,
       });
-      toast.success("Welcome to Beethoven! Let's start learning.");
+      toast.success("Welcome to Simmonds Online English! Let's start learning.");
       router.push("/dashboard");
     } catch (error) {
       toast.error("Something went wrong. Please try again.");
@@ -109,7 +109,7 @@ export default function OnboardingPage() {
               <GraduationCap className="w-10 h-10 text-primary" />
             </div>
             <h2 className="text-2xl font-bold mb-4">
-              Welcome to Beethoven, {user?.firstName || "there"}!
+              Welcome to Simmonds, {user?.firstName || "there"}!
             </h2>
             <p className="text-muted-foreground max-w-md mx-auto mb-8">
               Let&apos;s personalize your learning experience. We&apos;ll ask you a few

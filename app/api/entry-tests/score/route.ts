@@ -182,7 +182,7 @@ Return JSON:
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
         "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-Title": "Beethoven Entry Test Scorer",
+        "X-Title": "Simmonds Entry Test Scorer",
       },
       body: JSON.stringify({
         model: "anthropic/claude-3-haiku-20240307",

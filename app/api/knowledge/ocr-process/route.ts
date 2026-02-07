@@ -181,7 +181,7 @@ ${LESSON_SCHEMA}
       headers: {
         "Authorization": `Bearer ${openrouterKey}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://beethoven.app",
+        "HTTP-Referer": "https://simmonds.online",
       },
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",

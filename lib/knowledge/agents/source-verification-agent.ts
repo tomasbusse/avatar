@@ -492,7 +492,7 @@ ${conflictingFacts.map((f) => `Fact: ${f.fact}\nSupporting: ${f.supportingSource
       headers: {
         Authorization: `Bearer ${this.config.openrouterApiKey}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://beethoven.app",
+        "HTTP-Referer": "https://simmonds.online",
       },
       body: JSON.stringify({
         model: "anthropic/claude-sonnet-4",

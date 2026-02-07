@@ -745,7 +745,7 @@ Output ONLY the JSON object:`,
       headers: {
         Authorization: `Bearer ${this.openrouterKey}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://beethoven.app",
+        "HTTP-Referer": "https://simmonds.online",
       },
       body: JSON.stringify({
         model: "anthropic/claude-sonnet-4",

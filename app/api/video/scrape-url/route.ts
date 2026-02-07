@@ -300,7 +300,7 @@ async function generateScriptWithOpenRouter(
       Authorization: `Bearer ${OPENROUTER_API_KEY}`,
       "Content-Type": "application/json",
       "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-      "X-Title": "Beethoven Video Script Generator",
+      "X-Title": "Simmonds Video Script Generator",
     },
     body: JSON.stringify({
       model,
@@ -329,7 +329,7 @@ async function generateScriptWithOpenRouter(
       Authorization: `Bearer ${OPENROUTER_API_KEY}`,
       "Content-Type": "application/json",
       "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-      "X-Title": "Beethoven Video Script Generator",
+      "X-Title": "Simmonds Video Script Generator",
     },
     body: JSON.stringify({
       model,
