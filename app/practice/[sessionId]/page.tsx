@@ -10,7 +10,7 @@ import dynamic from "next/dynamic";
 const LessonRoom = dynamic(() => import("@/components/lesson/lesson-room").then(mod => ({ default: mod.LessonRoom })), { ssr: false });
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, AlertCircle, ArrowLeft, Clock, MessageSquare } from "lucide-react";
+import { Loader2, AlertCircle, ArrowLeft, Clock, MessageSquare, CheckCircle2, RefreshCw, Mail, Phone, Globe, LayoutDashboard } from "lucide-react";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -68,6 +68,7 @@ export default function PracticeRoomPage() {
 
   const [roomName, setRoomName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sessionEnded, setSessionEnded] = useState(false);
 
   const sessionInitializedRef = useRef(false);
 
@@ -99,9 +100,13 @@ export default function PracticeRoomPage() {
       }
       return;
     }
-    // Guests go back to home, authenticated users go to dashboard
-    router.push(isSignedIn ? "/dashboard" : "/");
+    setSessionEnded(true);
   };
+
+  // Build restart URL from the practice share token
+  const restartUrl = practice?.shareToken
+    ? `/practice/join/${practice.shareToken}${isEmbed ? "?embed=true" : ""}`
+    : null;
 
   // Wait for auth to load
   if (!authLoaded) {
@@ -206,6 +211,107 @@ export default function PracticeRoomPage() {
             </div>
           </CardContent>
         </Card>
+      </div>
+    );
+  }
+
+  // Session ended - show completion screen with contact info and restart
+  if (sessionEnded) {
+    return (
+      <div className="min-h-screen bg-[#FFE8CD] flex items-center justify-center p-4">
+        <div className="max-w-lg w-full space-y-6">
+          {/* Success card */}
+          <Card className="border-0 shadow-lg">
+            <CardContent className="pt-8 pb-6 text-center">
+              <div className="w-16 h-16 rounded-full bg-[#003F37]/10 flex items-center justify-center mx-auto mb-4">
+                <CheckCircle2 className="w-8 h-8 text-[#003F37]" />
+              </div>
+              <h1 className="text-2xl font-bold text-[#003F37] mb-2">
+                Session Complete
+              </h1>
+              <p className="text-[#4F5338]">
+                Great job, {participantName}! Thank you for practising with {avatar?.name || "us"}.
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Actions */}
+          <div className="flex flex-col gap-3">
+            {restartUrl && (
+              <Link href={restartUrl} className="w-full">
+                <Button
+                  size="lg"
+                  className="w-full gap-2 bg-[#003F37] hover:bg-[#004a40] text-[#FFE8CD]"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Start New Session
+                </Button>
+              </Link>
+            )}
+            {isSignedIn && (
+              <Link href="/dashboard" className="w-full">
+                <Button size="lg" variant="outline" className="w-full gap-2">
+                  <LayoutDashboard className="w-4 h-4" />
+                  Go to Dashboard
+                </Button>
+              </Link>
+            )}
+          </div>
+
+          {/* Contact card */}
+          <Card className="border-0 shadow-lg">
+            <CardContent className="pt-6 pb-6">
+              <h2 className="font-semibold text-[#003F37] mb-4 text-center">
+                Interested in more? Get in touch!
+              </h2>
+              <div className="space-y-3">
+                <a
+                  href="mailto:james@englisch-lehrer.com"
+                  className="flex items-center gap-3 text-[#4F5338] hover:text-[#003F37] transition-colors"
+                >
+                  <div className="w-10 h-10 rounded-full bg-[#003F37]/10 flex items-center justify-center flex-shrink-0">
+                    <Mail className="w-5 h-5 text-[#003F37]" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-[#003F37]">Email</p>
+                    <p className="text-sm">james@englisch-lehrer.com</p>
+                  </div>
+                </a>
+                <a
+                  href="tel:+4951147393339"
+                  className="flex items-center gap-3 text-[#4F5338] hover:text-[#003F37] transition-colors"
+                >
+                  <div className="w-10 h-10 rounded-full bg-[#003F37]/10 flex items-center justify-center flex-shrink-0">
+                    <Phone className="w-5 h-5 text-[#003F37]" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-[#003F37]">Phone</p>
+                    <p className="text-sm">+49 511 47 39 339</p>
+                  </div>
+                </a>
+                <a
+                  href="https://simmonds.online"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 text-[#4F5338] hover:text-[#003F37] transition-colors"
+                >
+                  <div className="w-10 h-10 rounded-full bg-[#003F37]/10 flex items-center justify-center flex-shrink-0">
+                    <Globe className="w-5 h-5 text-[#003F37]" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-[#003F37]">Website</p>
+                    <p className="text-sm">simmonds.online</p>
+                  </div>
+                </a>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Footer */}
+          <p className="text-center text-sm text-[#4F5338]/70">
+            Simmonds Language Services &middot; Die Simmonds Methode
+          </p>
+        </div>
       </div>
     );
   }

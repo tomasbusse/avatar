@@ -1677,11 +1677,18 @@ function RoomContent({
         }
       }
       await room.disconnect();
-      onEnd?.();
-      router.push("/dashboard");
+      if (onEnd) {
+        onEnd();
+      } else {
+        router.push("/dashboard");
+      }
     } catch (error) {
       console.error("Error ending lesson:", error);
-      router.push("/dashboard");
+      if (onEnd) {
+        onEnd();
+      } else {
+        router.push("/dashboard");
+      }
     }
   }, [room, onEnd, router, localParticipant, isScreenShareEnabled, endSessionByRoom, roomName]);
 
