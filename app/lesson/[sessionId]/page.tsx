@@ -87,9 +87,9 @@ export default function LessonPage() {
       // Prevent re-initialization
       if (sessionInitializedRef.current) return;
 
-      // For authenticated users, wait for user/student data
-      // For guests with existing sessions, proceed without user data
-      if (isSignedIn && (!student || !user)) return;
+      // For authenticated users, wait for user data to load (student record is optional)
+      // user === undefined means still loading; null means not found
+      if (isSignedIn && user === undefined) return;
       if (!isSignedIn && !existingSession) return; // Guests need existing session
 
       const isNew = isNewSession(sessionId);
@@ -162,8 +162,8 @@ export default function LessonPage() {
     );
   }
 
-  // For authenticated users, wait for user/student data
-  if (isSignedIn && (!user || !student)) {
+  // For authenticated users, wait for user data to load
+  if (isSignedIn && user === undefined) {
     return (
       <div className="h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
