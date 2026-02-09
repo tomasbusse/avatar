@@ -20,12 +20,37 @@ export const createSession = mutation({
   handler: async (ctx, args) => {
     const user = await getAuthenticatedUser(ctx);
 
-    const student = await ctx.db
+    let student = await ctx.db
       .query("students")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .unique();
 
-    if (!student) throw new Error("Student profile not found");
+    // Auto-create student profile if missing
+    if (!student) {
+      const now = Date.now();
+      const studentId = await ctx.db.insert("students", {
+        userId: user._id,
+        nativeLanguage: "de",
+        targetLanguage: "en",
+        currentLevel: "B1",
+        learningGoal: "career" as const,
+        totalLessonsCompleted: 0,
+        totalMinutesPracticed: 0,
+        currentStreak: 0,
+        longestStreak: 0,
+        preferences: {
+          bilingualMode: "adaptive" as const,
+          lessonDuration: 30,
+        },
+        onboardingCompleted: false,
+        assessmentCompleted: false,
+        createdAt: now,
+        updatedAt: now,
+      });
+      student = await ctx.db.get(studentId);
+    }
+
+    if (!student) throw new Error("Failed to create student profile");
 
     const now = Date.now();
 
