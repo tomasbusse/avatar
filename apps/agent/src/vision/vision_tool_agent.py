@@ -116,32 +116,25 @@ VISION_TOOLS: List[Dict[str, Any]] = [
 
 _SYSTEM_PROMPT_TEMPLATE = """\
 You are the eyes for an AI English teacher named {avatar_name}.
-You SEE the student via webcam and the lesson content on screen.
+You SEE the student via webcam{screen_note}.
 
 Write a SHORT description (1-2 sentences, max 30 words) for the speaking avatar.
 
 WHAT TO DESCRIBE (pick the most interesting ONE):
 - Student: expression, mood, body language, what they're wearing, background details
 - Personal touches: pictures on the wall, pets, interesting room items, nice hair/outfit
-- Slide content: key text, exercise type, images shown
-- Game state: what the student selected, their score
-
+{slide_observe_note}
 STYLE: Write as casual notes, like whispering to a colleague.
 - Good: "Student smiling, looks confident. Nice bookshelf behind them."
-- Good: "Slide shows fill-in-the-blank exercise about present perfect, 4 questions."
 - Good: "Student has a dog in the background! They look a bit unsure."
+{slide_example_note}
 - Bad: "The visual analysis reveals a student positioned in front of a webcam..." (too formal)
 - Bad: Long paragraph with every detail (too much)
 
 {tools_section}
-
-Current state:
-- Slide: {current_slide}/{total_slides}
-{material_section}
-
+{state_section}
 RULES:
-- Only use slide tools when the avatar has clearly finished discussing current content
-- If student looks confused, say so (don't change slides)
+{slide_rules}
 - Prioritize personal/human observations over technical descriptions
 - Vary what you focus on each time - don't repeat the same observation\
 """
@@ -257,6 +250,10 @@ class VisionToolAgent:
         """Return the latest vision context string for the speaking LLM."""
         return self.vision_context
 
+    def _has_slides(self) -> bool:
+        """Check if there are slides/presentations in this session."""
+        return self.total_slides > 0 or bool(self._available_presentations) or bool(self._doc_image)
+
     # ------------------------------------------------------------------
     # Background analysis loop
     # ------------------------------------------------------------------
@@ -308,7 +305,7 @@ class VisionToolAgent:
                 json={
                     "model": self._vision_model,
                     "messages": messages,
-                    **({"tools": VISION_TOOLS} if self._enable_tool_calling else {}),
+                    **({"tools": VISION_TOOLS} if self._enable_tool_calling and self._has_slides() else {}),
                     "max_tokens": 100,
                     "temperature": 0.5,
                 },
@@ -449,23 +446,49 @@ class VisionToolAgent:
                 title = g.get("title", "Untitled")
                 material_lines.append(f"  - {title} (id: {gid})")
 
-        material_section = "\n".join(material_lines) if material_lines else "No materials loaded."
+        material_section = "\n".join(material_lines) if material_lines else ""
 
-        tools_section = (
-            "You have these tools available:\n"
-            "- next_slide, prev_slide, goto_slide - Navigate the presentation\n"
-            "- load_content, load_game - Load new materials\n"
-            "- show_materials, close_materials - Toggle materials panel"
-            if self._enable_tool_calling
-            else "Tool calling is DISABLED. Only observe and report - do not attempt tool calls."
-        )
+        # Determine if we're in a lesson with slides or a free conversation
+        has_slides = self.total_slides > 0 or bool(self._available_presentations) or bool(self._doc_image)
+
+        if self._enable_tool_calling and has_slides:
+            tools_section = (
+                "You have these tools available:\n"
+                "- next_slide, prev_slide, goto_slide - Navigate the presentation\n"
+                "- load_content, load_game - Load new materials\n"
+                "- show_materials, close_materials - Toggle materials panel"
+            )
+        elif self._enable_tool_calling and material_section:
+            tools_section = (
+                "You have these tools available:\n"
+                "- load_content, load_game - Load new materials\n"
+                "- show_materials, close_materials - Toggle materials panel"
+            )
+        else:
+            tools_section = ""
+
+        # Conditionally include slide-related content
+        if has_slides:
+            screen_note = " and the lesson slides on screen"
+            slide_observe_note = "- Slide content: key text, exercise type, images shown\n- Game state: what the student selected, their score"
+            slide_example_note = '- Good: "Slide shows fill-in-the-blank exercise about present perfect, 4 questions."'
+            state_section = f"Current state:\n- Slide: {self.current_slide}/{self.total_slides}\n{material_section}\n"
+            slide_rules = "- Only use slide tools when the avatar has clearly finished discussing current content\n- If student looks confused, say so (don't change slides)"
+        else:
+            screen_note = ""
+            slide_observe_note = ""
+            slide_example_note = ""
+            state_section = f"{material_section}\n" if material_section else ""
+            slide_rules = "- This is a free conversation - no slides to manage, just observe the student"
 
         return _SYSTEM_PROMPT_TEMPLATE.format(
             avatar_name=self._avatar_name,
-            current_slide=self.current_slide,
-            total_slides=self.total_slides,
-            material_section=material_section,
+            screen_note=screen_note,
+            slide_observe_note=slide_observe_note,
+            slide_example_note=slide_example_note,
             tools_section=tools_section,
+            state_section=state_section,
+            slide_rules=slide_rules,
         )
 
     # ------------------------------------------------------------------
