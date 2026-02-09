@@ -199,6 +199,8 @@ export const createAvatar = mutation({
         ),
         captureWebcam: v.optional(v.boolean()),
         captureScreen: v.optional(v.boolean()),
+        analysisInterval: v.optional(v.number()),
+        enableToolCalling: v.optional(v.boolean()),
       })
     ),
     // Structured personality (traits, style, behaviors)

@@ -445,7 +445,7 @@ export default defineSchema({
     visionConfig: v.optional(
       v.object({
         enabled: v.boolean(),
-        visionLLMModel: v.optional(v.string()), // Model for image analysis (e.g., gemini-flash-1.5)
+        visionLLMModel: v.optional(v.string()), // Vision+Tool model (e.g., google/gemini-3-flash-preview)
         captureMode: v.optional(
           v.union(
             v.literal("on_demand"),   // Only when user asks or shows something
@@ -455,6 +455,8 @@ export default defineSchema({
         ),
         captureWebcam: v.optional(v.boolean()),
         captureScreen: v.optional(v.boolean()),
+        analysisInterval: v.optional(v.number()), // Seconds between vision analyses (default 1.5)
+        enableToolCalling: v.optional(v.boolean()), // Whether vision model can control slides/games (default true)
       })
     ),
     persona: v.object({

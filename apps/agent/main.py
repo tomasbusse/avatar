@@ -80,6 +80,7 @@ from src.slides import (
     NAVIGATION_PROMPT,
     DOCUMENT_LOADING_PROMPT,
 )
+from src.vision.vision_tool_agent import VisionToolAgent
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("beethoven-agent")
@@ -493,11 +494,13 @@ class BeethovenTeacher(Agent):
         knowledge_base_ids: Optional[list] = None,
         lesson_manager: Optional["LessonKnowledgeManager"] = None,
         rlm_provider: Optional["RLMKnowledgeProvider"] = None,
+        vision_tool_agent: Optional[VisionToolAgent] = None,
         **kwargs
     ):
         super().__init__(**kwargs)
         self._room = room
         self._llm_model = llm_model
+        self._vision_tool_agent = vision_tool_agent
         self._is_vision_model = any(kw in llm_model.lower() for kw in ["gemini", "google", "gpt-4o", "claude-3"])
 
         # Session reference (set after session creation via set_session)
@@ -587,6 +590,9 @@ class BeethovenTeacher(Agent):
                 self._latest_frames[track.sid] = event.frame
                 self._frame_timestamps[track.sid] = time.time()  # Track freshness
                 frame_count += 1
+                # Route frame to VisionToolAgent for async analysis
+                if self._vision_tool_agent:
+                    self._vision_tool_agent.update_frame(track.sid, event.frame, source_name)
 
                 # Log every 2 seconds (at 2 FPS = ~4 frames)
                 now = time.time()
@@ -610,12 +616,21 @@ class BeethovenTeacher(Agent):
 
             if msg_type == "document_image":
                 self._current_doc_image = payload.get("image")
+                if self._vision_tool_agent:
+                    self._vision_tool_agent.update_doc_image(payload.get("image"))
                 logger.info(f"[VISION] Received high-quality document image via data channel")
             elif msg_type == "slide_screenshot":
                 # Handle HTML slide screenshots the same way as document images
                 self._current_doc_image = payload.get("imageBase64")
+                if self._vision_tool_agent:
+                    self._vision_tool_agent.update_doc_image(payload.get("imageBase64"))
                 slide_index = payload.get("slideIndex", 0)
                 logger.info(f"[VISION] Received slide screenshot for slide {slide_index}")
+                if self._vision_tool_agent:
+                    self._vision_tool_agent.update_slide_state(
+                        current=slide_index,
+                        total=self._slides_context.get("totalSlides", 0) if self._slides_context else 0
+                    )
 
             # Game-related messages
             elif msg_type == "game_loaded":
@@ -850,6 +865,8 @@ Example: "Okay, let me see... Ah, so here we have another practice exercise! I c
                     "currentIndex": current_index,
                     "slides": slides,
                 }
+                if self._vision_tool_agent:
+                    self._vision_tool_agent.update_slide_state(current=current_index, total=total_slides)
                 # Log teaching prompts for debugging
                 for slide in slides[:3]:  # Log first 3 slides
                     prompt = slide.get("teachingPrompt", "")[:50]
@@ -1196,88 +1213,18 @@ Example: "Okay, let me see... Ah, so here we have another practice exercise! I c
             turn_ctx.items.insert(-1, game_msg)
             logger.info(f"🎮 [GAME] Injected game context into conversation")
 
-        # === VISION PROCESSING ===
-        if not self._is_vision_model:
-            return
-
-        import time
-        captured_images = []
-
-        # 1. Add tracked video frames (webcam/screen)
-        # We use a copy of the dict to avoid modification during iteration
-        logger.info(f"[VISION] 🔍 Checking available frames: {len(self._latest_frames)} tracks")
-        for track_sid, frame in list(self._latest_frames.items()):
-            info = self._track_info.get(track_sid, {"source": "webcam", "identity": "unknown"})
-            timestamp = self._frame_timestamps.get(track_sid, 0)
-            age_ms = (time.time() - timestamp) * 1000 if timestamp else -1
-            logger.info(f"[VISION] 📸 {info['source']} frame from {info['identity']}: age={age_ms:.0f}ms")
-            captured_images.append({
-                "image": frame,
-                "source": info["source"],
-                "identity": info["identity"]
-            })
-
-        # Warn if no screen frames available
-        has_screen = any(img["source"] == "screen" for img in captured_images)
-        if not has_screen:
-            logger.warning(f"[VISION] ⚠️ NO SCREEN SHARE FRAMES AVAILABLE - Ludwig cannot see the screen!")
-
-        # 2. Add high-quality document/game image if available
-        doc_image_content = None
-        # Prefer game screenshot when game is active, otherwise use document image
-        if self._game_screenshot:
-            doc_image_content = self._game_screenshot
-            logger.debug(f"[VISION] Using game screenshot for vision")
-        elif self._current_doc_image:
-            doc_image_content = self._current_doc_image
-        
-        # Inject images into the message if we have any
-        if captured_images or doc_image_content:
-            try:
-                # Sort: screen share first (most important), then webcam
-                captured_images.sort(key=lambda x: 0 if x["source"] == "screen" else 1)
-                
-                # Build vision content list
-                vision_contents = []
-                
-                # Keep original text content
-                if isinstance(new_message.content, list):
-                    vision_contents = [c for c in new_message.content if not isinstance(c, llm.ImageContent)]
-                else:
-                    vision_contents = [new_message.content]
-                
-                # Add high-quality doc image first
-                if doc_image_content:
-                    try:
-                        import base64
-                        from PIL import Image as PILImage
-                        import io
-                        
-                        # Handle base64 data URL
-                        if isinstance(doc_image_content, str) and "," in doc_image_content:
-                            docbase64 = doc_image_content.split(",")[1]
-                        else:
-                            docbase64 = doc_image_content
-                        
-                        if isinstance(docbase64, str):
-                            img_bytes = base64.b64decode(docbase64)
-                            pil_img = PILImage.open(io.BytesIO(img_bytes))
-                            vision_contents.append(llm.ImageContent(image=pil_img))
-                            logger.info(f"[VISION] ✅ Injected high-quality document image")
-                    except Exception as de:
-                         logger.error(f"[VISION] Failed to decode doc image: {de}")
-
-                # Add captured frames as ImageContent
-                for img_data in captured_images:
-                    vision_contents.append(llm.ImageContent(image=img_data["image"]))
-                    logger.info(f"[VISION] ✅ Injected {img_data['source']} frame from {img_data['identity']}")
-                
-                # MUTATE the message content
-                new_message.content = vision_contents
-                logger.info(f"[VISION] Total images attached: {len([c for c in vision_contents if isinstance(c, llm.ImageContent)])}")
-                
-            except Exception as ve:
-                logger.error(f"[VISION] Failed to attach frames: {ve}")
+        # === VISION CONTEXT INJECTION (from VisionToolAgent) ===
+        # The VisionToolAgent runs async in the background, analyzing frames via Gemini.
+        # Here we inject its latest text context into the speaking LLM's conversation.
+        if self._vision_tool_agent:
+            vision_ctx = self._vision_tool_agent.get_vision_context()
+            if vision_ctx:
+                vision_msg = ChatMessage(
+                    role="system",
+                    content=[f"[VISUAL CONTEXT]\n{vision_ctx}\n[END VISUAL CONTEXT]"]
+                )
+                turn_ctx.items.insert(-1, vision_msg)
+                logger.info(f"[VISION] Injected context from VisionToolAgent ({len(vision_ctx)} chars)")
 
     async def tts_node(
         self,
@@ -2964,15 +2911,12 @@ async def entrypoint(ctx: JobContext):
     logger.info(f"👁️ Vision config: enabled={vision_enabled}, model={vision_llm_model}, mode={capture_mode}")
     logger.info(f"   Raw vision_config: {vision_config}")
     
-    # CRITICAL: If vision is enabled, ensure we use a vision-capable model
+    # DUAL-LLM: Speaking LLM stays as configured (fast model). Vision is handled
+    # by the separate VisionToolAgent running Gemini asynchronously.
     if vision_enabled:
-        vision_keywords = ["gemini", "google", "claude-3", "gpt-4", "gpt-4o", "pixtral", "llama-3.2-vision"]
-        is_vision_capable = any(keyword in llm_model.lower() for keyword in vision_keywords)
-        
-        if not is_vision_capable:
-            logger.info(f"🔄 Vision enabled but LLM ({llm_model}) is likely not vision-capable. Switching to {vision_llm_model}")
-            llm_model = vision_llm_model
-    
+        logger.info(f"[DUAL-LLM] Speaking LLM stays as: {llm_model} (no model switch)")
+        logger.info(f"[DUAL-LLM] Vision handled by VisionToolAgent: {vision_llm_model}")
+
     # Connect to room
     if vision_enabled:
         await ctx.connect(auto_subscribe=AutoSubscribe.SUBSCRIBE_ALL)
@@ -3157,6 +3101,33 @@ async def entrypoint(ctx: JobContext):
             temperature=0.7,
         )
     
+    # ==========================================================================
+    # VISION TOOL AGENT - Separate async vision agent (dual-LLM architecture)
+    # ==========================================================================
+    vision_tool_agent = None
+    if vision_enabled:
+        openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+        if openrouter_key:
+            # Read analysis interval and tool calling config from avatar vision config
+            analysis_interval = vision_config.get("analysisInterval") or vision_config.get("analysis_interval", 1.5)
+            enable_tool_calling = vision_config.get("enableToolCalling", True) if vision_config.get("enableToolCalling") is not None else vision_config.get("enable_tool_calling", True)
+
+            vision_tool_agent = VisionToolAgent(
+                api_key=openrouter_key,
+                room=ctx.room,
+                avatar_name=avatar_name,
+                vision_model=vision_llm_model,
+                analysis_interval=float(analysis_interval),
+                material_context=material_context,
+                session_materials=session_materials,
+                available_presentations=available_presentations,
+                lesson_manager=lesson_manager,
+                enable_tool_calling=bool(enable_tool_calling),
+            )
+            logger.info(f"[DUAL-LLM] VisionToolAgent created: model={vision_llm_model}, interval={analysis_interval}s, tools={'ON' if enable_tool_calling else 'OFF'}")
+        else:
+            logger.warning("[DUAL-LLM] No OPENROUTER_API_KEY - VisionToolAgent disabled")
+
     # Track state for vision
     has_screen_share = False
     has_webcam = False
@@ -3394,6 +3365,14 @@ async def entrypoint(ctx: JobContext):
         """Async handler for session close - extract memories and generate summary."""
         logger.info(f"🔚 Session closing (transcript: {len(session_transcript)} messages)")
 
+        # Stop VisionToolAgent if running
+        if vision_tool_agent:
+            try:
+                await vision_tool_agent.stop()
+                logger.info("[DUAL-LLM] VisionToolAgent stopped")
+            except Exception as e:
+                logger.error(f"[DUAL-LLM] Error stopping VisionToolAgent: {e}")
+
         # CRITICAL: End the session in Convex to prevent orphaned "active" sessions
         try:
             end_convex = ConvexClient(config.convex_url)
@@ -3466,7 +3445,7 @@ async def entrypoint(ctx: JobContext):
     logger.info(f"📝 Built system prompt ({len(system_prompt)} chars)")
 
     if vision_enabled:
-        vision_prompt = "\n\n# Vision\nYou can see visual content the student shares with you. When you receive visual information, incorporate it naturally into your teaching. You have access to webcam and screen share images attached to each user message."
+        vision_prompt = "\n\n# Vision\nA visual intelligence system is monitoring the student's screen and webcam. It provides you with visual context about what it sees. Use this context naturally in your teaching. You may receive descriptions of: the student's expressions, slide content, game state, and screen activity."
         final_prompt = system_prompt + vision_prompt
     else:
         final_prompt = system_prompt
@@ -3729,8 +3708,9 @@ Example: "Perfect! You've got that. Let's see what's next. [NEXT]"
         knowledge_base_ids=zep_collection_ids,
         lesson_manager=lesson_manager,
         rlm_provider=rlm_provider,
+        vision_tool_agent=vision_tool_agent,
     )
-    logger.info(f"🎓 Using BeethovenTeacher (vision: {vision_enabled}, RLM: {bool(rlm_provider)}, RAG: {bool(rag_retriever)})")
+    logger.info(f"🎓 Using BeethovenTeacher (vision: {vision_enabled}, VisionToolAgent: {bool(vision_tool_agent)}, RLM: {bool(rlm_provider)}, RAG: {bool(rag_retriever)})")
     if lesson_manager:
         logger.info(f"📖 Lesson manager attached with {len(lesson_manager.index)} lessons")
     
@@ -3797,6 +3777,11 @@ Example: "Perfect! You've got that. Let's see what's next. [NEXT]"
     )
 
     logger.info(f"✨ Session started (Vision: {'ON' if vision_enabled else 'OFF'})")
+
+    # Start VisionToolAgent background analysis loop after session starts
+    if vision_tool_agent:
+        asyncio.create_task(vision_tool_agent.start())
+        logger.info(f"[DUAL-LLM] VisionToolAgent background loop started")
 
     logger.info(f"✨ Agent '{avatar_name}' ready (Vision: {'ON' if vision_enabled else 'OFF'})")
 

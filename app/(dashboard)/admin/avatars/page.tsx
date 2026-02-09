@@ -122,9 +122,11 @@ const DEFAULT_LLM_MODELS: LLMModel[] = [
   { id: "anthropic/claude-3-haiku", name: "Claude 3 Haiku (Fast)" },
   { id: "openai/gpt-4o", name: "GPT-4o" },
   { id: "openai/gpt-4o-mini", name: "GPT-4o Mini (Fast)" },
-  { id: "google/gemini-2.0-flash-exp", name: "🔭 Gemini 2.0 Flash (Vision)" },
-  { id: "google/gemini-flash-1.5", name: "🔭 Gemini 1.5 Flash (Vision)" },
-  { id: "google/gemini-pro-1.5", name: "🔭 Gemini 1.5 Pro (Vision)" },
+  { id: "google/gemini-3-flash-preview", name: "Gemini 3 Flash (Vision+Tools)" },
+  { id: "google/gemini-2.5-flash-preview-05-20", name: "Gemini 2.5 Flash (Vision)" },
+  { id: "google/gemini-2.0-flash-exp", name: "Gemini 2.0 Flash (Vision)" },
+  { id: "google/gemini-flash-1.5", name: "Gemini 1.5 Flash (Vision)" },
+  { id: "google/gemini-pro-1.5", name: "Gemini 1.5 Pro (Vision)" },
 ];
 
 // Cerebras models - ultra-fast inference
@@ -1331,6 +1333,8 @@ You are fluent in both German and English.
     visionCaptureMode: "smart" as "on_demand" | "always" | "smart",
     visionCaptureWebcam: true,
     visionCaptureScreen: true,
+    visionAnalysisInterval: 1.5,
+    visionEnableToolCalling: true,
     maxResponseLength: 80,
     askQuestionsFrequency: "often" as const,
     maxWaitTimeSeconds: 15,
@@ -1410,6 +1414,8 @@ You are fluent in both German and English.
           captureMode: formData.visionCaptureMode,
           captureWebcam: formData.visionCaptureWebcam,
           captureScreen: formData.visionCaptureScreen,
+          analysisInterval: formData.visionAnalysisInterval,
+          enableToolCalling: formData.visionEnableToolCalling,
         } : { enabled: false },
         persona: {
           role: formData.role,
@@ -2291,8 +2297,58 @@ You are fluent in both German and English.
                       </div>
                     </div>
 
-                    <p className="text-sm text-amber-600 mt-4 p-3 bg-amber-50 rounded-lg">
-                      ⚠️ Vision requires a Gemini model (google/gemini-*) in the LLM config for best results.
+                    <div className="mb-4 mt-4">
+                      <label className="text-sm font-medium">Vision Model</label>
+                      <select
+                        value={formData.visionLLMModel}
+                        onChange={(e) => setFormData({ ...formData, visionLLMModel: e.target.value })}
+                        className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                      >
+                        <option value="google/gemini-3-flash-preview">Gemini 3 Flash (Recommended)</option>
+                        <option value="google/gemini-2.5-flash-preview-05-20">Gemini 2.5 Flash</option>
+                        <option value="z-ai/glm-4.6v">GLM-4.6V (Cheaper)</option>
+                      </select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Model used for vision analysis and tool calling
+                      </p>
+                    </div>
+
+                    <div className="mb-4">
+                      <label className="text-sm font-medium">Vision Analysis Interval: {formData.visionAnalysisInterval}s</label>
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="5.0"
+                        step="0.1"
+                        value={formData.visionAnalysisInterval}
+                        onChange={(e) => setFormData({ ...formData, visionAnalysisInterval: parseFloat(e.target.value) })}
+                        className="w-full mt-1"
+                      />
+                      <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                        <span>0.5s (Frequent)</span>
+                        <span>5.0s (Rare)</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        How often the vision model analyzes the scene (lower = more responsive but higher cost)
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3 p-3 border rounded-lg mb-4">
+                      <input
+                        type="checkbox"
+                        id="enableToolCalling"
+                        checked={formData.visionEnableToolCalling}
+                        onChange={(e) => setFormData({ ...formData, visionEnableToolCalling: e.target.checked })}
+                        className="w-4 h-4 rounded"
+                      />
+                      <label htmlFor="enableToolCalling" className="cursor-pointer">
+                        <span className="font-medium">Allow Vision Model to Control Slides</span>
+                        <p className="text-xs text-muted-foreground">When enabled, the vision model can advance slides and load materials based on what it sees</p>
+                      </label>
+                    </div>
+
+                    <p className="text-sm text-amber-600 p-3 bg-amber-50 rounded-lg">
+                      Note: Vision uses a separate model (configured above) that runs alongside the main conversation LLM.
                     </p>
                   </>
                 )}
@@ -2444,6 +2500,8 @@ function AvatarEditor({ avatarId, onClose, allVoices, llmModels }: { avatarId: I
     visionCaptureMode: "on_demand" | "always" | "smart";
     visionCaptureWebcam: boolean;
     visionCaptureScreen: boolean;
+    visionAnalysisInterval: number;
+    visionEnableToolCalling: boolean;
     maxResponseLength: number;
     askQuestionsFrequency: "always" | "often" | "sometimes" | "rarely";
     maxWaitTimeSeconds: number;
@@ -2513,10 +2571,12 @@ You are fluent in both German and English.
         llmMaxTokens: avatar.llmConfig.maxTokens,
         // Load vision config (defaults for old avatars without it)
         visionEnabled: avatar.visionConfig?.enabled ?? false,
-        visionLLMModel: avatar.visionConfig?.visionLLMModel ?? "google/gemini-flash-1.5",
+        visionLLMModel: avatar.visionConfig?.visionLLMModel ?? "google/gemini-3-flash-preview",
         visionCaptureMode: avatar.visionConfig?.captureMode ?? "smart",
         visionCaptureWebcam: avatar.visionConfig?.captureWebcam ?? true,
         visionCaptureScreen: avatar.visionConfig?.captureScreen ?? true,
+        visionAnalysisInterval: avatar.visionConfig?.analysisInterval ?? 1.5,
+        visionEnableToolCalling: avatar.visionConfig?.enableToolCalling ?? true,
         maxResponseLength: avatar.behaviorRules.maxResponseLength,
         askQuestionsFrequency: avatar.behaviorRules.askQuestionsFrequency,
         maxWaitTimeSeconds: avatar.behaviorRules.maxWaitTimeSeconds,
@@ -2619,6 +2679,8 @@ You are fluent in both German and English.
             captureMode: formData.visionCaptureMode,
             captureWebcam: formData.visionCaptureWebcam,
             captureScreen: formData.visionCaptureScreen,
+            analysisInterval: formData.visionAnalysisInterval,
+            enableToolCalling: formData.visionEnableToolCalling,
           } : { enabled: false },
           // New personality/identity/knowledge/memory fields
           personality: formData.personality || undefined,
@@ -3463,8 +3525,58 @@ You are fluent in both German and English.
                       </div>
                     </div>
 
-                    <p className="text-sm text-amber-600 mt-4 p-3 bg-amber-50 rounded-lg">
-                      ⚠️ Vision requires a Gemini model (google/gemini-*) in the LLM config for best results.
+                    <div className="mb-4 mt-4">
+                      <label className="text-sm font-medium">Vision Model</label>
+                      <select
+                        value={formData.visionLLMModel}
+                        onChange={(e) => setFormData({ ...formData, visionLLMModel: e.target.value })}
+                        className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                      >
+                        <option value="google/gemini-3-flash-preview">Gemini 3 Flash (Recommended)</option>
+                        <option value="google/gemini-2.5-flash-preview-05-20">Gemini 2.5 Flash</option>
+                        <option value="z-ai/glm-4.6v">GLM-4.6V (Cheaper)</option>
+                      </select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Model used for vision analysis and tool calling
+                      </p>
+                    </div>
+
+                    <div className="mb-4">
+                      <label className="text-sm font-medium">Vision Analysis Interval: {formData.visionAnalysisInterval}s</label>
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="5.0"
+                        step="0.1"
+                        value={formData.visionAnalysisInterval}
+                        onChange={(e) => setFormData({ ...formData, visionAnalysisInterval: parseFloat(e.target.value) })}
+                        className="w-full mt-1"
+                      />
+                      <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                        <span>0.5s (Frequent)</span>
+                        <span>5.0s (Rare)</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        How often the vision model analyzes the scene (lower = more responsive but higher cost)
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3 p-3 border rounded-lg mb-4">
+                      <input
+                        type="checkbox"
+                        id="enableToolCallingEdit"
+                        checked={formData.visionEnableToolCalling}
+                        onChange={(e) => setFormData({ ...formData, visionEnableToolCalling: e.target.checked })}
+                        className="w-4 h-4 rounded"
+                      />
+                      <label htmlFor="enableToolCallingEdit" className="cursor-pointer">
+                        <span className="font-medium">Allow Vision Model to Control Slides</span>
+                        <p className="text-xs text-muted-foreground">When enabled, the vision model can advance slides and load materials based on what it sees</p>
+                      </label>
+                    </div>
+
+                    <p className="text-sm text-amber-600 p-3 bg-amber-50 rounded-lg">
+                      Note: Vision uses a separate model (configured above) that runs alongside the main conversation LLM.
                     </p>
                   </>
                 )}

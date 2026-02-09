@@ -26,6 +26,7 @@ import type * as entryTests from "../entryTests.js";
 import type * as errorPatterns from "../errorPatterns.js";
 import type * as exerciseProgress from "../exerciseProgress.js";
 import type * as groups from "../groups.js";
+import type * as helpers from "../helpers.js";
 import type * as http from "../http.js";
 import type * as knowledgeBases from "../knowledgeBases.js";
 import type * as knowledgeFeedback from "../knowledgeFeedback.js";
@@ -77,6 +78,7 @@ declare const fullApi: ApiFromModules<{
   errorPatterns: typeof errorPatterns;
   exerciseProgress: typeof exerciseProgress;
   groups: typeof groups;
+  helpers: typeof helpers;
   http: typeof http;
   knowledgeBases: typeof knowledgeBases;
   knowledgeFeedback: typeof knowledgeFeedback;

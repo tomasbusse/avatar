@@ -96,10 +96,12 @@ export async function POST(req: NextRequest) {
         visionConfig: avatar.visionConfig,
         vision_config: avatar.visionConfig ? {
           enabled: avatar.visionConfig.enabled,
-          vision_llm_model: avatar.visionConfig.visionLLMModel || "google/gemini-2.5-flash-preview-05-20",
+          vision_llm_model: avatar.visionConfig.visionLLMModel || "google/gemini-3-flash-preview",
           capture_mode: avatar.visionConfig.captureMode || "smart",
           capture_webcam: avatar.visionConfig.captureWebcam ?? true,
           capture_screen: avatar.visionConfig.captureScreen ?? true,
+          analysis_interval: avatar.visionConfig.analysisInterval ?? 1.5,
+          enable_tool_calling: avatar.visionConfig.enableToolCalling ?? true,
         } : { enabled: false },
 
         // Avatar provider settings (camelCase + snake_case for Python)
