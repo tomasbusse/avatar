@@ -2274,11 +2274,23 @@ def _poll_agent_control():
                 if command in ("restart", "stop"):
                     logger.info(f"[AgentControl] Received command: {command}")
                     _convex_mutation(client, "agentControl:clearCommand")
-                    _convex_mutation(client, "agentControl:updateStatus", {
-                        "running": False, "pid": pid,
-                        "logs": "Restarting..." if command == "restart" else "Stopped by admin",
-                    })
-                    os._exit(0 if command == "restart" else 1)
+                    if command == "restart":
+                        _convex_mutation(client, "agentControl:updateStatus", {
+                            "running": False, "pid": pid, "logs": "Restarting...",
+                        })
+                        # Touch main.py to trigger LiveKit dev mode file watcher restart
+                        from pathlib import Path
+                        Path(__file__).touch()
+                        logger.info("[AgentControl] Triggered dev mode restart via file touch")
+                        time.sleep(2)
+                        # If dev watcher didn't kill us, force exit and let nohup/supervisor restart
+                        os.kill(os.getpid(), signal.SIGTERM)
+                    elif command == "stop":
+                        _convex_mutation(client, "agentControl:updateStatus", {
+                            "running": False, "pid": pid, "logs": "Stopped by admin",
+                        })
+                        # Kill the entire process group (dev watcher + workers)
+                        os.killpg(os.getpgid(os.getpid()), signal.SIGTERM)
         except Exception:
             pass  # Silent - don't spam logs on connection issues
 
