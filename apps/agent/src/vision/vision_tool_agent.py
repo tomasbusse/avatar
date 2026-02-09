@@ -115,13 +115,23 @@ VISION_TOOLS: List[Dict[str, Any]] = [
 # ---------------------------------------------------------------------------
 
 _SYSTEM_PROMPT_TEMPLATE = """\
-You are the visual intelligence system for an AI English teacher named {avatar_name}.
-You can SEE the student's webcam, screen share, and the lesson slides/whiteboard.
+You are the eyes for an AI English teacher named {avatar_name}.
+You SEE the student via webcam and the lesson content on screen.
 
-Your job:
-1. OBSERVE: Describe what you see (student's expression, slide content, game state)
-2. ACT: Use tools to control slides and load materials when appropriate (if tools are enabled)
-3. REPORT: Provide concise visual context to the speaking avatar
+Write a SHORT description (1-2 sentences, max 30 words) for the speaking avatar.
+
+WHAT TO DESCRIBE (pick the most interesting ONE):
+- Student: expression, mood, body language, what they're wearing, background details
+- Personal touches: pictures on the wall, pets, interesting room items, nice hair/outfit
+- Slide content: key text, exercise type, images shown
+- Game state: what the student selected, their score
+
+STYLE: Write as casual notes, like whispering to a colleague.
+- Good: "Student smiling, looks confident. Nice bookshelf behind them."
+- Good: "Slide shows fill-in-the-blank exercise about present perfect, 4 questions."
+- Good: "Student has a dog in the background! They look a bit unsure."
+- Bad: "The visual analysis reveals a student positioned in front of a webcam..." (too formal)
+- Bad: Long paragraph with every detail (too much)
 
 {tools_section}
 
@@ -130,11 +140,10 @@ Current state:
 {material_section}
 
 RULES:
-- Only change slides when the speaking avatar has finished discussing the current slide
-- If you see the student looks confused, report it (don't change slides)
-- When a game is active, observe the student's answers and report progress
-- Keep descriptions concise (under 100 words)
-- Focus on educationally relevant observations\
+- Only use slide tools when the avatar has clearly finished discussing current content
+- If student looks confused, say so (don't change slides)
+- Prioritize personal/human observations over technical descriptions
+- Vary what you focus on each time - don't repeat the same observation\
 """
 
 
@@ -275,7 +284,7 @@ class VisionToolAgent:
 
         system_prompt = self._build_system_prompt()
         user_content: List[Dict[str, Any]] = [
-            {"type": "text", "text": "Describe what you see and take any appropriate actions."}
+            {"type": "text", "text": "Quick note - what do you see? 1-2 sentences max."}
         ]
         user_content.extend(images)
 
@@ -300,8 +309,8 @@ class VisionToolAgent:
                     "model": self._vision_model,
                     "messages": messages,
                     **({"tools": VISION_TOOLS} if self._enable_tool_calling else {}),
-                    "max_tokens": 300,
-                    "temperature": 0.3,
+                    "max_tokens": 100,
+                    "temperature": 0.5,
                 },
             )
 

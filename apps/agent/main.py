@@ -3445,7 +3445,7 @@ async def entrypoint(ctx: JobContext):
     logger.info(f"📝 Built system prompt ({len(system_prompt)} chars)")
 
     if vision_enabled:
-        vision_prompt = "\n\n# Vision\nA visual intelligence system is monitoring the student's screen and webcam. It provides you with visual context about what it sees. Use this context naturally in your teaching. You may receive descriptions of: the student's expressions, slide content, game state, and screen activity."
+        vision_prompt = "\n\n# Vision\nYou can see the student via webcam and the lesson content on screen. You receive short [VISUAL CONTEXT] notes describing what you see.\n\nHOW TO USE:\n- Weave observations NATURALLY into conversation, like a real teacher in a classroom\n- Comment on personal things: \"Oh, I like the picture behind you!\" or \"Is that a dog I see?\"\n- React to expressions: \"You look a bit unsure - shall I explain that again?\"\n- Reference slide content: \"As we can see on the screen here...\"\n- NEVER say \"my visual system\" or \"I detect\" - just react like a human who can see\n- DON'T use every observation - pick what feels natural in the moment\n- Treat it like peripheral vision - you notice things but don't stare"
         final_prompt = system_prompt + vision_prompt
     else:
         final_prompt = system_prompt
