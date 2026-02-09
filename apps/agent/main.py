@@ -2224,6 +2224,64 @@ def prewarm(proc: JobProcess):
 
     logger.info("✅ Prewarm complete - Silero VAD/STT/TTS ready")
 
+    # Start agent control polling in background
+    import threading
+    control_thread = threading.Thread(target=_poll_agent_control, daemon=True)
+    control_thread.start()
+    logger.info("🎛️ Agent control polling started")
+
+
+def _poll_agent_control():
+    """Poll Convex for agent control commands (restart/stop) in a background thread."""
+    import time
+    convex_url = os.environ.get("NEXT_PUBLIC_CONVEX_URL") or os.environ.get("CONVEX_URL", "")
+    if not convex_url:
+        logger.warning("[AgentControl] No CONVEX_URL - control polling disabled")
+        return
+
+    import httpx
+    pid = str(os.getpid())
+
+    def _convex_query(client: httpx.Client, path: str, args: dict = {}) -> Any:
+        resp = client.post(f"{convex_url}/api/query", json={
+            "path": path, "args": args, "format": "json",
+        })
+        resp.raise_for_status()
+        return resp.json().get("value")
+
+    def _convex_mutation(client: httpx.Client, path: str, args: dict = {}):
+        resp = client.post(f"{convex_url}/api/mutation", json={
+            "path": path, "args": args, "format": "json",
+        })
+        resp.raise_for_status()
+
+    # Report initial status
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            _convex_mutation(client, "agentControl:updateStatus", {
+                "running": True, "pid": pid, "logs": "Agent started",
+            })
+            logger.info(f"[AgentControl] Reported running status (pid={pid})")
+    except Exception as e:
+        logger.warning(f"[AgentControl] Failed to report status: {e}")
+
+    # Poll for commands
+    while True:
+        try:
+            time.sleep(5)
+            with httpx.Client(timeout=10.0) as client:
+                command = _convex_query(client, "agentControl:getPendingCommand")
+                if command in ("restart", "stop"):
+                    logger.info(f"[AgentControl] Received command: {command}")
+                    _convex_mutation(client, "agentControl:clearCommand")
+                    _convex_mutation(client, "agentControl:updateStatus", {
+                        "running": False, "pid": pid,
+                        "logs": "Restarting..." if command == "restart" else "Stopped by admin",
+                    })
+                    os._exit(0 if command == "restart" else 1)
+        except Exception:
+            pass  # Silent - don't spam logs on connection issues
+
 
 async def analyze_with_vision_llm(
     api_key: str,
