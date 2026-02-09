@@ -2,6 +2,8 @@ import { setRequestLocale } from "next-intl/server";
 import { getTranslations } from "next-intl/server";
 import { Metadata } from "next";
 import { fetchQuery } from "convex/nextjs";
+
+export const dynamic = "force-dynamic";
 import { api } from "@/convex/_generated/api";
 import { notFound } from "next/navigation";
 import Link from "next/link";

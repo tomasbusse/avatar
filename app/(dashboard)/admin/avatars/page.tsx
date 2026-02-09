@@ -2228,7 +2228,7 @@ You are fluent in both German and English.
                 <div className="p-4 bg-cyan-50 border border-cyan-200 rounded-lg mb-4">
                   <h4 className="font-medium text-cyan-900 mb-1">👁️ Vision Configuration</h4>
                   <p className="text-sm text-cyan-700">
-                    Enable the avatar to see the student&apos;s webcam or screen. Ensure your main LLM (under LLM Config) supports vision (e.g., Gemini or Claude 3.5).
+                    Give the avatar eyes. A dedicated vision model (e.g. Gemini 3 Flash) observes the student and slides in the background while the fast speaking LLM handles conversation uninterrupted.
                   </p>
                 </div>
 
@@ -3456,7 +3456,7 @@ You are fluent in both German and English.
                 <div className="p-4 bg-cyan-50 border border-cyan-200 rounded-lg mb-4">
                   <h4 className="font-medium text-cyan-900 mb-1">👁️ Vision Configuration</h4>
                   <p className="text-sm text-cyan-700">
-                    Enable the avatar to see the student&apos;s webcam or screen. Ensure your main LLM (under LLM Config) supports vision (e.g., Gemini or Claude 3.5).
+                    Give the avatar eyes. A dedicated vision model (e.g. Gemini 3 Flash) observes the student and slides in the background while the fast speaking LLM handles conversation uninterrupted.
                   </p>
                 </div>
 

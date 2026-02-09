@@ -3,6 +3,8 @@ import { getTranslations } from "next-intl/server";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { fetchQuery } from "convex/nextjs";
+
+export const dynamic = "force-dynamic";
 import { api } from "@/convex/_generated/api";
 import { Breadcrumbs, BlogCard, CTASection } from "@/components/landing";
 
