@@ -2530,7 +2530,7 @@ async def run_entry_test_agent(ctx: JobContext, session_id: str, config: Config)
 
     # Set up TTS - use template's avatar voice if available
     tts = cartesia.TTS(
-        model="sonic-english",
+        model="sonic-3",
         voice="a0e99841-438c-4a64-b679-ae501e7d6091",  # Professional female voice
     )
 

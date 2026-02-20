@@ -30,13 +30,12 @@ from .base import OpenAICompatibleStream
 logger = logging.getLogger("beethoven-agent.cerebras")
 
 # Available Cerebras models - optimized for speed
-# GLM-4.7: ~1000 tok/s, 131k context, best for coding/agentic tasks
-# Llama models: ~2300 tok/s, great for general conversation
+# gpt-oss-120b: ~120B param, production, best quality
+# llama3.1-8b: ~2300 tok/s, production, ultra-fast conversation
+# Note: llama-3.3-70b deprecated Feb 16 2026, llama-3.1-70b removed
 CEREBRAS_MODELS = [
-    {"id": "zai-glm-4.7", "name": "GLM 4.7 (Agentic/Coding - 1000 tok/s)"},
-    {"id": "llama-3.3-70b", "name": "Llama 3.3 70B (Fastest - 2300 tok/s)"},
-    {"id": "llama-3.1-70b", "name": "Llama 3.1 70B"},
-    {"id": "llama-3.1-8b", "name": "Llama 3.1 8B (Ultra Fast)"},
+    {"id": "llama3.1-8b", "name": "Llama 3.1 8B (Ultra Fast - 2300 tok/s)"},
+    {"id": "gpt-oss-120b", "name": "GPT-OSS 120B (Best Quality)"},
 ]
 
 
@@ -51,7 +50,7 @@ class CerebrasLLM(LLM):
 
     def __init__(
         self,
-        model: str = "llama-3.3-70b",
+        model: str = "llama3.1-8b",
         temperature: float = 0.7,
         max_tokens: int = 1024,
         api_key: Optional[str] = None,
