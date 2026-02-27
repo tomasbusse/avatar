@@ -141,7 +141,6 @@ const CEREBRAS_MODELS: LLMModel[] = [
 
 const MERCURY_MODELS: LLMModel[] = [
   { id: "mercury-2", name: "⚡ Mercury 2 (Thinking/Reasoning)" },
-  { id: "mercury", name: "⚡ Mercury (Fast - voice agents)" },
   { id: "mercury-coder", name: "⚡ Mercury Coder (Code-optimized)" },
 ];
 

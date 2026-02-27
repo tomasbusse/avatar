@@ -32,7 +32,6 @@ logger = logging.getLogger("beethoven-agent.mercury")
 
 MERCURY_MODELS = [
     {"id": "mercury-2", "name": "Mercury 2 (Thinking/Reasoning dLLM)"},
-    {"id": "mercury", "name": "Mercury (Fast dLLM - voice agents)"},
     {"id": "mercury-coder", "name": "Mercury Coder (Code-optimized)"},
 ]
 
