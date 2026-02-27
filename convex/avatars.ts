@@ -179,7 +179,8 @@ export const createAvatar = mutation({
         v.literal("openrouter"),
         v.literal("anthropic"),
         v.literal("openai"),
-        v.literal("cerebras")
+        v.literal("cerebras"),
+        v.literal("mercury")
       ),
       model: v.string(),
       temperature: v.number(),
