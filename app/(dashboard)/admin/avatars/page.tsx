@@ -139,7 +139,13 @@ const CEREBRAS_MODELS: LLMModel[] = [
   { id: "llama-3.1-8b", name: "⚡ Llama 3.1 8B (Ultra Fast)" },
 ];
 
-type LLMProvider = "openrouter" | "cerebras";
+const MERCURY_MODELS: LLMModel[] = [
+  { id: "mercury-2", name: "⚡ Mercury 2 (Thinking/Reasoning)" },
+  { id: "mercury", name: "⚡ Mercury (Fast - voice agents)" },
+  { id: "mercury-coder", name: "⚡ Mercury Coder (Code-optimized)" },
+];
+
+type LLMProvider = "openrouter" | "cerebras" | "mercury";
 
 export default function AvatarsPage() {
   const [selectedAvatar, setSelectedAvatar] = useState<string | null>(null);
@@ -2109,7 +2115,9 @@ You are fluent in both German and English.
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg mb-4">
                   <h4 className="font-medium text-green-900 mb-1">LLM Configuration</h4>
                   <p className="text-sm text-green-700">
-                    {formData.llmProvider === "cerebras"
+                    {formData.llmProvider === "mercury"
+                      ? "⚡ Mercury: Reasoning dLLM from Inception Labs (1000+ tok/s). Extended thinking, 128k context. Text only."
+                      : formData.llmProvider === "cerebras"
                       ? "⚡ Cerebras: GLM-4.7 (1000 tok/s, agentic) or Llama 3.3 (2314 tok/s, fast). Both with 131k context!"
                       : "Configure the AI brain via OpenRouter. Claude Sonnet 4 is recommended for best teaching quality."}
                   </p>
@@ -2125,13 +2133,14 @@ You are fluent in both German and English.
                         setFormData({
                           ...formData,
                           llmProvider: newProvider,
-                          llmModel: newProvider === "cerebras" ? "llama-3.3-70b" : "anthropic/claude-sonnet-4-20250514"
+                          llmModel: newProvider === "cerebras" ? "llama-3.3-70b" : newProvider === "mercury" ? "mercury-2" : "anthropic/claude-sonnet-4-20250514"
                         });
                       }}
                       className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
                     >
                       <option value="openrouter">OpenRouter (Claude, GPT, Gemini, etc.)</option>
                       <option value="cerebras">⚡ Cerebras (GLM-4.7 + Llama)</option>
+                      <option value="mercury">⚡ Mercury (Inception - Reasoning dLLM)</option>
                     </select>
                   </div>
 
@@ -2157,6 +2166,12 @@ You are fluent in both German and English.
                     >
                       {formData.llmProvider === "cerebras" ? (
                         CEREBRAS_MODELS.map((model) => (
+                          <option key={model.id} value={model.id}>
+                            {model.name}
+                          </option>
+                        ))
+                      ) : formData.llmProvider === "mercury" ? (
+                        MERCURY_MODELS.map((model) => (
                           <option key={model.id} value={model.id}>
                             {model.name}
                           </option>
@@ -3337,7 +3352,9 @@ You are fluent in both German and English.
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg mb-4">
                   <h4 className="font-medium text-green-900 mb-1">LLM Configuration</h4>
                   <p className="text-sm text-green-700">
-                    {formData.llmProvider === "cerebras"
+                    {formData.llmProvider === "mercury"
+                      ? "⚡ Mercury: Reasoning dLLM from Inception Labs (1000+ tok/s). Extended thinking, 128k context. Text only."
+                      : formData.llmProvider === "cerebras"
                       ? "⚡ Cerebras: GLM-4.7 (1000 tok/s, agentic) or Llama 3.3 (2314 tok/s, fast). Both with 131k context!"
                       : "Configure the AI brain via OpenRouter. Claude Sonnet 4 is recommended for best teaching quality."}
                   </p>
@@ -3353,13 +3370,14 @@ You are fluent in both German and English.
                         setFormData({
                           ...formData,
                           llmProvider: newProvider,
-                          llmModel: newProvider === "cerebras" ? "llama-3.3-70b" : "anthropic/claude-sonnet-4-20250514"
+                          llmModel: newProvider === "cerebras" ? "llama-3.3-70b" : newProvider === "mercury" ? "mercury-2" : "anthropic/claude-sonnet-4-20250514"
                         });
                       }}
                       className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
                     >
                       <option value="openrouter">OpenRouter (Claude, GPT, Gemini, etc.)</option>
                       <option value="cerebras">⚡ Cerebras (GLM-4.7 + Llama)</option>
+                      <option value="mercury">⚡ Mercury (Inception - Reasoning dLLM)</option>
                     </select>
                   </div>
 
@@ -3385,6 +3403,12 @@ You are fluent in both German and English.
                     >
                       {formData.llmProvider === "cerebras" ? (
                         CEREBRAS_MODELS.map((model) => (
+                          <option key={model.id} value={model.id}>
+                            {model.name}
+                          </option>
+                        ))
+                      ) : formData.llmProvider === "mercury" ? (
+                        MERCURY_MODELS.map((model) => (
                           <option key={model.id} value={model.id}>
                             {model.name}
                           </option>
