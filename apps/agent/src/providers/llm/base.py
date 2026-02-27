@@ -325,7 +325,7 @@ class OpenAICompatibleStream(LLMStream):
                                 )
                                 self._event_ch.send_nowait(chat_chunk)
 
-                            for tc in tool_calls:
+                            for tc in (tool_calls or []):
                                 tc_index = tc.get("index", 0)
                                 tc_id = tc.get("id")
                                 tc_function = tc.get("function", {})
