@@ -151,12 +151,12 @@ export function HeroSection({ avatarId, showAvatar = true, content }: HeroSectio
   return (
     <section className="flex flex-col-reverse lg:flex-row min-h-[90vh] lg:min-h-screen items-center justify-center px-4 py-8 sm:p-6 lg:p-16 xl:p-20 bg-[#f3e9d2] gap-8 lg:gap-16 xl:gap-24 overflow-hidden">
       {/* Phone Mockup Section */}
-      <div className="relative w-full max-w-[260px] sm:max-w-[300px] lg:max-w-[340px] shrink-0" data-phone-display>
-        {/* Phone Frame with flip animation - reduced height by 50px using max-height */}
+      <div className="relative w-full max-w-[280px] sm:max-w-[320px] lg:max-w-[380px] shrink-0" data-phone-display>
+        {/* Phone Frame with flip animation */}
         <div
           className="relative rounded-[3rem] border-[12px] border-black overflow-hidden shadow-2xl bg-gray-900"
           style={{
-            aspectRatio: "9/18",
+            aspectRatio: "9/16",
             perspective: "1000px"
           }}
         >
@@ -176,7 +176,7 @@ export function HeroSection({ avatarId, showAvatar = true, content }: HeroSectio
             >
               {/* Avatar area - absolute positioned to fill top portion */}
               {showAvatar && (
-                <div className="absolute top-0 left-0 right-0 bottom-[28%] overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 bottom-[22%] overflow-hidden">
                   <ClientAvatarWrapper
                     avatarId={avatarId}
                     hidePlayButton={true}
@@ -189,7 +189,7 @@ export function HeroSection({ avatarId, showAvatar = true, content }: HeroSectio
               )}
 
               {/* Bottom panel - absolute positioned at bottom */}
-              <div className="absolute bottom-0 left-0 right-0 h-[28%] bg-[#f3e9d2] flex flex-col items-center justify-center px-4 py-2">
+              <div className="absolute bottom-0 left-0 right-0 h-[22%] bg-[#f3e9d2] flex flex-col items-center justify-center px-4 py-2">
                 {/* Caller info with intro text */}
                 <div className="text-center mb-1.5">
                   <h3 className="text-lg font-serif font-bold text-[#1a3c34]">{avatarName}</h3>
