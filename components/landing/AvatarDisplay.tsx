@@ -309,22 +309,26 @@ export function AvatarDisplay({
   const objectFit: ObjectFitType = (avatar?.avatarProvider?.settings?.objectFit as ObjectFitType) || "cover";
   const objectFitClass = `object-${objectFit}`;
 
+  // When embedded in phone mockup (hidePlayButton), fill parent instead of using own aspect ratio
+  const isEmbedded = hidePlayButton;
+
   return (
     <div
       data-avatar-display
       className={cn(
-        "relative w-full max-w-md",
+        "relative w-full",
+        isEmbedded ? "h-full" : "max-w-md",
         className
       )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      style={{ perspective: "1000px" }}
+      style={isEmbedded ? undefined : { perspective: "1000px" }}
     >
       {/* Flip Container */}
       <div
         className={cn(
           "relative transition-transform duration-700 ease-in-out",
-          aspectRatioClass,
+          isEmbedded ? "h-full" : aspectRatioClass,
           "[transform-style:preserve-3d]"
         )}
         style={{
@@ -626,9 +630,13 @@ export function AvatarDisplay({
         </div>
       </div>
 
-      {/* Decorative Elements */}
-      <div className="absolute -top-4 -right-4 w-24 h-24 rounded-2xl bg-sls-chartreuse/20 -z-10" />
-      <div className="absolute -bottom-4 -left-4 w-32 h-32 rounded-2xl bg-sls-orange/10 -z-10" />
+      {/* Decorative Elements - hidden when embedded in phone mockup */}
+      {!isEmbedded && (
+        <>
+          <div className="absolute -top-4 -right-4 w-24 h-24 rounded-2xl bg-sls-chartreuse/20 -z-10" />
+          <div className="absolute -bottom-4 -left-4 w-32 h-32 rounded-2xl bg-sls-orange/10 -z-10" />
+        </>
+      )}
 
       {/* Debug Mode UI */}
       {debugMode && (

@@ -84,20 +84,12 @@ export function HeroSection({ avatarId, showAvatar = true, content }: HeroSectio
   const handleStopClick = useCallback(() => {
     setIsAvatarActivated(false);
     setShowContactForm(true);
-    setTimeout(() => {
-      const phoneEl = document.querySelector('[data-phone-display]');
-      if (phoneEl) {
-        phoneEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }, 100);
   }, []);
 
   // Handle start/play button click - start the avatar
   const handleStartClick = useCallback(() => {
     setShowContactForm(false);
     setIsAvatarActivated(true);
-    const phoneEl = document.querySelector('[data-phone-display]');
-    phoneEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, []);
 
   // Handle avatar activation state change
@@ -401,13 +393,7 @@ export function HeroSection({ avatarId, showAvatar = true, content }: HeroSectio
             {ctaButton}
           </button>
           <button
-            onClick={() => {
-              setShowContactForm(true);
-              setTimeout(() => {
-                const phoneEl = document.querySelector('[data-phone-display]');
-                phoneEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }, 100);
-            }}
+            onClick={() => setShowContactForm(true)}
             className="bg-transparent border-2 border-[#003F37] text-[#003F37] px-8 py-4 rounded-xl text-lg font-semibold hover:bg-[#003F37]/10 transition-all active:scale-95"
           >
             {ctaButtonSecondary}
