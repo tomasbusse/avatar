@@ -78,6 +78,9 @@ export async function POST(request: NextRequest) {
 
         // Create room with metadata for video recording
         const roomMetadata = JSON.stringify({
+          site: "beethoven",
+          llmProvider: "gemini-live",
+          voice: process.env.GEMINI_VOICE_MALE || "Alnilam",
           videoCreationId,
           isRecordingSession: true,
           mode: "video_recording",
@@ -104,7 +107,7 @@ export async function POST(request: NextRequest) {
         const agentDispatch = new AgentDispatchClient(livekitUrl, LIVEKIT_API_KEY, LIVEKIT_API_SECRET);
 
         try {
-          await agentDispatch.createDispatch(roomName, "beethoven-teacher", {
+          await agentDispatch.createDispatch(roomName, "", {
             metadata: roomMetadata,
           });
           console.log("🤖 [RECORDING] Dispatched beethoven-teacher to room:", roomName);

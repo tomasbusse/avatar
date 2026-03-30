@@ -50,7 +50,16 @@ export async function POST(req: NextRequest) {
 
     // Build room metadata with full avatar configuration
     // Note: Python agent uses snake_case, so we include both formats
+    // Determine Gemini voice based on avatar gender (Ludwig is male)
+    const isFemale = avatar?.personality?.gender === "female" || avatar?.identity?.gender === "female";
+    const geminiVoice = isFemale
+      ? (process.env.GEMINI_VOICE_FEMALE || "Aoede")
+      : (process.env.GEMINI_VOICE_MALE || "Alnilam");
+
     const roomMetadata = JSON.stringify({
+      site: "beethoven",
+      llmProvider: "gemini-live",
+      voice: geminiVoice,
       sessionId,
       userId: effectiveUserId,
       isGuest: !userId,
@@ -171,7 +180,7 @@ export async function POST(req: NextRequest) {
         // Only create dispatch if agent is not already in room
         if (!agentInRoom) {
           try {
-            await agentDispatch.createDispatch(roomName, "beethoven-teacher", {
+            await agentDispatch.createDispatch(roomName, "", {
               metadata: roomMetadata,
             });
             console.log("[AGENT] Dispatched beethoven-teacher to room:", roomName);
