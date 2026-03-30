@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     const isFemale = avatar?.personality?.gender === "female" || avatar?.identity?.gender === "female";
     const geminiVoice = isFemale
       ? (process.env.GEMINI_VOICE_FEMALE || "Aoede")
-      : (process.env.GEMINI_VOICE_MALE || "Alnilam");
+      : (process.env.GEMINI_VOICE_MALE || "Sadaltager");
 
     const roomMetadata = JSON.stringify({
       site: "beethoven",
