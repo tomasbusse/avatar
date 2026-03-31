@@ -57,6 +57,7 @@ export function LandingAvatarRoom({
 
     async function connect() {
       try {
+        console.log("[LandingAvatarRoom] Requesting session token...");
         const response = await fetch("/api/daily/token", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -64,10 +65,13 @@ export function LandingAvatarRoom({
         });
 
         if (!response.ok) {
+          const text = await response.text();
+          console.error("[LandingAvatarRoom] Token request failed:", response.status, text);
           throw new Error("Failed to get access token");
         }
 
         const data = await response.json();
+        console.log("[LandingAvatarRoom] Got room URL:", data.roomUrl);
 
         const co = Daily.createCallObject({
           subscribeToTracksAutomatically: true,
@@ -75,7 +79,9 @@ export function LandingAvatarRoom({
         });
 
         // Join BEFORE setting state (critical pattern from englisch-lehrer)
+        console.log("[LandingAvatarRoom] Joining Daily room...");
         await co.join({ url: data.roomUrl, token: data.token, userName: "Landing Visitor" });
+        console.log("[LandingAvatarRoom] Joined Daily room successfully");
 
         // Enable microphone after joining
         await co.setLocalAudio(true);
@@ -152,6 +158,8 @@ export function LandingAvatarRoom({
 function AvatarVideoDisplay({ avatar }: { avatar: LandingAvatarRoomProps["avatar"] }) {
   const daily = useDaily();
   const [avatarSessionId, setAvatarSessionId] = useState<string | null>(null);
+  const [hasVideoTrack, setHasVideoTrack] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   // Get object-fit from avatar config
   type ObjectFitType = "cover" | "contain" | "fill";
@@ -163,11 +171,30 @@ function AvatarVideoDisplay({ avatar }: { avatar: LandingAvatarRoomProps["avatar
     const checkParticipants = () => {
       const participants = daily.participants();
       const remote = Object.values(participants).filter((p: any) => !p.local);
-      const withVideo = remote.find((p: any) => p.tracks?.video?.persistentTrack);
+
+      // Find participant with a playable video track
+      const withVideo = remote.find((p: any) => {
+        const videoTrack = p.tracks?.video;
+        return videoTrack?.persistentTrack || videoTrack?.state === "playable";
+      });
+
       if (withVideo) {
-        setAvatarSessionId((withVideo as any).session_id);
-      } else if (remote.length > 0) {
-        setAvatarSessionId((remote[0] as any).session_id);
+        const sid = (withVideo as any).session_id;
+        if (sid !== avatarSessionId) {
+          console.log("[AvatarVideoDisplay] Found avatar video participant:", sid);
+        }
+        setAvatarSessionId(sid);
+        setHasVideoTrack(true);
+
+        // Fallback: manually attach video track if DailyVideo doesn't render
+        const track = (withVideo as any).tracks?.video?.persistentTrack;
+        if (track && videoRef.current && !videoRef.current.srcObject) {
+          console.log("[AvatarVideoDisplay] Attaching video track directly to element");
+          videoRef.current.srcObject = new MediaStream([track]);
+        }
+      } else if (remote.length > 0 && !avatarSessionId) {
+        // Set session ID for audio-only participant as placeholder, but don't claim we have video
+        console.log("[AvatarVideoDisplay] Remote participants found but no video yet, count:", remote.length);
       }
     };
 
@@ -175,7 +202,7 @@ function AvatarVideoDisplay({ avatar }: { avatar: LandingAvatarRoomProps["avatar
     daily.on("participant-joined", checkParticipants);
     daily.on("participant-updated", checkParticipants);
     daily.on("track-started", checkParticipants);
-    const interval = setInterval(checkParticipants, 2000);
+    const interval = setInterval(checkParticipants, 1000);
 
     return () => {
       daily.off("participant-joined", checkParticipants);
@@ -183,19 +210,37 @@ function AvatarVideoDisplay({ avatar }: { avatar: LandingAvatarRoomProps["avatar
       daily.off("track-started", checkParticipants);
       clearInterval(interval);
     };
-  }, [daily]);
+  }, [daily, avatarSessionId]);
 
-  if (avatarSessionId) {
+  if (avatarSessionId && hasVideoTrack) {
     return (
-      <DailyVideo
-        sessionId={avatarSessionId}
-        type="video"
-        style={{
-          width: "100%",
-          height: "100%",
-          objectFit,
-        }}
-      />
+      <>
+        <DailyVideo
+          sessionId={avatarSessionId}
+          type="video"
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit,
+          }}
+        />
+        {/* Hidden fallback video element — used if DailyVideo fails to render */}
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            objectFit,
+            zIndex: 0,
+          }}
+        />
+      </>
     );
   }
 

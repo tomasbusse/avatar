@@ -112,6 +112,7 @@ export function PreloadedAvatarRoom({
 
     async function connect() {
       try {
+        console.log("[PreloadedAvatarRoom] Requesting session token...");
         const response = await fetch("/api/daily/token", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -119,10 +120,13 @@ export function PreloadedAvatarRoom({
         });
 
         if (!response.ok) {
+          const text = await response.text();
+          console.error("[PreloadedAvatarRoom] Token request failed:", response.status, text);
           throw new Error("Failed to get access token");
         }
 
         const data = await response.json();
+        console.log("[PreloadedAvatarRoom] Got room URL:", data.roomUrl);
 
         const co = Daily.createCallObject({
           subscribeToTracksAutomatically: true,
@@ -130,8 +134,10 @@ export function PreloadedAvatarRoom({
         });
 
         // Join BEFORE setting state (critical pattern)
-        // Don't enable mic yet in preload mode — wait for user to start conversation
+        // Don't enable mic yet in preload mode -- wait for user to start conversation
+        console.log("[PreloadedAvatarRoom] Joining Daily room...");
         await co.join({ url: data.roomUrl, token: data.token, userName: "Landing Visitor" });
+        console.log("[PreloadedAvatarRoom] Joined Daily room successfully");
 
         // Start with mic muted in preload mode
         if (preload) {
@@ -242,6 +248,8 @@ function AvatarVideoDisplay({
 }) {
   const daily = useDaily();
   const [avatarSessionId, setAvatarSessionId] = useState<string | null>(null);
+  const [hasVideoTrack, setHasVideoTrack] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   // Get object-fit from avatar config
   type ObjectFitType = "cover" | "contain" | "fill";
@@ -253,9 +261,28 @@ function AvatarVideoDisplay({
     const checkParticipants = () => {
       const participants = daily.participants();
       const remote = Object.values(participants).filter((p: any) => !p.local);
-      const withVideo = remote.find((p: any) => p.tracks?.video?.persistentTrack);
+
+      // Find participant with a playable video track
+      const withVideo = remote.find((p: any) => {
+        const videoTrack = p.tracks?.video;
+        return videoTrack?.persistentTrack || videoTrack?.state === "playable";
+      });
+
       if (withVideo) {
-        setAvatarSessionId((withVideo as any).session_id);
+        const sid = (withVideo as any).session_id;
+        if (sid !== avatarSessionId) {
+          console.log("[PreloadedAvatarRoom] Found avatar video participant:", sid);
+        }
+        setAvatarSessionId(sid);
+        setHasVideoTrack(true);
+
+        // Fallback: manually attach video track if DailyVideo doesn't render
+        const track = (withVideo as any).tracks?.video?.persistentTrack;
+        if (track && videoRef.current && !videoRef.current.srcObject) {
+          console.log("[PreloadedAvatarRoom] Attaching video track directly to element");
+          videoRef.current.srcObject = new MediaStream([track]);
+        }
+
         // Notify preload ready when we first get avatar video
         if (!hasNotifiedRef.current) {
           hasNotifiedRef.current = true;
@@ -263,7 +290,7 @@ function AvatarVideoDisplay({
           console.log("[PreloadedAvatarRoom] Preload ready - avatar video available");
         }
       } else if (remote.length > 0) {
-        setAvatarSessionId((remote[0] as any).session_id);
+        console.log("[PreloadedAvatarRoom] Remote participants found but no video yet, count:", remote.length);
       }
     };
 
@@ -271,7 +298,7 @@ function AvatarVideoDisplay({
     daily.on("participant-joined", checkParticipants);
     daily.on("participant-updated", checkParticipants);
     daily.on("track-started", checkParticipants);
-    const interval = setInterval(checkParticipants, 2000);
+    const interval = setInterval(checkParticipants, 1000);
 
     return () => {
       daily.off("participant-joined", checkParticipants);
@@ -279,23 +306,41 @@ function AvatarVideoDisplay({
       daily.off("track-started", checkParticipants);
       clearInterval(interval);
     };
-  }, [daily, onPreloadReady, hasNotifiedRef]);
+  }, [daily, onPreloadReady, hasNotifiedRef, avatarSessionId]);
 
-  if (avatarSessionId) {
+  if (avatarSessionId && hasVideoTrack) {
     return (
-      <DailyVideo
-        sessionId={avatarSessionId}
-        type="video"
-        style={{
-          width: "100%",
-          height: "100%",
-          objectFit,
-        }}
-      />
+      <>
+        <DailyVideo
+          sessionId={avatarSessionId}
+          type="video"
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit,
+          }}
+        />
+        {/* Hidden fallback video element -- used if DailyVideo fails to render */}
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            objectFit,
+            zIndex: 0,
+          }}
+        />
+      </>
     );
   }
 
-  // Waiting for avatar video — show profile image with loading state
+  // Waiting for avatar video -- show profile image with loading state
   const avatarName = avatar.name || "Avatar";
   return (
     <div className="w-full h-full flex items-center justify-center">

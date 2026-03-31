@@ -18,6 +18,9 @@ export async function POST(req: NextRequest) {
       avatar?.identity?.gender === "female";
     const voice = isFemale ? "Aoede" : "Sadaltager";
 
+    const avatarId = avatar?.avatarProvider?.avatarId || "";
+    console.log(`[daily/token] Creating session: voice=${voice}, avatarId=${avatarId}, agent=${PIPECAT_AGENT_URL}`);
+
     const res = await fetch(`${PIPECAT_AGENT_URL}/session`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -25,13 +28,13 @@ export async function POST(req: NextRequest) {
         site: "beethoven",
         systemPrompt: basePrompt,
         voice,
-        avatarId: avatar?.avatarProvider?.avatarId || "",
+        avatarId,
       }),
     });
 
     if (!res.ok) {
       const text = await res.text();
-      console.error("Pipecat agent error:", text);
+      console.error("[daily/token] Pipecat agent error:", res.status, text);
       return NextResponse.json(
         { error: "Failed to create session" },
         { status: 500 }
@@ -39,6 +42,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { roomUrl, token } = await res.json();
+    console.log(`[daily/token] Session created: room=${roomUrl}`);
     return NextResponse.json({ roomUrl, token });
   } catch (error) {
     console.error("Error creating Daily session:", error);

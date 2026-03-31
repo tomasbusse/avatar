@@ -12,6 +12,25 @@ const nextConfig = {
         { key: 'X-Content-Type-Options', value: 'nosniff' },
         { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
         { key: 'Permissions-Policy', value: 'camera=(self), microphone=(self), geolocation=()' },
+        {
+          key: 'Content-Security-Policy',
+          value: [
+            "default-src 'self'",
+            "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+            "worker-src 'self' blob:",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data: https: blob:",
+            "media-src 'self' https: blob: data:",
+            "connect-src 'self' https: wss:",
+            "font-src 'self' data:",
+            "frame-src 'self' https://*.daily.co https://*.clerk.com https://challenges.cloudflare.com",
+            "form-action 'self' blob: data:",
+          ].join('; '),
+        },
+        {
+          key: 'Strict-Transport-Security',
+          value: 'max-age=31536000; includeSubDomains',
+        },
       ],
     }];
   },
