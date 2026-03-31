@@ -1,18 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import {
-  LiveKitRoom,
-  RoomAudioRenderer,
-  useLocalParticipant,
-  useRoomContext,
-  useTracks,
-  useVoiceAssistant,
-  VideoTrack,
-} from "@livekit/components-react";
-import "@livekit/components-styles";
-import { Track } from "livekit-client";
-import { Volume2, VolumeX, X, Video, VideoOff, Clock, AlertTriangle, Square, Play, Mic } from "lucide-react";
+import Daily from "@daily-co/daily-js";
+import { DailyProvider, DailyAudio, DailyVideo, useDaily } from "@daily-co/daily-react";
+import { Volume2, VolumeX, X, Video, VideoOff, Clock, AlertTriangle, Square, Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PreloadedAvatarRoomProps {
@@ -40,38 +31,6 @@ interface PreloadedAvatarRoomProps {
 }
 
 /**
- * Pre-warm audio context to avoid delay on first interaction
- */
-let audioContextWarmed = false;
-function warmAudioContext(): void {
-  if (audioContextWarmed) return;
-  audioContextWarmed = true;
-
-  try {
-    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-    if (AudioContext) {
-      const ctx = new AudioContext();
-      const oscillator = ctx.createOscillator();
-      const gainNode = ctx.createGain();
-      gainNode.gain.value = 0;
-      oscillator.connect(gainNode);
-      gainNode.connect(ctx.destination);
-      oscillator.start();
-      oscillator.stop(ctx.currentTime + 0.001);
-    }
-  } catch (e) {
-    console.warn("[PreloadedAvatarRoom] Failed to warm audio context:", e);
-  }
-}
-
-/**
- * Generate a unique guest session ID
- */
-function generateGuestSessionId(): string {
-  return `landing_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-}
-
-/**
  * Format seconds as MM:SS
  */
 function formatTime(seconds: number): string {
@@ -91,22 +50,15 @@ export function PreloadedAvatarRoom({
   onPreloadReady,
   maxIdleSeconds = 60,
 }: PreloadedAvatarRoomProps) {
-  const [token, setToken] = useState<string | null>(null);
+  const [callObject, setCallObject] = useState<ReturnType<typeof Daily.createCallObject> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(true);
-  const [sessionId] = useState(() => generateGuestSessionId());
   const [isConversationStarted, setIsConversationStarted] = useState(!preload);
   const [isDisconnected, setIsDisconnected] = useState(false);
-  const tokenFetchedRef = useRef(false);
+  const connectingRef = useRef(false);
+  const callObjectRef = useRef(callObject);
+  callObjectRef.current = callObject;
   const idleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const livekitUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL;
-
-  // Determine if vision/camera is enabled for this avatar
-  const visionEnabled = avatar.visionConfig?.enabled && avatar.visionConfig?.captureWebcam;
-
-  useEffect(() => {
-    warmAudioContext();
-  }, []);
 
   // Idle timeout - disconnect if user doesn't start talking within maxIdleSeconds
   useEffect(() => {
@@ -125,7 +77,7 @@ export function PreloadedAvatarRoom({
     };
   }, [preload, isConversationStarted, isDisconnected, maxIdleSeconds, onClose]);
 
-  // Page visibility - disconnect when user navigates away or hides the page
+  // Page visibility - disconnect when user navigates away
   useEffect(() => {
     if (isDisconnected) return;
 
@@ -153,26 +105,17 @@ export function PreloadedAvatarRoom({
     };
   }, [isConversationStarted, isDisconnected, onClose]);
 
-  // Fetch token on mount (for preloading)
+  // Connect to Daily room on mount (for preloading)
   useEffect(() => {
-    if (tokenFetchedRef.current || isDisconnected) return;
-    tokenFetchedRef.current = true;
+    if (connectingRef.current || isDisconnected) return;
+    connectingRef.current = true;
 
-    async function fetchToken() {
+    async function connect() {
       try {
-        const roomName = `landing_${avatar._id}_${sessionId}`;
-
-        const response = await fetch("/api/livekit/token", {
+        const response = await fetch("/api/daily/token", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            roomName,
-            participantName: "Landing Visitor",
-            sessionId,
-            avatar,
-            isGuest: true,
-            guestId: `guest_${sessionId}`,
-          }),
+          body: JSON.stringify({ avatar }),
         });
 
         if (!response.ok) {
@@ -180,24 +123,54 @@ export function PreloadedAvatarRoom({
         }
 
         const data = await response.json();
-        setToken(data.token);
+
+        const co = Daily.createCallObject({
+          subscribeToTracksAutomatically: true,
+          videoSource: false,
+        });
+
+        // Join BEFORE setting state (critical pattern)
+        // Don't enable mic yet in preload mode — wait for user to start conversation
+        await co.join({ url: data.roomUrl, token: data.token, userName: "Landing Visitor" });
+
+        // Start with mic muted in preload mode
+        if (preload) {
+          co.setLocalAudio(false);
+        }
+
+        setCallObject(co);
+        setIsConnecting(false);
       } catch (err) {
-        console.error("[PreloadedAvatarRoom] Token fetch error:", err);
+        console.error("[PreloadedAvatarRoom] Connection error:", err);
         setError("Failed to connect to avatar");
-      } finally {
         setIsConnecting(false);
       }
     }
 
-    fetchToken();
-  }, [avatar, sessionId, isDisconnected]);
+    connect();
+  }, [avatar, isDisconnected, preload]);
 
-  // Start conversation (enable mic) - also clears idle timeout
+  // Start conversation (enable mic) — also clears idle timeout
   const startConversation = useCallback(() => {
     if (idleTimeoutRef.current) {
       clearTimeout(idleTimeoutRef.current);
     }
+    if (callObjectRef.current) {
+      callObjectRef.current.setLocalAudio(true);
+    }
     setIsConversationStarted(true);
+  }, []);
+
+  // Cleanup on unmount — use ref, NOT callObject in deps
+  useEffect(() => {
+    return () => {
+      if (callObjectRef.current) {
+        try {
+          callObjectRef.current.leave();
+          callObjectRef.current.destroy();
+        } catch {}
+      }
+    };
   }, []);
 
   // Disconnected state (idle timeout or page hidden)
@@ -229,8 +202,8 @@ export function PreloadedAvatarRoom({
     );
   }
 
-  // Loading state (only show spinner if not preloading)
-  if (isConnecting || !token) {
+  // Loading state
+  if (isConnecting || !callObject) {
     return (
       <div className={cn("relative w-full h-full flex items-center justify-center bg-gradient-to-br from-sls-teal to-sls-olive rounded-3xl", className)}>
         <div className="text-center">
@@ -242,18 +215,10 @@ export function PreloadedAvatarRoom({
   }
 
   return (
-    <LiveKitRoom
-      token={token}
-      serverUrl={livekitUrl}
-      connect={true}
-      // Key change: Don't request mic until user starts conversation
-      audio={isConversationStarted}
-      video={visionEnabled && isConversationStarted}
-      className={cn("w-full h-full", className)}
-    >
+    <DailyProvider callObject={callObject}>
+      <DailyAudio />
       <RoomContent
         avatar={avatar}
-        visionEnabled={visionEnabled ?? false}
         onClose={onClose}
         sessionTimeoutSeconds={sessionTimeoutSeconds}
         warningAtSeconds={warningAtSeconds}
@@ -262,14 +227,118 @@ export function PreloadedAvatarRoom({
         onStartConversation={startConversation}
         onPreloadReady={onPreloadReady}
       />
-      <RoomAudioRenderer />
-    </LiveKitRoom>
+    </DailyProvider>
+  );
+}
+
+function AvatarVideoDisplay({
+  avatar,
+  onPreloadReady,
+  hasNotifiedRef,
+}: {
+  avatar: PreloadedAvatarRoomProps["avatar"];
+  onPreloadReady?: () => void;
+  hasNotifiedRef: React.MutableRefObject<boolean>;
+}) {
+  const daily = useDaily();
+  const [avatarSessionId, setAvatarSessionId] = useState<string | null>(null);
+
+  // Get object-fit from avatar config
+  type ObjectFitType = "cover" | "contain" | "fill";
+  const objectFit: ObjectFitType = (avatar?.avatarProvider?.settings?.objectFit as ObjectFitType) || "cover";
+
+  useEffect(() => {
+    if (!daily) return;
+
+    const checkParticipants = () => {
+      const participants = daily.participants();
+      const remote = Object.values(participants).filter((p: any) => !p.local);
+      const withVideo = remote.find((p: any) => p.tracks?.video?.persistentTrack);
+      if (withVideo) {
+        setAvatarSessionId((withVideo as any).session_id);
+        // Notify preload ready when we first get avatar video
+        if (!hasNotifiedRef.current) {
+          hasNotifiedRef.current = true;
+          onPreloadReady?.();
+          console.log("[PreloadedAvatarRoom] Preload ready - avatar video available");
+        }
+      } else if (remote.length > 0) {
+        setAvatarSessionId((remote[0] as any).session_id);
+      }
+    };
+
+    checkParticipants();
+    daily.on("participant-joined", checkParticipants);
+    daily.on("participant-updated", checkParticipants);
+    daily.on("track-started", checkParticipants);
+    const interval = setInterval(checkParticipants, 2000);
+
+    return () => {
+      daily.off("participant-joined", checkParticipants);
+      daily.off("participant-updated", checkParticipants);
+      daily.off("track-started", checkParticipants);
+      clearInterval(interval);
+    };
+  }, [daily, onPreloadReady, hasNotifiedRef]);
+
+  if (avatarSessionId) {
+    return (
+      <DailyVideo
+        sessionId={avatarSessionId}
+        type="video"
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit,
+        }}
+      />
+    );
+  }
+
+  // Waiting for avatar video — show profile image with loading state
+  const avatarName = avatar.name || "Avatar";
+  return (
+    <div className="w-full h-full flex items-center justify-center">
+      <div className="text-center px-4">
+        {/* Large Profile Image */}
+        <div className="relative mx-auto mb-6">
+          <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-white/10 flex items-center justify-center overflow-hidden border-4 border-white/20 shadow-2xl">
+            {avatar.profileImage ? (
+              <img
+                src={avatar.profileImage}
+                alt={avatarName}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span className="text-5xl sm:text-6xl font-light text-white/80">
+                {avatarName.charAt(0).toUpperCase()}
+              </span>
+            )}
+          </div>
+          {/* Animated loading ring */}
+          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-sls-chartreuse animate-spin" style={{ animationDuration: "1.5s" }} />
+          <div className="absolute inset-0 rounded-full border-2 border-white/10" />
+        </div>
+
+        {/* Avatar Name */}
+        <h3 className="text-white font-semibold text-lg mb-2">{avatarName}</h3>
+
+        {/* Status Message */}
+        <p className="text-white/70 text-sm mb-4">Waiting for avatar...</p>
+
+        {/* Progress indicator */}
+        <div className="flex items-center justify-center gap-1.5">
+          <div className="w-2 h-2 rounded-full bg-sls-chartreuse" />
+          <div className="w-2 h-2 rounded-full bg-white/30" />
+          <div className="w-2 h-2 rounded-full bg-white/30" />
+        </div>
+      </div>
+    </div>
   );
 }
 
 function RoomContent({
   avatar,
-  visionEnabled,
   onClose,
   sessionTimeoutSeconds,
   warningAtSeconds,
@@ -279,7 +348,6 @@ function RoomContent({
   onPreloadReady,
 }: {
   avatar: PreloadedAvatarRoomProps["avatar"];
-  visionEnabled: boolean;
   onClose?: (reason?: string) => void;
   sessionTimeoutSeconds: number;
   warningAtSeconds: number;
@@ -288,12 +356,9 @@ function RoomContent({
   onStartConversation: () => void;
   onPreloadReady?: () => void;
 }) {
-  const room = useRoomContext();
-  const { localParticipant } = useLocalParticipant();
+  const daily = useDaily();
   const [isMuted, setIsMuted] = useState(false);
-  const [showCamera, setShowCamera] = useState(visionEnabled);
-  const [audioContextBlocked, setAudioContextBlocked] = useState(false);
-  const [hasNotifiedPreloadReady, setHasNotifiedPreloadReady] = useState(false);
+  const hasNotifiedRef = useRef(false);
 
   // Session timeout state (only starts when conversation starts)
   const [timeRemaining, setTimeRemaining] = useState(sessionTimeoutSeconds);
@@ -301,36 +366,7 @@ function RoomContent({
   const sessionStartRef = useRef<number | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { videoTrack: voiceAssistantVideoTrack, agent } = useVoiceAssistant();
-
-  // Get Beyond Presence avatar video
-  const allVideoTracks = useTracks([Track.Source.Camera], { onlySubscribed: true });
-  const beyAvatarTrack = allVideoTracks.find(
-    (track) => track.participant.identity.includes("bey-avatar")
-  );
-  const avatarVideoTrack = beyAvatarTrack || voiceAssistantVideoTrack;
-
-  // Get object-fit from avatar config, default to cover
-  type ObjectFitType = "cover" | "contain" | "fill";
-  const objectFit: ObjectFitType = (avatar?.avatarProvider?.settings?.objectFit as ObjectFitType) || "cover";
-  const objectFitClass = `object-${objectFit}`;
-
-  // Local video for visitor preview (PiP)
-  const localTracks = useTracks([Track.Source.Camera], { onlySubscribed: false });
-  const localVideoTrack = localTracks.find(
-    (track) => track.participant.identity === localParticipant.identity
-  );
-
-  const avatarName = avatar.name || agent?.identity || "Avatar";
-
-  // Notify when preload is ready (avatar video available)
-  useEffect(() => {
-    if (!hasNotifiedPreloadReady && avatarVideoTrack && room.state === "connected") {
-      setHasNotifiedPreloadReady(true);
-      onPreloadReady?.();
-      console.log("[PreloadedAvatarRoom] Preload ready - avatar video available");
-    }
-  }, [avatarVideoTrack, room.state, hasNotifiedPreloadReady, onPreloadReady]);
+  const avatarName = avatar.name || "Avatar";
 
   // Start session timer when conversation starts
   useEffect(() => {
@@ -364,56 +400,14 @@ function RoomContent({
     };
   }, [isConversationStarted, sessionTimeoutSeconds, warningAtSeconds]);
 
-  // Enable mic when conversation starts
-  useEffect(() => {
-    if (isConversationStarted && localParticipant) {
-      localParticipant.setMicrophoneEnabled(true).catch((e) => {
-        console.error("[PreloadedAvatarRoom] Failed to enable mic:", e);
-      });
-    }
-  }, [isConversationStarted, localParticipant]);
-
-  // Check for blocked audio context
-  useEffect(() => {
-    if (!isConversationStarted) return;
-
-    const checkAudioContext = () => {
-      // @ts-ignore
-      if (room.engine?.client?.audioContext?.state === "suspended") {
-        setAudioContextBlocked(true);
-      }
-    };
-    checkAudioContext();
-    const interval = setInterval(checkAudioContext, 2000);
-    return () => clearInterval(interval);
-  }, [room, isConversationStarted]);
-
-  const handleResumeAudio = async () => {
-    try {
-      // @ts-ignore
-      await room.engine?.client?.audioContext?.resume();
-      setAudioContextBlocked(false);
-    } catch (e) {
-      console.error("Failed to resume audio context:", e);
-    }
-  };
-
   // Toggle microphone mute
   const toggleMute = useCallback(async () => {
-    if (localParticipant) {
-      await localParticipant.setMicrophoneEnabled(isMuted);
-      setIsMuted(!isMuted);
+    if (daily) {
+      const newMuted = !isMuted;
+      daily.setLocalAudio(!newMuted);
+      setIsMuted(newMuted);
     }
-  }, [localParticipant, isMuted]);
-
-  // Toggle camera
-  const toggleCamera = useCallback(async () => {
-    if (localParticipant) {
-      const newState = !showCamera;
-      await localParticipant.setCameraEnabled(newState);
-      setShowCamera(newState);
-    }
-  }, [localParticipant, showCamera]);
+  }, [daily, isMuted]);
 
   // Handle close/disconnect
   const handleClose = useCallback(async (reason?: string) => {
@@ -421,29 +415,15 @@ function RoomContent({
       if (timerIntervalRef.current) {
         clearInterval(timerIntervalRef.current);
       }
-      if (localParticipant) {
-        await localParticipant.setMicrophoneEnabled(false);
-        await localParticipant.setCameraEnabled(false);
+      if (daily) {
+        await daily.leave();
+        daily.destroy();
       }
-      await room.disconnect();
     } catch (e) {
       console.error("Error disconnecting:", e);
     }
     onClose?.(reason);
-  }, [room, localParticipant, onClose]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-      }
-      if (localParticipant) {
-        localParticipant.setMicrophoneEnabled(false).catch(() => {});
-        localParticipant.setCameraEnabled(false).catch(() => {});
-      }
-    };
-  }, [localParticipant]);
+  }, [daily, onClose]);
 
   return (
     <div className="relative w-full h-full rounded-3xl overflow-hidden bg-gradient-to-br from-sls-teal to-sls-olive">
@@ -472,27 +452,6 @@ function RoomContent({
         </div>
       )}
 
-      {/* Audio Blocked Overlay */}
-      {isConversationStarted && audioContextBlocked && (
-        <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
-          <div className="text-center max-w-sm">
-            <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-4">
-              <Volume2 className="w-8 h-8 text-white" />
-            </div>
-            <h2 className="text-xl font-light text-white mb-2">Enable Audio</h2>
-            <p className="text-white/60 mb-6 text-sm">
-              Tap to hear {avatarName}
-            </p>
-            <button
-              onClick={handleResumeAudio}
-              className="bg-white text-black hover:bg-white/90 rounded-full px-8 py-2 font-medium"
-            >
-              Unmute
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Timeout Warning Overlay */}
       {isConversationStarted && showWarning && timeRemaining > 0 && timeRemaining <= warningAtSeconds && (
         <div className="absolute top-16 left-1/2 -translate-x-1/2 z-40 animate-in slide-in-from-top-4 duration-300">
@@ -505,64 +464,11 @@ function RoomContent({
 
       {/* Main Avatar Video */}
       <div className="absolute inset-0">
-        {avatarVideoTrack ? (
-          <VideoTrack
-            trackRef={avatarVideoTrack}
-            className={`w-full h-full ${objectFitClass}`}
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <div className="text-center px-4">
-              {/* Large Profile Image */}
-              <div className="relative mx-auto mb-6">
-                <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-white/10 flex items-center justify-center overflow-hidden border-4 border-white/20 shadow-2xl">
-                  {avatar.profileImage ? (
-                    <img
-                      src={avatar.profileImage}
-                      alt={avatarName}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-5xl sm:text-6xl font-light text-white/80">
-                      {avatarName.charAt(0).toUpperCase()}
-                    </span>
-                  )}
-                </div>
-                {/* Animated loading ring */}
-                <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-sls-chartreuse animate-spin" style={{ animationDuration: "1.5s" }} />
-                <div className="absolute inset-0 rounded-full border-2 border-white/10" />
-              </div>
-
-              {/* Avatar Name */}
-              <h3 className="text-white font-semibold text-lg mb-2">{avatarName}</h3>
-
-              {/* Status Message */}
-              <p className="text-white/70 text-sm mb-4">
-                {room.state !== "connected"
-                  ? "Connecting to room..."
-                  : agent
-                    ? "Starting video..."
-                    : "Waiting for avatar..."}
-              </p>
-
-              {/* Progress indicator */}
-              <div className="flex items-center justify-center gap-1.5">
-                <div className={cn(
-                  "w-2 h-2 rounded-full transition-colors",
-                  room.state === "connected" ? "bg-sls-chartreuse" : "bg-white/30"
-                )} />
-                <div className={cn(
-                  "w-2 h-2 rounded-full transition-colors",
-                  agent ? "bg-sls-chartreuse" : "bg-white/30"
-                )} />
-                <div className={cn(
-                  "w-2 h-2 rounded-full transition-colors",
-                  avatarVideoTrack ? "bg-sls-chartreuse" : "bg-white/30"
-                )} />
-              </div>
-            </div>
-          </div>
-        )}
+        <AvatarVideoDisplay
+          avatar={avatar}
+          onPreloadReady={onPreloadReady}
+          hasNotifiedRef={hasNotifiedRef}
+        />
       </div>
 
       {/* Live Badge with Timer */}
@@ -571,23 +477,15 @@ function RoomContent({
           "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold",
           isConversationStarted
             ? "bg-sls-chartreuse/90 text-sls-teal"
-            : avatarVideoTrack
-              ? "bg-white/20 backdrop-blur-sm text-white"
-              : "bg-sls-orange/80 backdrop-blur-sm text-white"
+            : "bg-white/20 backdrop-blur-sm text-white"
         )}>
           <span className={cn(
             "w-2 h-2 rounded-full",
             isConversationStarted
               ? "bg-sls-teal animate-pulse"
-              : avatarVideoTrack
-                ? "bg-white/60"
-                : "bg-white animate-pulse"
+              : "bg-white/60"
           )} />
-          {isConversationStarted
-            ? "AI Avatar Live"
-            : avatarVideoTrack
-              ? "Ready"
-              : "Loading..."}
+          {isConversationStarted ? "AI Avatar Live" : "Ready"}
         </div>
         {/* Timer Badge - only show when conversation started */}
         {isConversationStarted && (
@@ -603,7 +501,7 @@ function RoomContent({
         )}
       </div>
 
-      {/* Close Button - only show if controls are not hidden and conversation started */}
+      {/* Close Button - only show if controls not hidden and conversation started */}
       {!hideControls && isConversationStarted && (
         <button
           onClick={() => handleClose("user_closed")}
@@ -614,7 +512,7 @@ function RoomContent({
         </button>
       )}
 
-      {/* Controls - Bottom Center - only show if controls are not hidden and conversation started */}
+      {/* Controls - Bottom Center - only show if controls not hidden and conversation started */}
       {!hideControls && isConversationStarted && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3">
           {/* Mute Button */}
@@ -635,7 +533,7 @@ function RoomContent({
             )}
           </button>
 
-          {/* Stop Button - Flips to contact form */}
+          {/* Stop Button */}
           <button
             onClick={() => handleClose("user_stopped")}
             className="p-3 rounded-full bg-sls-orange/90 hover:bg-sls-orange backdrop-blur-sm transition-all"
@@ -643,51 +541,6 @@ function RoomContent({
           >
             <Square className="w-5 h-5 text-white fill-white" />
           </button>
-
-          {/* Camera Toggle (only if vision enabled) */}
-          {visionEnabled && (
-            <button
-              onClick={toggleCamera}
-              className={cn(
-                "p-3 rounded-full backdrop-blur-sm transition-all",
-                !showCamera
-                  ? "bg-red-500/80 hover:bg-red-500"
-                  : "bg-white/20 hover:bg-white/30"
-              )}
-              title={showCamera ? "Turn off camera" : "Turn on camera"}
-            >
-              {showCamera ? (
-                <Video className="w-5 h-5 text-white" />
-              ) : (
-                <VideoOff className="w-5 h-5 text-white" />
-              )}
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* PiP Camera View - Bottom Right (only if vision enabled and camera on) */}
-      {visionEnabled && showCamera && isConversationStarted && (
-        <div className="absolute bottom-4 right-4">
-          {localVideoTrack ? (
-            <div className="w-20 h-28 rounded-2xl overflow-hidden border-2 border-white/30 shadow-lg bg-black/20">
-              <VideoTrack
-                trackRef={localVideoTrack}
-                className="w-full h-full object-cover mirror"
-              />
-            </div>
-          ) : (
-            <div className="w-20 h-28 rounded-2xl bg-white/10 border-2 border-white/20 flex items-center justify-center">
-              <Video className="w-6 h-6 text-white/40" />
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Connection Status Overlay */}
-      {room.state !== "connected" && (
-        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-          <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin" />
         </div>
       )}
     </div>

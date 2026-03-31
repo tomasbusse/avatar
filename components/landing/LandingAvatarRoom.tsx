@@ -1,17 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import {
-  LiveKitRoom,
-  RoomAudioRenderer,
-  useLocalParticipant,
-  useRoomContext,
-  useTracks,
-  useVoiceAssistant,
-  VideoTrack,
-} from "@livekit/components-react";
-import "@livekit/components-styles";
-import { Track } from "livekit-client";
+import Daily from "@daily-co/daily-js";
+import { DailyProvider, DailyAudio, DailyVideo, useDaily } from "@daily-co/daily-react";
 import { Volume2, VolumeX, X, Video, VideoOff, Clock, AlertTriangle, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -35,38 +26,6 @@ interface LandingAvatarRoomProps {
 }
 
 /**
- * Pre-warm audio context to avoid delay on first interaction
- */
-let audioContextWarmed = false;
-function warmAudioContext(): void {
-  if (audioContextWarmed) return;
-  audioContextWarmed = true;
-
-  try {
-    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-    if (AudioContext) {
-      const ctx = new AudioContext();
-      const oscillator = ctx.createOscillator();
-      const gainNode = ctx.createGain();
-      gainNode.gain.value = 0;
-      oscillator.connect(gainNode);
-      gainNode.connect(ctx.destination);
-      oscillator.start();
-      oscillator.stop(ctx.currentTime + 0.001);
-    }
-  } catch (e) {
-    console.warn("[LandingAvatarRoom] Failed to warm audio context:", e);
-  }
-}
-
-/**
- * Generate a unique guest session ID
- */
-function generateGuestSessionId(): string {
-  return `landing_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-}
-
-/**
  * Format seconds as MM:SS
  */
 function formatTime(seconds: number): string {
@@ -79,43 +38,29 @@ export function LandingAvatarRoom({
   avatar,
   onClose,
   className,
-  sessionTimeoutSeconds = 300, // Default 5 minutes
-  warningAtSeconds = 60, // Default warn at 1 minute remaining
+  sessionTimeoutSeconds = 300,
+  warningAtSeconds = 60,
   hideControls = false,
 }: LandingAvatarRoomProps) {
-  const [token, setToken] = useState<string | null>(null);
+  const [callObject, setCallObject] = useState<ReturnType<typeof Daily.createCallObject> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(true);
-  const [sessionId] = useState(() => generateGuestSessionId());
-  const tokenFetchedRef = useRef(false);
-  const livekitUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL;
+  const [phase, setPhase] = useState<"connecting" | "active" | "error">("connecting");
+  const connectingRef = useRef(false);
+  const callObjectRef = useRef(callObject);
+  callObjectRef.current = callObject;
 
-  // Determine if vision/camera is enabled for this avatar
-  const visionEnabled = avatar.visionConfig?.enabled && avatar.visionConfig?.captureWebcam;
-
+  // Connect to Daily room
   useEffect(() => {
-    warmAudioContext();
-  }, []);
+    if (connectingRef.current) return;
+    connectingRef.current = true;
 
-  useEffect(() => {
-    if (tokenFetchedRef.current) return;
-    tokenFetchedRef.current = true;
-
-    async function fetchToken() {
+    async function connect() {
       try {
-        const roomName = `landing_${avatar._id}_${sessionId}`;
-
-        const response = await fetch("/api/livekit/token", {
+        const response = await fetch("/api/daily/token", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            roomName,
-            participantName: "Landing Visitor",
-            sessionId,
-            avatar,
-            isGuest: true,
-            guestId: `guest_${sessionId}`,
-          }),
+          body: JSON.stringify({ avatar }),
         });
 
         if (!response.ok) {
@@ -123,20 +68,46 @@ export function LandingAvatarRoom({
         }
 
         const data = await response.json();
-        setToken(data.token);
+
+        const co = Daily.createCallObject({
+          subscribeToTracksAutomatically: true,
+          videoSource: false,
+        });
+
+        // Join BEFORE setting state (critical pattern from englisch-lehrer)
+        await co.join({ url: data.roomUrl, token: data.token, userName: "Landing Visitor" });
+
+        // Enable microphone after joining
+        await co.setLocalAudio(true);
+
+        setCallObject(co);
+        setPhase("active");
+        setIsConnecting(false);
       } catch (err) {
-        console.error("[LandingAvatarRoom] Token fetch error:", err);
+        console.error("[LandingAvatarRoom] Connection error:", err);
         setError("Failed to connect to avatar");
-      } finally {
+        setPhase("error");
         setIsConnecting(false);
       }
     }
 
-    fetchToken();
-  }, [avatar, sessionId]);
+    connect();
+  }, [avatar]);
+
+  // Cleanup on unmount — use ref, NOT callObject in deps
+  useEffect(() => {
+    return () => {
+      if (callObjectRef.current) {
+        try {
+          callObjectRef.current.leave();
+          callObjectRef.current.destroy();
+        } catch {}
+      }
+    };
+  }, []);
 
   // Error state
-  if (error) {
+  if (phase === "error" || error) {
     return (
       <div className={cn("relative w-full h-full flex items-center justify-center bg-gradient-to-br from-sls-teal to-sls-olive rounded-3xl", className)}>
         <div className="text-center text-white p-6">
@@ -153,7 +124,7 @@ export function LandingAvatarRoom({
   }
 
   // Loading state
-  if (isConnecting || !token) {
+  if (isConnecting || !callObject) {
     return (
       <div className={cn("relative w-full h-full flex items-center justify-center bg-gradient-to-br from-sls-teal to-sls-olive rounded-3xl", className)}>
         <div className="text-center">
@@ -165,47 +136,111 @@ export function LandingAvatarRoom({
   }
 
   return (
-    <LiveKitRoom
-      token={token}
-      serverUrl={livekitUrl}
-      connect={true}
-      audio={true}
-      video={visionEnabled ?? false}
-      className={cn("w-full h-full", className)}
-    >
+    <DailyProvider callObject={callObject}>
+      <DailyAudio />
       <RoomContent
         avatar={avatar}
-        visionEnabled={visionEnabled ?? false}
         onClose={onClose}
         sessionTimeoutSeconds={sessionTimeoutSeconds}
         warningAtSeconds={warningAtSeconds}
         hideControls={hideControls}
       />
-      <RoomAudioRenderer />
-    </LiveKitRoom>
+    </DailyProvider>
+  );
+}
+
+function AvatarVideoDisplay({ avatar }: { avatar: LandingAvatarRoomProps["avatar"] }) {
+  const daily = useDaily();
+  const [avatarSessionId, setAvatarSessionId] = useState<string | null>(null);
+
+  // Get object-fit from avatar config
+  type ObjectFitType = "cover" | "contain" | "fill";
+  const objectFit: ObjectFitType = (avatar?.avatarProvider?.settings?.objectFit as ObjectFitType) || "cover";
+
+  useEffect(() => {
+    if (!daily) return;
+
+    const checkParticipants = () => {
+      const participants = daily.participants();
+      const remote = Object.values(participants).filter((p: any) => !p.local);
+      const withVideo = remote.find((p: any) => p.tracks?.video?.persistentTrack);
+      if (withVideo) {
+        setAvatarSessionId((withVideo as any).session_id);
+      } else if (remote.length > 0) {
+        setAvatarSessionId((remote[0] as any).session_id);
+      }
+    };
+
+    checkParticipants();
+    daily.on("participant-joined", checkParticipants);
+    daily.on("participant-updated", checkParticipants);
+    daily.on("track-started", checkParticipants);
+    const interval = setInterval(checkParticipants, 2000);
+
+    return () => {
+      daily.off("participant-joined", checkParticipants);
+      daily.off("participant-updated", checkParticipants);
+      daily.off("track-started", checkParticipants);
+      clearInterval(interval);
+    };
+  }, [daily]);
+
+  if (avatarSessionId) {
+    return (
+      <DailyVideo
+        sessionId={avatarSessionId}
+        type="video"
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit,
+        }}
+      />
+    );
+  }
+
+  // Waiting for avatar video
+  const avatarName = avatar.name || "Avatar";
+  return (
+    <div className="w-full h-full flex items-center justify-center">
+      <div className="text-center">
+        <div className="relative mx-auto mb-4">
+          <div className="w-24 h-24 rounded-full bg-white/10 flex items-center justify-center overflow-hidden">
+            {avatar.profileImage ? (
+              <img
+                src={avatar.profileImage}
+                alt={avatarName}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span className="text-4xl font-light text-white/80">
+                {avatarName.charAt(0).toUpperCase()}
+              </span>
+            )}
+          </div>
+          <div className="absolute inset-0 rounded-full border-2 border-white/20 animate-ping" />
+        </div>
+        <p className="text-white/60 text-sm">Connecting...</p>
+      </div>
+    </div>
   );
 }
 
 function RoomContent({
   avatar,
-  visionEnabled,
   onClose,
   sessionTimeoutSeconds,
   warningAtSeconds,
   hideControls = false,
 }: {
   avatar: LandingAvatarRoomProps["avatar"];
-  visionEnabled: boolean;
   onClose?: (reason?: string) => void;
   sessionTimeoutSeconds: number;
   warningAtSeconds: number;
   hideControls?: boolean;
 }) {
-  const room = useRoomContext();
-  const { localParticipant } = useLocalParticipant();
+  const daily = useDaily();
   const [isMuted, setIsMuted] = useState(false);
-  const [showCamera, setShowCamera] = useState(visionEnabled);
-  const [audioContextBlocked, setAudioContextBlocked] = useState(false);
 
   // Session timeout state
   const [timeRemaining, setTimeRemaining] = useState(sessionTimeoutSeconds);
@@ -213,27 +248,7 @@ function RoomContent({
   const sessionStartRef = useRef(Date.now());
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { videoTrack: voiceAssistantVideoTrack, agent } = useVoiceAssistant();
-
-  // Get Beyond Presence avatar video
-  const allVideoTracks = useTracks([Track.Source.Camera], { onlySubscribed: true });
-  const beyAvatarTrack = allVideoTracks.find(
-    (track) => track.participant.identity.includes("bey-avatar")
-  );
-  const avatarVideoTrack = beyAvatarTrack || voiceAssistantVideoTrack;
-
-  // Get object-fit from avatar config, default to cover
-  type ObjectFitType = "cover" | "contain" | "fill";
-  const objectFit: ObjectFitType = (avatar?.avatarProvider?.settings?.objectFit as ObjectFitType) || "cover";
-  const objectFitClass = `object-${objectFit}`;
-
-  // Local video for visitor preview (PiP)
-  const localTracks = useTracks([Track.Source.Camera], { onlySubscribed: false });
-  const localVideoTrack = localTracks.find(
-    (track) => track.participant.identity === localParticipant.identity
-  );
-
-  const avatarName = avatar.name || agent?.identity || "Avatar";
+  const avatarName = avatar.name || "Avatar";
 
   // Session timeout timer
   useEffect(() => {
@@ -242,12 +257,10 @@ function RoomContent({
       const remaining = Math.max(0, sessionTimeoutSeconds - elapsed);
       setTimeRemaining(remaining);
 
-      // Show warning when time is running low
       if (remaining <= warningAtSeconds && remaining > 0) {
         setShowWarning(true);
       }
 
-      // Auto-close when timeout reached
       if (remaining <= 0) {
         if (timerIntervalRef.current) {
           clearInterval(timerIntervalRef.current);
@@ -263,45 +276,14 @@ function RoomContent({
     };
   }, [sessionTimeoutSeconds, warningAtSeconds]);
 
-  // Check for blocked audio context
-  useEffect(() => {
-    const checkAudioContext = () => {
-      // @ts-ignore
-      if (room.engine?.client?.audioContext?.state === "suspended") {
-        setAudioContextBlocked(true);
-      }
-    };
-    checkAudioContext();
-    const interval = setInterval(checkAudioContext, 2000);
-    return () => clearInterval(interval);
-  }, [room]);
-
-  const handleResumeAudio = async () => {
-    try {
-      // @ts-ignore
-      await room.engine?.client?.audioContext?.resume();
-      setAudioContextBlocked(false);
-    } catch (e) {
-      console.error("Failed to resume audio context:", e);
-    }
-  };
-
   // Toggle microphone mute
   const toggleMute = useCallback(async () => {
-    if (localParticipant) {
-      await localParticipant.setMicrophoneEnabled(isMuted);
-      setIsMuted(!isMuted);
+    if (daily) {
+      const newMuted = !isMuted;
+      daily.setLocalAudio(!newMuted);
+      setIsMuted(newMuted);
     }
-  }, [localParticipant, isMuted]);
-
-  // Toggle camera
-  const toggleCamera = useCallback(async () => {
-    if (localParticipant) {
-      const newState = !showCamera;
-      await localParticipant.setCameraEnabled(newState);
-      setShowCamera(newState);
-    }
-  }, [localParticipant, showCamera]);
+  }, [daily, isMuted]);
 
   // Handle close/disconnect
   const handleClose = useCallback(async (reason?: string) => {
@@ -309,53 +291,18 @@ function RoomContent({
       if (timerIntervalRef.current) {
         clearInterval(timerIntervalRef.current);
       }
-      if (localParticipant) {
-        await localParticipant.setMicrophoneEnabled(false);
-        await localParticipant.setCameraEnabled(false);
+      if (daily) {
+        await daily.leave();
+        daily.destroy();
       }
-      await room.disconnect();
     } catch (e) {
       console.error("Error disconnecting:", e);
     }
     onClose?.(reason);
-  }, [room, localParticipant, onClose]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-      }
-      if (localParticipant) {
-        localParticipant.setMicrophoneEnabled(false).catch(() => {});
-        localParticipant.setCameraEnabled(false).catch(() => {});
-      }
-    };
-  }, [localParticipant]);
+  }, [daily, onClose]);
 
   return (
     <div className="relative w-full h-full rounded-3xl overflow-hidden bg-gradient-to-br from-sls-teal to-sls-olive">
-      {/* Audio Blocked Overlay */}
-      {audioContextBlocked && (
-        <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
-          <div className="text-center max-w-sm">
-            <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-4">
-              <Volume2 className="w-8 h-8 text-white" />
-            </div>
-            <h2 className="text-xl font-light text-white mb-2">Enable Audio</h2>
-            <p className="text-white/60 mb-6 text-sm">
-              Tap to hear {avatarName}
-            </p>
-            <button
-              onClick={handleResumeAudio}
-              className="bg-white text-black hover:bg-white/90 rounded-full px-8 py-2 font-medium"
-            >
-              Unmute
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Timeout Warning Overlay */}
       {showWarning && timeRemaining > 0 && timeRemaining <= warningAtSeconds && (
         <div className="absolute top-16 left-1/2 -translate-x-1/2 z-40 animate-in slide-in-from-top-4 duration-300">
@@ -368,36 +315,7 @@ function RoomContent({
 
       {/* Main Avatar Video */}
       <div className="absolute inset-0">
-        {avatarVideoTrack ? (
-          <VideoTrack
-            trackRef={avatarVideoTrack}
-            className={`w-full h-full ${objectFitClass}`}
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <div className="text-center">
-              <div className="relative mx-auto mb-4">
-                <div className="w-24 h-24 rounded-full bg-white/10 flex items-center justify-center overflow-hidden">
-                  {avatar.profileImage ? (
-                    <img
-                      src={avatar.profileImage}
-                      alt={avatarName}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-4xl font-light text-white/80">
-                      {avatarName.charAt(0).toUpperCase()}
-                    </span>
-                  )}
-                </div>
-                <div className="absolute inset-0 rounded-full border-2 border-white/20 animate-ping" />
-              </div>
-              <p className="text-white/60 text-sm">
-                {agent ? "Almost ready..." : "Connecting..."}
-              </p>
-            </div>
-          </div>
-        )}
+        <AvatarVideoDisplay avatar={avatar} />
       </div>
 
       {/* Live Badge with Timer */}
@@ -418,7 +336,7 @@ function RoomContent({
         </div>
       </div>
 
-      {/* Close Button - only show if controls are not hidden */}
+      {/* Close Button */}
       {!hideControls && (
         <button
           onClick={() => handleClose("user_closed")}
@@ -429,7 +347,7 @@ function RoomContent({
         </button>
       )}
 
-      {/* Controls - Bottom Center - only show if controls are not hidden */}
+      {/* Controls - Bottom Center */}
       {!hideControls && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3">
           {/* Mute Button */}
@@ -450,7 +368,7 @@ function RoomContent({
             )}
           </button>
 
-          {/* Stop Button - Flips to contact form */}
+          {/* Stop Button */}
           <button
             onClick={() => handleClose("user_stopped")}
             className="p-3 rounded-full bg-sls-orange/90 hover:bg-sls-orange backdrop-blur-sm transition-all"
@@ -458,51 +376,6 @@ function RoomContent({
           >
             <Square className="w-5 h-5 text-white fill-white" />
           </button>
-
-          {/* Camera Toggle (only if vision enabled) */}
-          {visionEnabled && (
-            <button
-              onClick={toggleCamera}
-              className={cn(
-                "p-3 rounded-full backdrop-blur-sm transition-all",
-                !showCamera
-                  ? "bg-red-500/80 hover:bg-red-500"
-                  : "bg-white/20 hover:bg-white/30"
-              )}
-              title={showCamera ? "Turn off camera" : "Turn on camera"}
-            >
-              {showCamera ? (
-                <Video className="w-5 h-5 text-white" />
-              ) : (
-                <VideoOff className="w-5 h-5 text-white" />
-              )}
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* PiP Camera View - Bottom Right (only if vision enabled and camera on) */}
-      {visionEnabled && showCamera && (
-        <div className="absolute bottom-4 right-4">
-          {localVideoTrack ? (
-            <div className="w-20 h-28 rounded-2xl overflow-hidden border-2 border-white/30 shadow-lg bg-black/20">
-              <VideoTrack
-                trackRef={localVideoTrack}
-                className="w-full h-full object-cover mirror"
-              />
-            </div>
-          ) : (
-            <div className="w-20 h-28 rounded-2xl bg-white/10 border-2 border-white/20 flex items-center justify-center">
-              <Video className="w-6 h-6 text-white/40" />
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Connection Status Overlay */}
-      {room.state !== "connected" && (
-        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-          <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin" />
         </div>
       )}
     </div>

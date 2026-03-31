@@ -10,7 +10,7 @@ import Image from "next/image";
 import dynamic from "next/dynamic";
 import { api } from "@/convex/_generated/api";
 
-// Dynamically import LandingAvatarRoom to avoid SSR issues with LiveKit
+// Dynamically import LandingAvatarRoom to avoid SSR issues with Daily.co
 const LandingAvatarRoom = dynamic(
   () => import("./LandingAvatarRoom").then((mod) => mod.LandingAvatarRoom),
   {
@@ -61,7 +61,7 @@ interface AvatarDisplayProps {
   showContactForm?: boolean;
   /** Callback when contact form is closed */
   onContactFormClose?: () => void;
-  /** Full avatar object for LiveKit connection */
+  /** Full avatar object for Daily.co connection */
   avatar?: {
     _id: string;
     name: string;
@@ -78,7 +78,7 @@ interface AvatarDisplayProps {
   externalActivated?: boolean;
   /** Callback when activation state changes (for external control) */
   onActivationChange?: (activated: boolean) => void;
-  /** Hide all LiveKit room controls (close, mute, stop, camera) */
+  /** Hide all room controls (close, mute, stop, camera) */
   hideRoomControls?: boolean;
   /** Hide the contact form flip (when parent handles contact form) */
   hideContactForm?: boolean;
@@ -199,7 +199,7 @@ export function AvatarDisplay({
       logDebug("Cannot activate - no avatar data", { avatarId });
       return;
     }
-    logDebug("Play button clicked - Starting LiveKit connection", {
+    logDebug("Play button clicked - Starting Daily.co connection", {
       avatarId: avatar._id,
       avatarName: avatar.name,
       visionEnabled: avatar.visionConfig?.enabled,
@@ -211,7 +211,7 @@ export function AvatarDisplay({
 
   // Handle closing the LiveKit session
   const handleClose = (reason?: string) => {
-    logDebug("LiveKit session closed", { reason });
+    logDebug("Avatar session closed", { reason });
     setIsActivated(false);
     onActivationChange?.(false);
 
@@ -285,8 +285,8 @@ export function AvatarDisplay({
     }
   };
 
-  // Build avatar object for LiveKit (use full avatar if available, otherwise construct from props)
-  const avatarForLiveKit = avatar || (avatarId ? {
+  // Build avatar object for Daily.co (use full avatar if available, otherwise construct from props)
+  const avatarForDaily = avatar || (avatarId ? {
     _id: avatarId,
     name: avatarName,
     profileImage,
@@ -343,9 +343,9 @@ export function AvatarDisplay({
           )}
         >
           {/* Preloaded State: Connect immediately, show "tap to start" overlay */}
-          {avatarConfig?.preloadAvatar && avatarForLiveKit && !isFlipped && (
+          {avatarConfig?.preloadAvatar && avatarForDaily && !isFlipped && (
             <PreloadedAvatarRoom
-              avatar={avatarForLiveKit}
+              avatar={avatarForDaily}
               onClose={handleClose}
               className="absolute inset-0"
               sessionTimeoutSeconds={avatarConfig?.sessionTimeoutSeconds ?? 300}
@@ -356,9 +356,9 @@ export function AvatarDisplay({
           )}
 
           {/* Activated State: Real LiveKit Video Stream (non-preload mode) */}
-          {!avatarConfig?.preloadAvatar && isActivated && avatarForLiveKit && (
+          {!avatarConfig?.preloadAvatar && isActivated && avatarForDaily && (
             <LandingAvatarRoom
-              avatar={avatarForLiveKit}
+              avatar={avatarForDaily}
               onClose={handleClose}
               className="absolute inset-0"
               sessionTimeoutSeconds={avatarConfig?.sessionTimeoutSeconds ?? 300}
@@ -417,7 +417,7 @@ export function AvatarDisplay({
                 {!hidePlayButton && (
                   <button
                     onClick={handleActivate}
-                    disabled={dataLoading || !avatarForLiveKit}
+                    disabled={dataLoading || !avatarForDaily}
                     className="group cursor-pointer disabled:cursor-not-allowed"
                   >
                     <div className={cn(

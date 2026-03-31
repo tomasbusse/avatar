@@ -24,7 +24,7 @@ interface ClientAvatarWrapperProps {
   externalActivated?: boolean;
   /** Callback when activation state changes (for external control) */
   onActivationChange?: (activated: boolean) => void;
-  /** Hide all LiveKit room controls (close, mute, stop, camera) */
+  /** Hide all room controls (close, mute, stop, camera) */
   hideRoomControls?: boolean;
   /** Hide the contact form flip (when parent handles contact form) */
   hideContactForm?: boolean;
@@ -109,10 +109,10 @@ export function ClientAvatarWrapper({
   // Pass isLoading only if not timed out yet
   const isLoading = landingAvatar === undefined && !timedOut;
 
-  // Pass full avatar object for LiveKit connection (only when we have real data)
+  // Pass full avatar object for Daily.co connection (only when we have real data)
   // The agent needs all avatar config fields (avatarProvider, voiceProvider, llmConfig, etc.)
   // IMPORTANT: Use a ref to stabilize the avatar - once loaded, don't let it go undefined
-  // during Convex WebSocket reconnections (which would unmount/remount the LiveKit room)
+  // during Convex WebSocket reconnections (which would unmount/remount the avatar room)
   const stableAvatarRef = useRef<typeof landingAvatar>(undefined);
   if (landingAvatar && !useFallback) {
     stableAvatarRef.current = landingAvatar;

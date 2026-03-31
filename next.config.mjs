@@ -27,7 +27,7 @@ const nextConfig = {
       },
     ],
   },
-  // Required for LiveKit
+  // Required for LiveKit (lesson rooms still use LiveKit)
   webpack: (config) => {
     config.externals.push({
       'utf-8-validate': 'commonjs utf-8-validate',
