@@ -18,7 +18,8 @@ export async function POST(req: NextRequest) {
       avatar?.identity?.gender === "female";
     const voice = isFemale ? "Aoede" : "Sadaltager";
 
-    const avatarId = avatar?.avatarProvider?.avatarId || "";
+    // Use server default BEY avatar (the site-specific one may not work with Daily/Pipecat)
+    const avatarId = "";
     console.log(`[daily/token] Creating session: voice=${voice}, avatarId=${avatarId}, agent=${PIPECAT_AGENT_URL}`);
 
     const res = await fetch(`${PIPECAT_AGENT_URL}/session`, {
