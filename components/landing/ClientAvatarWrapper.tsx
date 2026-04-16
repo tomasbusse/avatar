@@ -7,6 +7,10 @@ import { useSearchParams } from "next/navigation";
 import { api } from "@/convex/_generated/api";
 import { AvatarDisplay } from "./AvatarDisplay";
 
+// Static preview image shown on the landing hero before the live avatar connects.
+// Same image for EN and DE — lives at public/images/ed.png.
+const LANDING_PREVIEW_IMAGE = "/images/ed.png";
+
 // Fallback avatar data for when Convex is blocked (Safari ITP, etc.)
 // Note: Uses generic name since we can't determine the configured avatar
 const FALLBACK_AVATAR = {
@@ -122,7 +126,7 @@ export function ClientAvatarWrapper({
   return (
     <AvatarDisplay
       avatarId={avatarId || (avatarData as { _id?: string })?._id}
-      profileImage={avatarData?.profileImage}
+      profileImage={LANDING_PREVIEW_IMAGE}
       avatarName={avatarData?.name || "AI Coach"}
       avatarGreeting={avatarGreeting}
       isLoading={isLoading}
