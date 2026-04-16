@@ -1,9 +1,18 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import Daily from "@daily-co/daily-js";
-import { DailyProvider, DailyAudio, DailyVideo, useDaily } from "@daily-co/daily-react";
-import { Volume2, VolumeX, X, Video, VideoOff, Clock, AlertTriangle, Square } from "lucide-react";
+import {
+  LiveKitRoom,
+  RoomAudioRenderer,
+  VideoTrack,
+  useLocalParticipant,
+  useTracks,
+  useRoomContext,
+} from "@livekit/components-react";
+import type { TrackReference } from "@livekit/components-react";
+import "@livekit/components-styles";
+import { Track, RoomEvent } from "livekit-client";
+import { Volume2, VolumeX, X, Clock, AlertTriangle, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface LandingAvatarRoomProps {
@@ -25,9 +34,6 @@ interface LandingAvatarRoomProps {
   hideControls?: boolean;
 }
 
-/**
- * Format seconds as MM:SS
- */
 function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
@@ -42,77 +48,43 @@ export function LandingAvatarRoom({
   warningAtSeconds = 60,
   hideControls = false,
 }: LandingAvatarRoomProps) {
-  const [callObject, setCallObject] = useState<ReturnType<typeof Daily.createCallObject> | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [serverUrl, setServerUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isConnecting, setIsConnecting] = useState(true);
   const [phase, setPhase] = useState<"connecting" | "active" | "error">("connecting");
-  const connectingRef = useRef(false);
-  const callObjectRef = useRef(callObject);
-  callObjectRef.current = callObject;
+  const requestingRef = useRef(false);
 
-  // Connect to Daily room
   useEffect(() => {
-    if (connectingRef.current) return;
-    connectingRef.current = true;
+    if (requestingRef.current) return;
+    requestingRef.current = true;
 
-    async function connect() {
+    (async () => {
       try {
-        console.log("[LandingAvatarRoom] Requesting session token...");
-        const response = await fetch("/api/daily/token", {
+        console.log("[LandingAvatarRoom] Requesting LiveKit landing token...");
+        const res = await fetch("/api/livekit/landing-token", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ avatar }),
         });
 
-        if (!response.ok) {
-          const text = await response.text();
-          console.error("[LandingAvatarRoom] Token request failed:", response.status, text);
+        if (!res.ok) {
+          const text = await res.text();
+          console.error("[LandingAvatarRoom] Token request failed:", res.status, text);
           throw new Error("Failed to get access token");
         }
 
-        const data = await response.json();
-        console.log("[LandingAvatarRoom] Got room URL:", data.roomUrl);
-
-        const co = Daily.createCallObject({
-          subscribeToTracksAutomatically: true,
-          videoSource: false,
-        });
-
-        // Join BEFORE setting state (critical pattern from englisch-lehrer)
-        console.log("[LandingAvatarRoom] Joining Daily room...");
-        await co.join({ url: data.roomUrl, token: data.token, userName: "Landing Visitor" });
-        console.log("[LandingAvatarRoom] Joined Daily room successfully");
-
-        // Enable microphone after joining
-        await co.setLocalAudio(true);
-
-        setCallObject(co);
-        setPhase("active");
-        setIsConnecting(false);
+        const data = await res.json();
+        console.log("[LandingAvatarRoom] Got room:", data.roomName);
+        setToken(data.token);
+        setServerUrl(data.livekitUrl);
       } catch (err) {
         console.error("[LandingAvatarRoom] Connection error:", err);
         setError("Failed to connect to avatar");
         setPhase("error");
-        setIsConnecting(false);
       }
-    }
-
-    connect();
+    })();
   }, [avatar]);
 
-  // Cleanup on unmount — use ref, NOT callObject in deps
-  useEffect(() => {
-    return () => {
-      if (callObjectRef.current) {
-        try {
-          callObjectRef.current.leave();
-          callObjectRef.current.destroy();
-        } catch {}
-      }
-    };
-  }, []);
-
-  // Error state
   if (phase === "error" || error) {
     return (
       <div className={cn("relative w-full h-full flex items-center justify-center bg-gradient-to-br from-sls-teal to-sls-olive rounded-3xl", className)}>
@@ -129,8 +101,7 @@ export function LandingAvatarRoom({
     );
   }
 
-  // Loading state
-  if (isConnecting || !callObject) {
+  if (!token || !serverUrl) {
     return (
       <div className={cn("relative w-full h-full flex items-center justify-center bg-gradient-to-br from-sls-teal to-sls-olive rounded-3xl", className)}>
         <div className="text-center">
@@ -142,8 +113,27 @@ export function LandingAvatarRoom({
   }
 
   return (
-    <DailyProvider callObject={callObject}>
-      <DailyAudio />
+    <LiveKitRoom
+      token={token}
+      serverUrl={serverUrl}
+      connect={true}
+      audio={true}
+      video={false}
+      onConnected={() => {
+        console.log("[LandingAvatarRoom] Connected to LiveKit room");
+        setPhase("active");
+      }}
+      onDisconnected={() => {
+        console.log("[LandingAvatarRoom] Disconnected from LiveKit room");
+      }}
+      onError={(err) => {
+        console.error("[LandingAvatarRoom] LiveKit error:", err);
+        setError(err.message);
+        setPhase("error");
+      }}
+      className={cn("relative w-full h-full", className)}
+    >
+      <RoomAudioRenderer />
       <RoomContent
         avatar={avatar}
         onClose={onClose}
@@ -151,100 +141,43 @@ export function LandingAvatarRoom({
         warningAtSeconds={warningAtSeconds}
         hideControls={hideControls}
       />
-    </DailyProvider>
+    </LiveKitRoom>
   );
 }
 
 function AvatarVideoDisplay({ avatar }: { avatar: LandingAvatarRoomProps["avatar"] }) {
-  const daily = useDaily();
-  const [avatarSessionId, setAvatarSessionId] = useState<string | null>(null);
-  const [hasVideoTrack, setHasVideoTrack] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  // Subscribe to all remote camera + screen tracks; agent avatar video arrives here.
+  const tracks = useTracks(
+    [
+      { source: Track.Source.Camera, withPlaceholder: false },
+      { source: Track.Source.ScreenShare, withPlaceholder: false },
+    ],
+    { onlySubscribed: true }
+  );
 
-  // Get object-fit from avatar config
   type ObjectFitType = "cover" | "contain" | "fill";
-  const objectFit: ObjectFitType = (avatar?.avatarProvider?.settings?.objectFit as ObjectFitType) || "cover";
+  const objectFit: ObjectFitType =
+    (avatar?.avatarProvider?.settings?.objectFit as ObjectFitType) || "cover";
 
-  useEffect(() => {
-    if (!daily) return;
+  // Pick first remote video track (not local participant's own video).
+  const avatarTrack = tracks.find(
+    (t): t is TrackReference =>
+      !t.participant.isLocal && t.publication?.kind === "video"
+  );
 
-    const checkParticipants = () => {
-      const participants = daily.participants();
-      const remote = Object.values(participants).filter((p: any) => !p.local);
-
-      // Find participant with a playable video track
-      const withVideo = remote.find((p: any) => {
-        const videoTrack = p.tracks?.video;
-        return videoTrack?.persistentTrack || videoTrack?.state === "playable";
-      });
-
-      if (withVideo) {
-        const sid = (withVideo as any).session_id;
-        if (sid !== avatarSessionId) {
-          console.log("[AvatarVideoDisplay] Found avatar video participant:", sid);
-        }
-        setAvatarSessionId(sid);
-        setHasVideoTrack(true);
-
-        // Fallback: manually attach video track if DailyVideo doesn't render
-        const track = (withVideo as any).tracks?.video?.persistentTrack;
-        if (track && videoRef.current && !videoRef.current.srcObject) {
-          console.log("[AvatarVideoDisplay] Attaching video track directly to element");
-          videoRef.current.srcObject = new MediaStream([track]);
-        }
-      } else if (remote.length > 0 && !avatarSessionId) {
-        // Set session ID for audio-only participant as placeholder, but don't claim we have video
-        console.log("[AvatarVideoDisplay] Remote participants found but no video yet, count:", remote.length);
-      }
-    };
-
-    checkParticipants();
-    daily.on("participant-joined", checkParticipants);
-    daily.on("participant-updated", checkParticipants);
-    daily.on("track-started", checkParticipants);
-    const interval = setInterval(checkParticipants, 1000);
-
-    return () => {
-      daily.off("participant-joined", checkParticipants);
-      daily.off("participant-updated", checkParticipants);
-      daily.off("track-started", checkParticipants);
-      clearInterval(interval);
-    };
-  }, [daily, avatarSessionId]);
-
-  if (avatarSessionId && hasVideoTrack) {
+  if (avatarTrack) {
     return (
-      <>
-        <DailyVideo
-          sessionId={avatarSessionId}
-          type="video"
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit,
-          }}
-        />
-        {/* Hidden fallback video element — used if DailyVideo fails to render */}
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            objectFit,
-            zIndex: 0,
-          }}
-        />
-      </>
+      <VideoTrack
+        trackRef={avatarTrack}
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit,
+        }}
+      />
     );
   }
 
-  // Waiting for avatar video
   const avatarName = avatar.name || "Avatar";
   return (
     <div className="w-full h-full flex items-center justify-center">
@@ -284,71 +217,74 @@ function RoomContent({
   warningAtSeconds: number;
   hideControls?: boolean;
 }) {
-  const daily = useDaily();
+  const room = useRoomContext();
+  const { localParticipant } = useLocalParticipant();
   const [isMuted, setIsMuted] = useState(false);
 
-  // Session timeout state
   const [timeRemaining, setTimeRemaining] = useState(sessionTimeoutSeconds);
   const [showWarning, setShowWarning] = useState(false);
   const sessionStartRef = useRef(Date.now());
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const avatarName = avatar.name || "Avatar";
+  // Enable microphone on join (LiveKitRoom audio=true publishes after permission grant).
+  useEffect(() => {
+    if (!localParticipant) return;
+    localParticipant.setMicrophoneEnabled(true).catch((e) => {
+      console.error("[LandingAvatarRoom] Mic enable failed:", e);
+    });
+  }, [localParticipant]);
 
-  // Session timeout timer
+  const handleClose = useCallback(
+    async (reason?: string) => {
+      try {
+        if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+        if (room) await room.disconnect();
+      } catch (e) {
+        console.error("[LandingAvatarRoom] disconnect error:", e);
+      }
+      onClose?.(reason);
+    },
+    [room, onClose]
+  );
+
   useEffect(() => {
     timerIntervalRef.current = setInterval(() => {
       const elapsed = Math.floor((Date.now() - sessionStartRef.current) / 1000);
       const remaining = Math.max(0, sessionTimeoutSeconds - elapsed);
       setTimeRemaining(remaining);
-
-      if (remaining <= warningAtSeconds && remaining > 0) {
-        setShowWarning(true);
-      }
-
+      if (remaining <= warningAtSeconds && remaining > 0) setShowWarning(true);
       if (remaining <= 0) {
-        if (timerIntervalRef.current) {
-          clearInterval(timerIntervalRef.current);
-        }
+        if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
         handleClose("timeout");
       }
     }, 1000);
 
     return () => {
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-      }
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     };
-  }, [sessionTimeoutSeconds, warningAtSeconds]);
+  }, [sessionTimeoutSeconds, warningAtSeconds, handleClose]);
 
-  // Toggle microphone mute
+  // Listen for room disconnect events triggered externally.
+  useEffect(() => {
+    if (!room) return;
+    const onDisc = () => onClose?.("disconnected");
+    room.on(RoomEvent.Disconnected, onDisc);
+    return () => {
+      room.off(RoomEvent.Disconnected, onDisc);
+    };
+  }, [room, onClose]);
+
   const toggleMute = useCallback(async () => {
-    if (daily) {
-      const newMuted = !isMuted;
-      daily.setLocalAudio(!newMuted);
-      setIsMuted(newMuted);
-    }
-  }, [daily, isMuted]);
+    if (!localParticipant) return;
+    const newMuted = !isMuted;
+    await localParticipant.setMicrophoneEnabled(!newMuted);
+    setIsMuted(newMuted);
+  }, [localParticipant, isMuted]);
 
-  // Handle close/disconnect
-  const handleClose = useCallback(async (reason?: string) => {
-    try {
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-      }
-      if (daily) {
-        await daily.leave();
-        daily.destroy();
-      }
-    } catch (e) {
-      console.error("Error disconnecting:", e);
-    }
-    onClose?.(reason);
-  }, [daily, onClose]);
+  const avatarName = avatar.name || "Avatar";
 
   return (
     <div className="relative w-full h-full rounded-3xl overflow-hidden bg-gradient-to-br from-sls-teal to-sls-olive">
-      {/* Timeout Warning Overlay */}
       {showWarning && timeRemaining > 0 && timeRemaining <= warningAtSeconds && (
         <div className="absolute top-16 left-1/2 -translate-x-1/2 z-40 animate-in slide-in-from-top-4 duration-300">
           <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-sls-orange/90 backdrop-blur-sm text-white text-sm font-medium shadow-lg">
@@ -358,30 +294,28 @@ function RoomContent({
         </div>
       )}
 
-      {/* Main Avatar Video */}
       <div className="absolute inset-0">
         <AvatarVideoDisplay avatar={avatar} />
       </div>
 
-      {/* Live Badge with Timer */}
       <div className="absolute top-4 left-4 flex items-center gap-2">
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-sls-chartreuse/90 text-sls-teal text-xs font-semibold">
           <span className="w-2 h-2 rounded-full bg-sls-teal animate-pulse" />
           AI Avatar Live
         </div>
-        {/* Timer Badge */}
-        <div className={cn(
-          "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
-          timeRemaining <= warningAtSeconds
-            ? "bg-sls-orange/90 text-white"
-            : "bg-white/20 backdrop-blur-sm text-white"
-        )}>
+        <div
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
+            timeRemaining <= warningAtSeconds
+              ? "bg-sls-orange/90 text-white"
+              : "bg-white/20 backdrop-blur-sm text-white"
+          )}
+        >
           <Clock className="w-3 h-3" />
           <span>{formatTime(timeRemaining)}</span>
         </div>
       </div>
 
-      {/* Close Button */}
       {!hideControls && (
         <button
           onClick={() => handleClose("user_closed")}
@@ -392,17 +326,13 @@ function RoomContent({
         </button>
       )}
 
-      {/* Controls - Bottom Center */}
       {!hideControls && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3">
-          {/* Mute Button */}
           <button
             onClick={toggleMute}
             className={cn(
               "p-3 rounded-full backdrop-blur-sm transition-all",
-              isMuted
-                ? "bg-red-500/80 hover:bg-red-500"
-                : "bg-white/20 hover:bg-white/30"
+              isMuted ? "bg-red-500/80 hover:bg-red-500" : "bg-white/20 hover:bg-white/30"
             )}
             title={isMuted ? "Unmute" : "Mute"}
           >
@@ -413,7 +343,6 @@ function RoomContent({
             )}
           </button>
 
-          {/* Stop Button */}
           <button
             onClick={() => handleClose("user_stopped")}
             className="p-3 rounded-full bg-sls-orange/90 hover:bg-sls-orange backdrop-blur-sm transition-all"

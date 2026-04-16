@@ -304,7 +304,8 @@ export default defineSchema({
       type: v.union(
         v.literal("beyond_presence"),
         v.literal("hedra"),
-        v.literal("tavus")
+        v.literal("tavus"),
+        v.literal("bithuman")
       ),
       avatarId: v.string(),
       settings: v.optional(

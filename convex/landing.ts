@@ -371,54 +371,33 @@ export const getLandingAvatar = query({
     const locale = args.locale || "en";
     const otherLocale = locale === "en" ? "de" : "en";
 
-    // Try locale-specific avatar first (e.g., landing_hero_avatar_en or landing_hero_avatar_de)
-    const localeConfig = await ctx.db
-      .query("siteConfig")
-      .withIndex("by_key", (q) => q.eq("key", `landing_hero_avatar_${locale}`))
-      .first();
+    const lookupAvatar = async (rawId: unknown) => {
+      if (typeof rawId !== "string") return null;
+      const id = ctx.db.normalizeId("avatars", rawId);
+      if (!id) return null;
+      return await ctx.db.get(id);
+    };
 
-    if (localeConfig?.value) {
-      const avatar = await ctx.db
-        .query("avatars")
-        .filter((q) => q.eq(q.field("_id"), localeConfig.value))
+    const keys = [
+      `landing_hero_avatar_${locale}`,
+      `landing_hero_avatar_${otherLocale}`,
+      "landing_hero_avatar",
+    ];
+
+    for (const key of keys) {
+      const config = await ctx.db
+        .query("siteConfig")
+        .withIndex("by_key", (q) => q.eq("key", key))
         .first();
-      if (avatar) return avatar;
-    }
-
-    // Try other locale's avatar as fallback (so DE uses EN avatar if DE not configured)
-    const otherLocaleConfig = await ctx.db
-      .query("siteConfig")
-      .withIndex("by_key", (q) => q.eq("key", `landing_hero_avatar_${otherLocale}`))
-      .first();
-
-    if (otherLocaleConfig?.value) {
-      const avatar = await ctx.db
-        .query("avatars")
-        .filter((q) => q.eq(q.field("_id"), otherLocaleConfig.value))
-        .first();
-      if (avatar) return avatar;
-    }
-
-    // Fall back to generic config (for backward compatibility)
-    const config = await ctx.db
-      .query("siteConfig")
-      .withIndex("by_key", (q) => q.eq("key", "landing_hero_avatar"))
-      .first();
-
-    if (config?.value) {
-      const avatar = await ctx.db
-        .query("avatars")
-        .filter((q) => q.eq(q.field("_id"), config.value))
-        .first();
+      const avatar = await lookupAvatar(config?.value);
       if (avatar) return avatar;
     }
 
     // Return first active avatar as final fallback
-    const avatar = await ctx.db
+    return await ctx.db
       .query("avatars")
       .filter((q) => q.eq(q.field("isActive"), true))
       .first();
-    return avatar;
   },
 });
 

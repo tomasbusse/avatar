@@ -59,6 +59,7 @@ from src.utils.convex_client import ConvexClient
 from src.providers.llm.openrouter import OpenRouterLLM
 from src.providers.llm.cerebras import CerebrasLLM
 from src.providers.llm.groq import GroqLLM
+from src.providers.llm.mercury import MercuryLLM
 from src.rag import ZepRetriever, RAGCache
 from src.knowledge import (
     LessonKnowledgeManager,
@@ -70,7 +71,7 @@ from src.knowledge import (
     get_rlm_provider,
 )
 from src.memory import process_session_end
-from src.agents import EntryTestAgent, create_entry_test_session
+from src.agents import EntryTestAgent, create_entry_test_session, run_landing_agent
 from src.games import AvatarGameHandler
 from src.slides import (
     SlideCommandProcessor,
@@ -2615,6 +2616,14 @@ async def entrypoint(ctx: JobContext):
     logger.info(f"🚀 Agent starting for room: {room_name}")
 
     # ==========================================================================
+    # LANDING PAGE DETECTION — Bithuman + Gemini Live, anonymous sessions
+    # ==========================================================================
+    if room_name.startswith("landing-"):
+        logger.info("🏠 Landing session detected — using Bithuman + Gemini Live")
+        await run_landing_agent(ctx)
+        return
+
+    # ==========================================================================
     # ENTRY TEST DETECTION - Handle entry tests with specialized agent
     # ==========================================================================
     if room_name.startswith("entry-test-"):
@@ -3094,6 +3103,12 @@ async def entrypoint(ctx: JobContext):
             model=llm_model,
             temperature=0.7,
         )
+    elif llm_provider == "mercury":
+        logger.info(f"⚡ Using Mercury for diffusion LLM inference (1000+ tok/s)")
+        llm_instance = MercuryLLM(
+            model=llm_model,
+            temperature=0.7,
+        )
     else:
         # Default to OpenRouter for all other providers (Claude, GPT, etc.)
         llm_instance = OpenRouterLLM(
@@ -3224,6 +3239,7 @@ async def entrypoint(ctx: JobContext):
     avatar = None
     audio_only_mode = False
     avatar_error_reason = None
+    _pre_bey_audio_output = None
 
     # Create avatar based on provider type
     if avatar_provider_type == "hedra" and config.hedra_api_key and avatar_provider_id:
@@ -3241,6 +3257,8 @@ async def entrypoint(ctx: JobContext):
     elif avatar_provider_type == "beyond_presence" and config.bey_api_key and avatar_provider_id:
         # Beyond Presence - hyper-realistic avatars
         logger.info(f"🚀 Starting Beyond Presence avatar initialization in parallel...")
+        # Save original audio output before BEY replaces it with DataStreamAudioOutput
+        _pre_bey_audio_output = session.output.audio
         avatar = bey.AvatarSession(
             avatar_id=avatar_provider_id,
             avatar_participant_name=avatar_name,
@@ -3724,6 +3742,38 @@ Example: "Perfect! You've got that. Let's see what's next. [NEXT]"
             logger.info(f"⏳ Awaiting avatar initialization (started earlier in parallel)...")
             await avatar_start_task
             logger.info(f"✅ Avatar '{avatar_name}' connected!")
+
+            # Beyond Presence: verify video track appears within timeout
+            # BEY replaces session.output.audio with DataStreamAudioOutput that
+            # blocks ALL audio until the avatar publishes a video track.
+            # If the track never appears, the agent can never speak.
+            if avatar_provider_type == "beyond_presence":
+                BEY_VIDEO_TRACK_TIMEOUT = 12  # seconds
+                logger.info(f"⏳ Waiting up to {BEY_VIDEO_TRACK_TIMEOUT}s for Beyond Presence video track...")
+                bey_video_ready = False
+                for _tick in range(BEY_VIDEO_TRACK_TIMEOUT):
+                    await asyncio.sleep(1)
+                    for p in ctx.room.remote_participants.values():
+                        if p.identity == "bey-avatar-agent":
+                            for tp in p.track_publications.values():
+                                if tp.kind == rtc.TrackKind.KIND_VIDEO:
+                                    bey_video_ready = True
+                                    break
+                        if bey_video_ready:
+                            break
+                    if bey_video_ready:
+                        break
+
+                if bey_video_ready:
+                    logger.info(f"✅ Beyond Presence video track received!")
+                else:
+                    logger.warning(f"⚠️ Beyond Presence video track not received within {BEY_VIDEO_TRACK_TIMEOUT}s")
+                    logger.warning(f"⚠️ Restoring direct audio output — switching to audio-only mode")
+                    # Restore original audio output so audio goes directly to room
+                    session.output.audio = _pre_bey_audio_output
+                    audio_only_mode = True
+                    avatar_error_reason = "video_track_timeout"
+
         except Exception as e:
             error_str = str(e).lower()
 
@@ -3751,6 +3801,9 @@ Example: "Perfect! You've got that. Let's see what's next. [NEXT]"
                 avatar_error_reason = "unknown_error"
 
             if audio_only_mode:
+                # Restore original audio output if BEY had replaced it
+                if _pre_bey_audio_output is not None:
+                    session.output.audio = _pre_bey_audio_output
                 logger.info(f"🎧 Continuing session in AUDIO-ONLY mode (no avatar video)")
 
     # Log audio-only state (ctx.userdata not available in livekit-agents 1.3+)
