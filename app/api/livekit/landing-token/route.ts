@@ -7,11 +7,15 @@ export const runtime = "nodejs";
 /**
  * Landing-page LiveKit token route.
  *
- * - Creates an anonymous room with `landing-<uuid>` prefix (main.py routes
- *   this prefix to run_landing_agent, which wires Bithuman + Gemini Live).
+ * - Creates an anonymous room with `landing-<uuid>` prefix and dispatches the
+ *   `beethoven-teacher` agent with `site: "beethoven"` metadata.
+ * - The avatar server in /apps/video-generator (agents/agent.py) routes any room
+ *   whose metadata `site` is in EXTERNAL_SITES (englisch-lehrer | beethoven | intenga)
+ *   to handle_external_site(), which wires Bithuman + Gemini Live. Beethoven's own
+ *   apps/agent worker also serves `landing-*` rooms via run_landing_agent (prefix-based,
+ *   ignores `site`) — so whichever worker holds the `beethoven-teacher` dispatch speaks.
  * - No auth required — the landing is public.
- * - Passes avatar customization via dispatch metadata (system prompt, voice).
- * - Reuses the single `beethoven-teacher` agent worker (no separate dispatch name).
+ * - Passes full avatar customization via dispatch metadata (prompts, identity, voice).
  */
 export async function POST(req: NextRequest) {
   try {
@@ -45,11 +49,24 @@ export async function POST(req: NextRequest) {
       (avatar?.persona as string | undefined) ||
       undefined;
 
+    // `site: "beethoven"` routes this room to the video-generator avatar server's
+    // handle_external_site() (its EXTERNAL_SITES = englisch-lehrer | beethoven | intenga),
+    // which starts the Bithuman + Gemini Live session. Beethoven's own apps/agent landing
+    // worker routes by the `landing-` room prefix and ignores `site`, so this value is safe
+    // for both workers. Forward the full avatar config the external-site handler reads
+    // (systemPrompts.base, identity, personality, behaviorRules, levelAdaptation) plus the
+    // flat `systemPrompt` that run_landing_agent reads.
     const metadata = JSON.stringify({
-      site: "simmonds-landing",
+      site: "beethoven",
       avatarName: avatar?.name,
       voice,
       systemPrompt,
+      systemPrompts: avatar?.systemPrompts,
+      identity: avatar?.identity,
+      personality: avatar?.personality,
+      behaviorRules: avatar?.behaviorRules,
+      levelAdaptation: avatar?.levelAdaptation,
+      avatarProvider: avatar?.avatarProvider,
       bithumanFigureId: process.env.BITHUMAN_FIGURE_ID,
     });
 
