@@ -37,6 +37,9 @@ export async function POST(req: NextRequest) {
 
     const personality = (avatar?.personality as Record<string, unknown>) || {};
     const identityInfo = (avatar?.identity as Record<string, unknown>) || {};
+    // Gemini Live fallback voice — only used by the agent when the avatar has
+    // no configured Cartesia voiceProvider (Cartesia voices can't be plugged
+    // into Gemini Live). The avatar's real voiceProvider is forwarded below.
     const isFemale =
       personality.gender === "female" || identityInfo.gender === "female";
     const voice = isFemale
@@ -67,6 +70,11 @@ export async function POST(req: NextRequest) {
       behaviorRules: avatar?.behaviorRules,
       levelAdaptation: avatar?.levelAdaptation,
       avatarProvider: avatar?.avatarProvider,
+      // The avatar's real configured voice (e.g. Cartesia "Classy British
+      // Man"). run_landing_agent uses this for STT+LLM+Cartesia-TTS and only
+      // falls back to the generic Gemini `voice` above when this is absent.
+      voiceProvider: avatar?.voiceProvider,
+      llmConfig: avatar?.llmConfig,
       bithumanFigureId: process.env.BITHUMAN_FIGURE_ID,
     });
 
