@@ -103,6 +103,12 @@ def _build_cartesia_session(voice_provider: dict, llm_config: dict) -> AgentSess
         llm=llm_instance,
         vad=silero.VAD.load(),
         turn_detection=MultilingualModel(),
+        # This STT+VAD+turn_detection combo auto-enables LiveKit's cloud
+        # "adaptive" interruption detector, which requires LiveKit Cloud
+        # inference credentials this self-hosted server doesn't have (fails
+        # with repeated 401s to agent-gateway.livekit.cloud). Force local
+        # VAD-based interruption instead.
+        turn_handling={"interruption": {"mode": "vad"}},
     )
 
 
