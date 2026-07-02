@@ -94,11 +94,28 @@ async def run_landing_agent(ctx: JobContext) -> None:
     # Bithuman avatar — auth via BITHUMAN_API_SECRET env
     # Model source priority: explicit .imx path → figure id → plugin default
     # ------------------------------------------------------------------
-    avatar_kwargs: dict = {}
+    avatar_kwargs: dict = {
+        # bitHuman rotated its runtime-token signer (2026-07); the livekit
+        # plugin still defaults to the retired auth.api.bithuman.ai host, so
+        # pin the current endpoint explicitly (env-overridable, empty-safe).
+        "api_url": os.environ.get("BITHUMAN_API_URL")
+        or "https://api.bithuman.ai/v1/runtime-tokens/request",
+    }
     if model_path := os.environ.get("BITHUMAN_MODEL_PATH"):
         avatar_kwargs["model_path"] = model_path
     elif figure_id := os.environ.get("BITHUMAN_FIGURE_ID"):
-        avatar_kwargs["avatar_id"] = figure_id
+        # Prefer a local .imx for the figure (proven CPU essence path) over the
+        # bitHuman CLOUD avatar_id spawn, which is currently unreliable. Reads
+        # FIGURE_ID (which the job subprocess sees) rather than a MODEL_PATH env
+        # that may not propagate. Mirrors the intenga agent's auto-resolve.
+        _model_dir = os.environ.get(
+            "BITHUMAN_MODEL_DIR", "/opt/livebroadcast/app/agents/bithuman_models"
+        )
+        _local_imx = os.path.join(_model_dir, f"{figure_id}.imx")
+        if os.path.exists(_local_imx):
+            avatar_kwargs["model_path"] = _local_imx
+        else:
+            avatar_kwargs["avatar_id"] = figure_id
     if runtime := os.environ.get("BITHUMAN_MODEL"):
         avatar_kwargs["model"] = runtime
 
