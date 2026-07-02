@@ -407,7 +407,6 @@ const DEFAULT_LANDING_AVATAR_CONFIG = {
   warningAtSeconds: 60, // Show warning at 1 minute remaining
   allowRestart: true, // Allow user to restart after timeout
   showContactFormOnStop: true, // Show contact form when stopped
-  preloadAvatar: false, // Preload avatar connection on page load (uses credits but faster start)
 };
 
 // Get landing avatar session config
@@ -429,7 +428,6 @@ export const updateLandingAvatarConfig = mutation({
     warningAtSeconds: v.optional(v.number()),
     allowRestart: v.optional(v.boolean()),
     showContactFormOnStop: v.optional(v.boolean()),
-    preloadAvatar: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db

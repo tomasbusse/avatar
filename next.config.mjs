@@ -16,17 +16,35 @@ const nextConfig = {
           key: 'Content-Security-Policy',
           value: [
             "default-src 'self'",
-            "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://*.clerk.com https://clerk.simmonds.online https://*.daily.co",
+            "base-uri 'self'",
+            "object-src 'none'",
+            "frame-ancestors 'self'",
+            // 'unsafe-inline' retained for Next.js hydration scripts; 'unsafe-eval' removed.
+            "script-src 'self' 'unsafe-inline' https://*.clerk.com https://clerk.simmonds.online https://challenges.cloudflare.com",
             "worker-src 'self' blob:",
             "style-src 'self' 'unsafe-inline'",
             "img-src 'self' data: https: blob:",
             "media-src 'self' https: blob: data:",
-            "connect-src 'self' https: wss:",
-            "font-src 'self' data:",
-            "frame-src 'self' https://*.daily.co https://*.clerk.com https://challenges.cloudflare.com",
+            [
+              "connect-src 'self'",
+              // Convex
+              "https://*.convex.cloud wss://*.convex.cloud",
+              // Clerk
+              "https://*.clerk.com https://*.clerk.accounts.dev https://clerk.simmonds.online",
+              // LiveKit (self-hosted custom domain + LiveKit Cloud fallback)
+              "https://news.englisch-lehrer.com wss://news.englisch-lehrer.com",
+              "https://*.livekit.cloud wss://*.livekit.cloud",
+              // Sentry (tunneled via /monitoring, but keep direct fallback)
+              "https://*.sentry.io https://*.ingest.sentry.io",
+              // Google APIs (Gemini, fonts, analytics)
+              "https://generativelanguage.googleapis.com https://*.googleapis.com https://fonts.gstatic.com",
+            ].join(' '),
+            "font-src 'self' data: https://fonts.gstatic.com",
+            "frame-src 'self' https://*.clerk.com https://challenges.cloudflare.com",
             "form-action 'self' blob: data:",
           ].join('; '),
         },
+        { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
         {
           key: 'Strict-Transport-Security',
           value: 'max-age=31536000; includeSubDomains',

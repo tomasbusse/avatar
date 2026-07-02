@@ -10,7 +10,7 @@ import Image from "next/image";
 import dynamic from "next/dynamic";
 import { api } from "@/convex/_generated/api";
 
-// Dynamically import LandingAvatarRoom to avoid SSR issues with Daily.co
+// Dynamically import LandingAvatarRoom to avoid SSR issues with LiveKit
 const LandingAvatarRoom = dynamic(
   () => import("./LandingAvatarRoom").then((mod) => mod.LandingAvatarRoom),
   {
@@ -20,22 +20,6 @@ const LandingAvatarRoom = dynamic(
         <div className="text-center text-white">
           <div className="w-16 h-16 border-4 border-white/30 border-t-white rounded-full animate-spin mb-4 mx-auto" />
           <p className="text-sm opacity-80">Connecting...</p>
-        </div>
-      </div>
-    ),
-  }
-);
-
-// Dynamically import PreloadedAvatarRoom for preloading feature
-const PreloadedAvatarRoom = dynamic(
-  () => import("./PreloadedAvatarRoom").then((mod) => mod.PreloadedAvatarRoom),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-sls-teal to-sls-olive rounded-3xl">
-        <div className="text-center text-white">
-          <div className="w-16 h-16 border-4 border-white/30 border-t-white rounded-full animate-spin mb-4 mx-auto" />
-          <p className="text-sm opacity-80">Loading...</p>
         </div>
       </div>
     ),
@@ -61,7 +45,7 @@ interface AvatarDisplayProps {
   showContactForm?: boolean;
   /** Callback when contact form is closed */
   onContactFormClose?: () => void;
-  /** Full avatar object for Daily.co connection */
+  /** Full avatar object for the LiveKit avatar session */
   avatar?: {
     _id: string;
     name: string;
@@ -128,7 +112,6 @@ export function AvatarDisplay({
     warningAtSeconds: number;
     allowRestart: boolean;
     showContactFormOnStop: boolean;
-    preloadAvatar: boolean;
   } | undefined;
   const submitContact = useMutation(api.landing.submitContactForm);
 
@@ -199,7 +182,7 @@ export function AvatarDisplay({
       logDebug("Cannot activate - no avatar data", { avatarId });
       return;
     }
-    logDebug("Play button clicked - Starting Daily.co connection", {
+    logDebug("Play button clicked - Starting LiveKit connection", {
       avatarId: avatar._id,
       avatarName: avatar.name,
       visionEnabled: avatar.visionConfig?.enabled,
@@ -285,8 +268,8 @@ export function AvatarDisplay({
     }
   };
 
-  // Build avatar object for Daily.co (use full avatar if available, otherwise construct from props)
-  const avatarForDaily = avatar || (avatarId ? {
+  // Build avatar object for the LiveKit room (use full avatar if available, otherwise construct from props)
+  const avatarForRoom = avatar || (avatarId ? {
     _id: avatarId,
     name: avatarName,
     profileImage,
@@ -342,23 +325,10 @@ export function AvatarDisplay({
             "[backface-visibility:hidden]"
           )}
         >
-          {/* Preloaded State: Connect immediately, show "tap to start" overlay */}
-          {avatarConfig?.preloadAvatar && avatarForDaily && !isFlipped && (
-            <PreloadedAvatarRoom
-              avatar={avatarForDaily}
-              onClose={handleClose}
-              className="absolute inset-0"
-              sessionTimeoutSeconds={avatarConfig?.sessionTimeoutSeconds ?? 300}
-              warningAtSeconds={avatarConfig?.warningAtSeconds ?? 60}
-              hideControls={hideRoomControls}
-              preload={true}
-            />
-          )}
-
-          {/* Activated State: Real LiveKit Video Stream (non-preload mode) */}
-          {!avatarConfig?.preloadAvatar && isActivated && avatarForDaily && (
+          {/* Activated State: Real LiveKit Video Stream */}
+          {isActivated && avatarForRoom && (
             <LandingAvatarRoom
-              avatar={avatarForDaily}
+              avatar={avatarForRoom}
               onClose={handleClose}
               className="absolute inset-0"
               sessionTimeoutSeconds={avatarConfig?.sessionTimeoutSeconds ?? 300}
@@ -367,8 +337,8 @@ export function AvatarDisplay({
             />
           )}
 
-          {/* Initial State: Profile Image with Play Button (non-preload mode) */}
-          {!avatarConfig?.preloadAvatar && !isActivated && (
+          {/* Initial State: Profile Image with Play Button */}
+          {!isActivated && (
             <>
               {/* Profile Image Background */}
               <div className="absolute inset-0 bg-gradient-to-br from-sls-teal via-sls-olive to-sls-teal" />
@@ -417,7 +387,7 @@ export function AvatarDisplay({
                 {!hidePlayButton && (
                   <button
                     onClick={handleActivate}
-                    disabled={dataLoading || !avatarForDaily}
+                    disabled={dataLoading || !avatarForRoom}
                     className="group cursor-pointer disabled:cursor-not-allowed"
                   >
                     <div className={cn(
