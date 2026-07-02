@@ -8,6 +8,7 @@ import {
   useLocalParticipant,
   useTracks,
   useRoomContext,
+  useVoiceAssistant,
 } from "@livekit/components-react";
 import type { TrackReference } from "@livekit/components-react";
 import "@livekit/components-styles";
@@ -145,7 +146,7 @@ export function LandingAvatarRoom({
   );
 }
 
-function AvatarVideoDisplay({ avatar }: { avatar: LandingAvatarRoomProps["avatar"] }) {
+export function AvatarVideoDisplay({ avatar }: { avatar: LandingAvatarRoomProps["avatar"] }) {
   // Subscribe to all remote camera + screen tracks; agent avatar video arrives here.
   const tracks = useTracks(
     [
@@ -160,10 +161,18 @@ function AvatarVideoDisplay({ avatar }: { avatar: LandingAvatarRoomProps["avatar
     (avatar?.avatarProvider?.settings?.objectFit as ObjectFitType) || "cover";
 
   // Pick first remote video track (not local participant's own video).
-  const avatarTrack = tracks.find(
+  const rawTrack = tracks.find(
     (t): t is TrackReference =>
       !t.participant.isLocal && t.publication?.kind === "video"
   );
+
+  // Fall back to useVoiceAssistant()'s track — the SDK's dedicated way to get
+  // an agent's video track — when the raw Camera/ScreenShare lookup above
+  // misses (e.g. the avatar publishes under a source this filter doesn't
+  // cover, or subscription hasn't caught up yet). Mirrors the proven-working
+  // fallback in lesson-room.tsx (`beyAvatarTrack || voiceAssistantVideoTrack`).
+  const { videoTrack: voiceAssistantVideoTrack } = useVoiceAssistant();
+  const avatarTrack = rawTrack || voiceAssistantVideoTrack;
 
   if (avatarTrack) {
     return (
