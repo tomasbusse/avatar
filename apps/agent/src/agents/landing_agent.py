@@ -33,6 +33,7 @@ Optional env:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -186,3 +187,16 @@ async def run_landing_agent(ctx: JobContext) -> None:
     )
 
     logger.info("✅ Landing session ready | room=%s", ctx.room.name)
+
+    # Opening greeting: a plain STT+LLM+TTS AgentSession (unlike Gemini Live)
+    # never speaks first on its own, mirrors main.py's generate_reply pattern.
+    try:
+        await asyncio.sleep(1.0)  # let the avatar/TTS pipeline warm up
+        handle = session.generate_reply(
+            instructions=f"Greet the visitor warmly and briefly as {avatar_name}, then invite them to ask an English question.",
+            allow_interruptions=True,
+        )
+        await asyncio.wait_for(handle, timeout=15.0)
+        logger.info("👋 Delivered opening greeting | room=%s", ctx.room.name)
+    except Exception as e:
+        logger.warning("Opening greeting failed | room=%s error=%s", ctx.room.name, e)
